@@ -152,7 +152,17 @@ static enum eos po_byte(void)
 
 
 // Insert 16-bit values ("!16" / "!wo" / "!word" pseudo opcode)
-static enum eos po_word(void)
+static enum eos po_16(void)
+{
+	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be16 : output_le16);
+}
+// Insert 16-bit values big-endian ("!be16" pseudo opcode)
+static enum eos po_be16(void)
+{
+	return iterate(output_be16);
+}
+// Insert 16-bit values little-endian ("!le16" pseudo opcode)
+static enum eos po_le16(void)
 {
 	return iterate(output_le16);
 }
@@ -161,12 +171,32 @@ static enum eos po_word(void)
 // Insert 24-bit values ("!24" pseudo opcode)
 static enum eos po_24(void)
 {
+	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be24 : output_le24);
+}
+// Insert 24-bit values big-endian ("!be24" pseudo opcode)
+static enum eos po_be24(void)
+{
+	return iterate(output_be24);
+}
+// Insert 24-bit values little-endian ("!le24" pseudo opcode)
+static enum eos po_le24(void)
+{
 	return iterate(output_le24);
 }
 
 
 // Insert 32-bit values ("!32" pseudo opcode)
 static enum eos po_32(void)
+{
+	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be32 : output_le32);
+}
+// Insert 32-bit values big-endian ("!be32" pseudo opcode)
+static enum eos po_be32(void)
+{
+	return iterate(output_be32);
+}
+// Insert 32-bit values little-endian ("!le32" pseudo opcode)
+static enum eos po_le32(void)
 {
 	return iterate(output_le32);
 }
@@ -948,11 +978,17 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE(s_08,		po_byte),
 	PREDEFNODE("by",		po_byte),
 	PREDEFNODE("byte",		po_byte),
-	PREDEFNODE(s_16,		po_word),
-	PREDEFNODE("wo",		po_word),
-	PREDEFNODE("word",		po_word),
+	PREDEFNODE("wo",		po_16),
+	PREDEFNODE("word",		po_16),
+	PREDEFNODE(s_16,		po_16),
+	PREDEFNODE("be16",		po_be16),
+	PREDEFNODE("le16",		po_le16),
 	PREDEFNODE("24",		po_24),
+	PREDEFNODE("be24",		po_be24),
+	PREDEFNODE("le24",		po_le24),
 	PREDEFNODE("32",		po_32),
+	PREDEFNODE("be32",		po_be32),
+	PREDEFNODE("le32",		po_le32),
 	PREDEFNODE(s_cbm,		obsolete_po_cbm),
 	PREDEFNODE("ct",		po_convtab),
 	PREDEFNODE("convtab",		po_convtab),
