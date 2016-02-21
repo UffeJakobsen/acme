@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816 code.
-// Copyright (C) 1998-2014 Marco Baye
+// Copyright (C) 1998-2016 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // CPU type stuff
@@ -31,6 +31,7 @@ extern void vcpu_check_and_set_reg_length(int *var, int make_long);
 extern void cputype_passinit(const struct cpu_type *cpu_type);
 // lookup cpu type held in DynaBuf and return its struct pointer (or NULL on failure)
 extern const struct cpu_type *cputype_find(void);
+extern const char	cputype_names[];	// string to show if cputype_find() returns NULL
 
 
 #endif

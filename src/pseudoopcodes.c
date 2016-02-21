@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816 code.
-// Copyright (C) 1998-2014 Marco Baye
+// Copyright (C) 1998-2016 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // pseudo opcode stuff
@@ -34,7 +34,6 @@ enum eos {
 // constants
 static const char	s_08[]	= "08";
 #define s_8	(s_08 + 1)	// Yes, I know I'm sick
-#define s_16	(s_65816 + 3)	// Yes, I know I'm sick
 #define s_sl	(s_asl + 1)	// Yes, I know I'm sick
 #define s_rl	(s_brl + 1)	// Yes, I know I'm sick
 
@@ -107,13 +106,13 @@ static enum eos po_to(void)
 	if (pass_count)
 		return SKIP_REMAINDER;
 
-	if (output_set_output_filename())
+	if (outputfile_set_filename())
 		return SKIP_REMAINDER;
 
 	// select output format
 	// if no comma found, use default file format
 	if (Input_accept_comma() == FALSE) {
-		if (output_prefer_cbm_file_format()) {
+		if (outputfile_prefer_cbm_format()) {
 			// output deprecation warning
 			Throw_warning("Used \"!to\" without file format indicator. Defaulting to \"cbm\".");
 		}
@@ -125,7 +124,7 @@ static enum eos po_to(void)
 	if (Input_read_and_lower_keyword() == 0)
 		return SKIP_REMAINDER;
 
-	if (output_set_output_format()) {
+	if (outputfile_set_format()) {
 		// error occurred
 		Throw_error("Unknown output format.");
 		return SKIP_REMAINDER;
@@ -980,7 +979,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("byte",		po_byte),
 	PREDEFNODE("wo",		po_16),
 	PREDEFNODE("word",		po_16),
-	PREDEFNODE(s_16,		po_16),
+	PREDEFNODE("16",		po_16),
 	PREDEFNODE("be16",		po_be16),
 	PREDEFNODE("le16",		po_le16),
 	PREDEFNODE("24",		po_24),

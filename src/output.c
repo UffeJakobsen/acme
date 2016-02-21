@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816 code.
-// Copyright (C) 1998-2014 Marco Baye
+// Copyright (C) 1998-2016 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Output stuff
@@ -58,7 +58,7 @@ static struct output	*out	= &default_output;
 // FIXME - make static
 struct vcpu		CPU_state;	// current CPU state
 
-// FIXME - move file format stuff to some other .c file!
+// FIXME - move output _file_ stuff to some other .c file!
 // possible file formats
 enum output_format {
 	OUTPUT_FORMAT_UNSPECIFIED,	// default (uses "plain" actually)
@@ -67,8 +67,9 @@ enum output_format {
 	OUTPUT_FORMAT_PLAIN		// code only
 };
 // predefined stuff
-static struct ronode	*file_format_tree	= NULL;	// tree to hold output formats
+static struct ronode	*file_format_tree	= NULL;	// tree to hold output formats (FIXME - a tree for three items, really?)
 static struct ronode	file_format_list[]	= {
+#define KNOWN_FORMATS	"'plain', 'cbm', 'apple'"	// shown in CLI error message for unknown formats
 	PREDEFNODE("apple",	OUTPUT_FORMAT_APPLE),
 	PREDEFNODE(s_cbm,	OUTPUT_FORMAT_CBM),
 //	PREDEFNODE("o65",	OUTPUT_FORMAT_O65),
@@ -77,6 +78,7 @@ static struct ronode	file_format_list[]	= {
 };
 // chosen file format
 static enum output_format	output_format	= OUTPUT_FORMAT_UNSPECIFIED;
+const char			outputfile_formats[]	= KNOWN_FORMATS;	// string to show if outputfile_set_format() returns nonzero
 
 
 // report binary output
@@ -302,7 +304,7 @@ int output_initmem(char content)
 
 
 // try to set output format held in DynaBuf. Returns zero on success.
-int output_set_output_format(void)
+int outputfile_set_format(void)
 {
 	void	*node_body;
 
@@ -319,7 +321,7 @@ int output_set_output_format(void)
 
 // if file format was already chosen, returns zero.
 // if file format isn't set, chooses CBM and returns 1.
-int output_prefer_cbm_file_format(void)
+int outputfile_prefer_cbm_format(void)
 {
 	if (output_format != OUTPUT_FORMAT_UNSPECIFIED)
 		return 0;
@@ -329,7 +331,7 @@ int output_prefer_cbm_file_format(void)
 
 // select output file ("!to" pseudo opcode)
 // returns zero on success, nonzero if already set
-int output_set_output_filename(void)
+int outputfile_set_filename(void)
 {
 	// if output file already chosen, complain and exit
 	if (output_filename) {
@@ -551,7 +553,7 @@ void vcpu_set_pc(intval_t new_pc, int segment_flags)
 	Output_start_segment(new_offset, segment_flags);
 }
 /*
-FIXME - TODO:
+TODO - overhaul program counter and memory pointer stuff:
 general stuff: PC and mem ptr might be marked as "undefined" via flags field.
 However, their "value" fields are still updated, so we can calculate differences.
 
