@@ -1,14 +1,17 @@
 ;ACME 0.95.7
 
-!ifdef lib_cbm_c64_memmove_a !eof
-lib_cbm_c64_memmove_a = 1
+!ifdef lib_cbm_c64_memcopy_a !eof
+lib_cbm_c64_memcopy_a = 1
 
-; this macro inserts code to move a memory block.
+; this macro inserts code to copy a memory block.
 ; it calls a function from the basic interpreter, so:
 ;	- BASIC ROM must be banked in
-;	- the source block must be below $a000 so it can be read
-; source and target blocks are allowed to overlap.
-!macro basic_memmove .src_start, .src_end, .target_start {
+;	- the source block must be readable (so no RAM hidden under BASIC, Kernal, or I/O)
+;	- the target block must be writable (so no RAM hidden under I/O)
+; higher addresses are copied first, so:
+;	- moving data to higher addresses works even if areas overlap
+;	- moving data to lower addresses only works of areas do not overlap
+!macro basic_memcopy .src_start, .src_end, .target_start {
 	!address {
 		.z_target_end	= $58
 		.z_src_end	= $5a
