@@ -10,7 +10,7 @@ lib_cbm_c64_memcopy_a = 1
 ;	- the target block must be writable (so no RAM hidden under I/O)
 ; higher addresses are copied first, so:
 ;	- moving data to higher addresses works even if areas overlap
-;	- moving data to lower addresses only works of areas do not overlap
+;	- moving data to lower addresses only works if areas do not overlap
 !macro basic_memcopy .src_start, .src_end, .target_start {
 	!address {
 		.z_target_end	= $58
