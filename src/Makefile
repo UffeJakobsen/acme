@@ -17,7 +17,7 @@ acme: $(OBJS)
 	strip acme
 
 
-acme.o: config.h platform.h acme.h alu.h cpu.h dynabuf.h encoding.h flow.h global.h input.h macro.h mnemo.h output.h pseudoopcodes.h section.h symbol.h acme.h acme.c
+acme.o: config.h platform.h acme.h alu.h cpu.h dynabuf.h encoding.h flow.h global.h input.h macro.h mnemo.h output.h pseudoopcodes.h section.h symbol.h version.h acme.h acme.c
 
 alu.o: config.h platform.h cpu.h dynabuf.h encoding.h global.h input.h section.h symbol.h tree.h alu.h alu.c
 

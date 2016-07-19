@@ -14,14 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program; if not, write to the Free Software
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-#define RELEASE		"0.95.7"	// update before release (FIXME)
-#define CODENAME	"Fenchurch"	// update before release
-#define CHANGE_DATE	"22 Feb"	// update before release
-#define CHANGE_YEAR	"2016"		// update before release
-//#define HOME_PAGE	"http://home.pages.de/~mac_bacon/smorbrod/acme/"	// FIXME
-#define HOME_PAGE	"http://sourceforge.net/p/acme-crossass/"	// FIXME
-
 #include "acme.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,6 +34,7 @@
 #include "pseudoopcodes.h"
 #include "section.h"
 #include "symbol.h"
+#include "version.h"
 
 
 // constants
