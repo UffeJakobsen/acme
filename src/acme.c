@@ -240,7 +240,7 @@ static int perform_pass(void)
 	if (start_address != ILLEGAL_START_ADDRESS)
 		vcpu_set_pc(start_address, 0);
 	encoding_passinit();	// set default encoding
-	Section_passinit();	// set initial zone (untitled)
+	section_passinit();	// set initial zone (untitled)
 	// init variables
 	pass_undefined_count = 0;	// no "NeedValue" errors yet
 	pass_real_errors = 0;	// no real errors yet
