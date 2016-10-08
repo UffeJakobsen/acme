@@ -236,6 +236,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 	scope_t		macro_scope,
 			symbol_scope;
 	int		arg_count	= 0;
+	int		outer_err_count;
 
 	// Enter deeper nesting level
 	// Quit program if recursion too deep.
@@ -284,6 +285,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 		// make macro_node point to the macro struct
 		actual_macro = macro_node->body;
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
+
 		// set up new input
 		new_input.original_filename = actual_macro->def_filename;
 		new_input.line_number = actual_macro->def_line_number;
@@ -294,6 +296,9 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 		outer_input = Input_now;
 		// activate new input
 		Input_now = &new_input;
+
+		outer_err_count = Throw_get_counter();	// remember error count (for call stack decision)
+
 		// remember old section
 		outer_section = section_now;
 		// start new section (with new scope)
@@ -342,6 +347,11 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 		Input_now = outer_input;
 		// restore old Gotbyte context
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
+
+		// if needed, output call stack
+		if (Throw_get_counter() != outer_err_count)
+			Throw_warning("...called from here.");
+
 		Input_ensure_EOS();
 	}
 	++macro_recursions_left;	// leave this nesting level

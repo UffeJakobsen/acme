@@ -310,11 +310,19 @@ int Parse_optional_block(void)
 
 // Error handling
 
+// error/warning counter so macro calls can find out whether to show a call stack
+static int	throw_counter	= 0;
+int Throw_get_counter(void)
+{
+	return throw_counter;
+}
+
 // This function will do the actual output for warnings, errors and serious
 // errors. It shows the given message string, as well as the current
 // context: file name, line number, source type and source title.
 static void throw_message(const char *message, const char *type)
 {
+	++throw_counter;
 	if (format_msvc)
 		fprintf(msg_stream, "%s(%d) : %s (%s %s): %s\n",
 			Input_now->original_filename, Input_now->line_number,
@@ -366,6 +374,7 @@ void Throw_serious_error(const char *message)
 {
 	PLATFORM_SERIOUS(message);
 	throw_message(message, "Serious error");
+	// FIXME - exiting immediately inhibits output of macro call stack!
 	exit(ACME_finalize(EXIT_FAILURE));
 }
 
