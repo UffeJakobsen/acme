@@ -26,7 +26,7 @@ There are 151 documented opcodes.
 This is the 6502 variant used in the C64 computer. It uses the same
 instruction set as the 6502, but in addition to that, ACME supports
 most of the undocumented opcodes as well.
-See docs/Illegals.txt for more info.
+See "docs/Illegals.txt" for more info.
 
 
 
@@ -100,7 +100,7 @@ This is a superset of r65c02, originating at CSG. Features:
 - 16-bit branches
 - a few 16-bit instructions
 - new addressing modes
-There is a known bug: SBC does not work corrently in decimal mode.
+There is a known bug: SBC does not work correctly in decimal mode.
 There are 256 documented opcodes, but one of them ("AUG") is reserved
 for future expansion.
 
@@ -125,5 +125,3 @@ This is the cpu in version 2 of the C64DTV. It uses a superset of the
 	SAC #$12		(set accumulator mapping)
 	SIR #$12		(set index register mapping)
 - support for some of the undocumented opcodes.
-
-
