@@ -13,6 +13,16 @@ outlining the platform specific changes.
 
 
 ----------------------------------------------------------------------
+Section:   New in release 0.96
+----------------------------------------------------------------------
+
+Added experimental support for instruction sets of Rockwell 65C02,
+    WDC 65C02(S), CSG 65CE02 and CSG 4502.
+Stack indexing can now be given either as ",s" or as ",sp" (only
+    relevant for 65816 and 65CE02).
+
+
+----------------------------------------------------------------------
 Section:   New in release 0.95.8
 ----------------------------------------------------------------------
 
