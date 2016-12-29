@@ -17,7 +17,8 @@ ACME supports the following cpu types:
 This is the instruction set of the original NMOS 6502 designed by MOS
 (later CSG).
 There are 151 documented opcodes.
-
+ACME does not use "A" to indicate "accumulator addressing"; just write
+the mnemonic without any argument: "LSR" will work, "LSR A" won't.
 
 
 
@@ -36,20 +37,20 @@ See "docs/Illegals.txt" for more info.
 This is the CMOS re-design of the 6502. It seems to have also been
 available from Rockwell, GTE/CMD and others. Features:
 - new instructions:
-	BRA 			(branch always)
-	PHX, PHY, PLX, PLY	(push/pull X/Y register)
-	STZ 			(store zero, 4 addr modes)
-	TRB 			(test and reset bits, 2 addr modes)
-	TSB 			(test and set bits, 2 addr modes)
+	BRA			branch always
+	PHX/PHY/PLX/PLY		push/pull X/Y register
+	STZ 			store zero, 4 addr modes
+	TRB 			test and reset bits, 2 addr modes
+	TSB 			test and set bits, 2 addr modes
 - new addressing modes for existing instructions:
+	LDA/STA/ADC/SBC ($12)	zp indirect
+	AND/ORA/EOR/CMP ($12)	zp indirect
 	BIT #$12
 	BIT $12, x
 	BIT $1234, x
-	LDA/STA/ADC/SBC ($12)	(zp indirect without index)
-	AND/ORA/EOR/CMP ($12)	(zp indirect without index)
-	INC			(increment accumulator)
-	DEC			(decrement accumulator)
-	JMP ($1234,x)		(jump indexed indirect)
+	INC			increment accumulator
+	DEC			decrement accumulator
+	JMP ($1234, x)		x-indexed indirect
 - bugfix for flags in decimal mode
 - bugfix for JMP($xxff) instruction
 - undocumented opcodes are NOPs (although of different lengths)
@@ -61,10 +62,10 @@ There are 178 documented opcodes.
 
 This is a superset of 65c02, probably originally from Rockwell.
 - It adds bit manipulation instructions:
-	BBR0..BBR7		(branch on bit reset)
-	BBS0..BBS7		(branch on bit set)
-	RMB0..RMB7		(reset memory bit)
-	SMB0..SMB7		(set memory bit)
+	BBR0..BBR7		branch on bit reset
+	BBS0..BBS7		branch on bit set
+	RMB0..RMB7		reset memory bit
+	SMB0..SMB7		set memory bit
 Chips with this instruction set seem to have been available from
 Rockwell, GTE/CMD and others.
 There are 210 documented opcodes.
@@ -89,6 +90,7 @@ have been available from GTE/CMD as well). Features:
 - block transfers
 There are 256 documented opcodes, but one of them ("WDM") is reserved
 for future expansion.
+See "docs/65816.txt" for more info.
 
 
 
@@ -103,6 +105,12 @@ This is a superset of r65c02, originating at CSG. Features:
 There is a known bug: SBC does not work correctly in decimal mode.
 There are 256 documented opcodes, but one of them ("AUG") is reserved
 for future expansion.
+ACME uses different mnemonics for old ("near") and new ("far") branch
+instructions:
+	BEQ			old, 8-bit offset
+	LBEQ			new, 16-bit offset
+The original datasheet called BRA ("branch always") BRU ("branch
+unconditional") instead. ACME accepts both mnemonics.
 
 
 
@@ -121,7 +129,7 @@ There are 256 documented opcodes.
 This is the cpu in version 2 of the C64DTV. It uses a superset of the
 6502 instruction set. Features:
 - new instructions:
-	BRA $1234		(branch always)
-	SAC #$12		(set accumulator mapping)
-	SIR #$12		(set index register mapping)
+	BRA $1234		branch always
+	SAC #$12		set accumulator mapping
+	SIR #$12		set index register mapping
 - support for some of the undocumented opcodes.
