@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2017 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Mnemonics stuff
@@ -76,7 +76,7 @@ enum mnemogroup {
 	GROUP_REL16_2,		// 16bit relative to pc+2			Byte value = opcode
 	GROUP_REL16_3,		// 16bit relative to pc+3			Byte value = opcode
 	GROUP_BOTHMOVES,	// the "move" commands MVP and MVN		Byte value = opcode
-	GROUP_MEMBIT		// rmb0..7 and smb0..7				Byte value = opcode
+	GROUP_MEMBIT		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - rename to ZPONLY and use for IDX816COP,IDXeDEW,IDXeINW as well!
 };
 
 // save some space
@@ -99,7 +99,7 @@ SCS accu_yabs[]   = { 0x1900, 0x3900, 0x5900, 0x7900, 0x9900, 0xb900, 0xd900, 0x
 SCB accu_xind8[]  = {   0x01,   0x21,   0x41,   0x61,   0x81,   0xa1,   0xc1,   0xe1,   0x01,   0x21,   0x41,   0x61,   0x81,   0xa1,   0xc1,   0xe1,   0x01,   0x21,   0x41,   0x61,   0x81,   0xa1,   0xc1,   0xe1,     0x01,     0x21,     0x41,     0x61,     0x81,     0xa1,     0xc1,     0xe1,        0,   0x03,   0x23,   0x43,   0x63,   0x83,   0xa3,   0xc3,   0xe3,      0};	// ($ff,x)
 SCB accu_indy8[]  = {   0x11,   0x31,   0x51,   0x71,   0x91,   0xb1,   0xd1,   0xf1,   0x11,   0x31,   0x51,   0x71,   0x91,   0xb1,   0xd1,   0xf1,   0x11,   0x31,   0x51,   0x71,   0x91,   0xb1,   0xd1,   0xf1,     0x11,     0x31,     0x51,     0x71,     0x91,     0xb1,     0xd1,     0xf1,        0,   0x13,   0x33,   0x53,   0x73,      0,   0xb3,   0xd3,   0xf3,   0x93};	// ($ff),y
 SCB accu_ind8[]   = {      0,      0,      0,      0,      0,      0,      0,      0,   0x12,   0x32,   0x52,   0x72,   0x92,   0xb2,   0xd2,   0xf2,      0,      0,      0,      0,      0,      0,      0,      0,     0x12,     0x32,     0x52,     0x72,     0x92,     0xb2,     0xd2,     0xf2,     0xd4,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// ($ff)
-SCB accu_indz8[]  = {      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x12,   0x32,   0x52,   0x72,   0x92,   0xb2,   0xd2,   0xf2,     0x12,     0x32,     0x52,     0x72,     0x92,     0xb2,     0xd2,     0xf2,     0xd4,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// ($ff)
+SCB accu_indz8[]  = {      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x12,   0x32,   0x52,   0x72,   0x92,   0xb2,   0xd2,   0xf2,        0,        0,        0,        0,        0,        0,        0,        0,        0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// ($ff)
 SCB accu_sabs8[]  = {      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,     0x03,     0x23,     0x43,     0x63,     0x83,     0xa3,     0xc3,     0xe3,        0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff,s
 SCB accu_sindy8[] = {      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x82,   0xe2,      0,      0,     0x13,     0x33,     0x53,     0x73,     0x93,     0xb3,     0xd3,     0xf3,        0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// ($ff,s),y
 SCB accu_lind8[]  = {      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,     0x07,     0x27,     0x47,     0x67,     0x87,     0xa7,     0xc7,     0xe7,        0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// [$ff]
@@ -717,7 +717,7 @@ static void near_branch(int preoffset)
 	struct result	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	ALU_int_result(&target);
+	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
 	if (CPU_state.pc.flags & target.flags & MVALUE_DEFINED) {
@@ -751,7 +751,7 @@ static void far_branch(int preoffset)
 	struct result	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	ALU_int_result(&target);
+	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
 	if (CPU_state.pc.flags & target.flags & MVALUE_DEFINED) {
@@ -935,7 +935,7 @@ static void group_bbr_bbs(int opcode)
 {
 	struct result	zpmem;
 
-	ALU_int_result(&zpmem);
+	ALU_int_result(&zpmem);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&zpmem);
 	if (Input_accept_comma()) {
 		Output_byte(opcode);
@@ -960,10 +960,10 @@ static void group_mvn_mvp(int opcode)
 			target;
 
 	// assembler syntax: "mnemonic source, target"
-	ALU_int_result(&source);
+	ALU_int_result(&source);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_imm(&source);
 	if (Input_accept_comma()) {
-		ALU_int_result(&target);
+		ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 		typesystem_want_imm(&target);
 		// machine language order: "opcode target source"
 		Output_byte(opcode);
@@ -980,7 +980,7 @@ static void group_rmb_smb(int opcode)
 {
 	struct result	target;
 
-	ALU_int_result(&target);
+	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
 	Output_byte(opcode);
 	output_8(target.val.intval);
