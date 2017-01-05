@@ -37,17 +37,22 @@ See "docs/Illegals.txt" for more info.
 This is the CMOS re-design of the 6502. It seems to have also been
 available from Rockwell, GTE/CMD and others. Features:
 - new instructions:
-	BRA			branch always
+	BRA near_target		branch always
 	PHX/PHY/PLX/PLY		push/pull X/Y register
-	STZ 			store zero, 4 addr modes
-	TRB 			test and reset bits, 2 addr modes
-	TSB 			test and set bits, 2 addr modes
+	STZ $12			store zero in zp
+	STZ $12, x		store zero in zp, x-indexed
+	STZ $1234		store zero absolute
+	STZ $1234, x		store zero absolute, x-indexed
+	TRB $12			test and reset bits in zp
+	TRB $1234		test and reset bits absolute
+	TSB $12			test and set bits in zp
+	TSB $1234		test and set bits absolute
 - new addressing modes for existing instructions:
 	LDA/STA/ADC/SBC ($12)	zp indirect
 	AND/ORA/EOR/CMP ($12)	zp indirect
-	BIT #$12
-	BIT $12, x
-	BIT $1234, x
+	BIT #$12		immediate
+	BIT $12, x		zp, x-indexed
+	BIT $1234, x		absolute, x-indexed
 	INC			increment accumulator
 	DEC			decrement accumulator
 	JMP ($1234, x)		x-indexed indirect
@@ -60,12 +65,14 @@ There are 178 documented opcodes.
 
 ***   r65c02
 
-This is a superset of 65c02, probably originally from Rockwell.
-- It adds bit manipulation instructions:
-	BBR0..BBR7		branch on bit reset
-	BBS0..BBS7		branch on bit set
-	RMB0..RMB7		reset memory bit
-	SMB0..SMB7		set memory bit
+This is a superset of 65c02, probably originally from Rockwell. It
+adds bit manipulation instructions:
+	BBR0 $12, near_target	branch on bit reset in zp
+	BBS0 $12, near_target	branch on bit set in zp
+	RMB0 $12		reset memory bit in zp
+	SMB0 $12		set memory bit in zp
+The digit in the mnemonic is the bit number, therefore it must be in
+the 0..7 range.
 Chips with this instruction set seem to have been available from
 Rockwell, GTE/CMD and others.
 There are 210 documented opcodes.
@@ -74,8 +81,10 @@ There are 210 documented opcodes.
 
 ***   w65c02
 
-This is a superset of r65c02, originating at WDC.
-- It adds the STP and WAI instructions.
+This is a superset of r65c02, originating at WDC. It adds two new
+instructions:
+	STP			stop (wait for reset)
+	WAI			wait for interrupt
 There are 212 documented opcodes.
 
 
@@ -86,8 +95,8 @@ This is a superset of 65c02, originally designed by WDC (it seems to
 have been available from GTE/CMD as well). Features:
 - register sizes can be changed to 16-bit
 - 24-bit address space
-- several new addressing modes
-- block transfers
+- several new instructions (including block transfers)
+- several new addressing modes for existing instructions
 There are 256 documented opcodes, but one of them ("WDM") is reserved
 for future expansion.
 See "docs/65816.txt" for more info.
@@ -100,15 +109,15 @@ This is a superset of r65c02, originating at CSG. Features:
 - Z register
 - 16-bit stack pointer
 - 16-bit branches
-- a few 16-bit instructions
-- new addressing modes
+- new instructions (including a few 16-bit operations)
+- new addressing modes for existing instructions
 There is a known bug: SBC does not work correctly in decimal mode.
 There are 256 documented opcodes, but one of them ("AUG") is reserved
 for future expansion.
-ACME uses different mnemonics for old ("near") and new ("far") branch
+ACME uses different mnemonics for old and new (long) branch
 instructions:
-	BEQ			old, 8-bit offset
-	LBEQ			new, 16-bit offset
+	BEQ near_target		old, 8-bit offset
+	LBEQ far_target		new, 16-bit offset
 The original datasheet called BRA ("branch always") BRU ("branch
 unconditional") instead. ACME accepts both mnemonics.
 
@@ -129,7 +138,7 @@ There are 256 documented opcodes.
 This is the cpu in version 2 of the C64DTV. It uses a superset of the
 6502 instruction set. Features:
 - new instructions:
-	BRA $1234		branch always
+	BRA near_target		branch always
 	SAC #$12		set accumulator mapping
 	SIR #$12		set index register mapping
 - support for some of the undocumented opcodes.
