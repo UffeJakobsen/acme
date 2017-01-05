@@ -65,8 +65,8 @@ There are 178 documented opcodes.
 
 ***   r65c02
 
-This is a superset of 65c02, probably originally from Rockwell. It
-adds bit manipulation instructions:
+This is a superset of 65c02, probably originally by Rockwell. It adds
+bit manipulation instructions:
 	BBR0 $12, near_target	branch on bit reset in zp
 	BBS0 $12, near_target	branch on bit set in zp
 	RMB0 $12		reset memory bit in zp
