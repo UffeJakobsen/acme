@@ -7,9 +7,9 @@
 #define version_H
 
 
-#define RELEASE		"0.96.1"	// update before release (FIXME)
+#define RELEASE		"0.96.2"	// update before release (FIXME)
 #define CODENAME	"Fenchurch"	// update before release
-#define CHANGE_DATE	"8 Jan"		// update before release
+#define CHANGE_DATE	"10 Mar"		// update before release
 #define CHANGE_YEAR	"2017"		// update before release
 //#define HOME_PAGE	"http://home.pages.de/~mac_bacon/smorbrod/acme/"	// FIXME
 #define HOME_PAGE	"http://sourceforge.net/p/acme-crossass/"	// FIXME

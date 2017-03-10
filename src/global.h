@@ -72,6 +72,7 @@ extern int	pass_real_errors;	// Errors yet
 extern signed long	max_errors;	// errors before giving up
 extern FILE	*msg_stream;		// set to stdout by --errors_to_stdout
 extern int	format_msvc;		// actually bool, enabled by --msvc
+extern int	format_color;		// actually bool, enabled by --color
 
 // report stuff
 #define REPORT_ASCBUFSIZE	1024

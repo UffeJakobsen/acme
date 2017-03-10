@@ -13,6 +13,14 @@ outlining the platform specific changes.
 
 
 ----------------------------------------------------------------------
+Section:   New in release 0.96.2
+----------------------------------------------------------------------
+
+Added "--color" CLI switch to enable colored error output using ANSI
+    escape codes. Thanks to Clifford Carnmo for submitting this patch.
+
+
+----------------------------------------------------------------------
 Section:   New in release 0.96.1
 ----------------------------------------------------------------------
 
