@@ -16,7 +16,7 @@ RELEASE=${RELEASE//\"/}
 DEBUG echo $RELEASE
 VERSION=${RELEASE//./,},0
 DEBUG echo $VERSION
-CODENAME=`grep "define CODENAME"  ../vesion.h  | cut -f2`
+CODENAME=`grep "define CODENAME"  ../version.h  | cut -f2`
 DEBUG echo $CODENAME
 FILEVERSION=\""$RELEASE ${CODENAME//\"/}"\"
 DEBUG echo $FILEVERSION
