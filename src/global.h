@@ -59,7 +59,7 @@ extern const char	Byte_flags[];
 #define FOLLOWS_ANON	(1u << 3)	// preceding '-' are backward label
 // bits 2, 1 and 0 are currently unused
 
-
+// TODO - put in config/runtime structs:
 extern int	pass_count;
 extern int	Process_verbosity;	// Level of additional output
 extern int	warn_on_indented_labels;	// warn if indented label is encountered
@@ -86,7 +86,7 @@ struct report {
 	char		asc_buf[REPORT_ASCBUFSIZE];	// source bytes
 	char		bin_buf[REPORT_BINBUFSIZE];	// output bytes
 };
-extern struct report	*report;
+extern struct report	*report;	// TODO - put in "part" struct
 
 // Macros for skipping a single space character
 #define SKIPSPACE()		\

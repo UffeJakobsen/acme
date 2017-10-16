@@ -8,7 +8,7 @@
 
 
 //struct encoder;
-extern const struct encoder	*encoder_current;	// gets set before each pass
+extern const struct encoder	*encoder_current;	// gets set before each pass	TODO - set for each part
 extern const struct encoder	encoder_raw;
 extern const struct encoder	encoder_pet;
 extern const struct encoder	encoder_scr;
