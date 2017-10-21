@@ -71,13 +71,13 @@ mmu_CR_BANK15	= $00	; 16 KiB bank 0; 32 KiB basic; 16 KiB kernel with i/o overla
 	mmu_mcr		= $d505
 }
 ; contents:
-mmu_MCR_40COLUMNS	= %#.......	; 40/80 key: 0 means pressed, 1 means released (writable! if cleared, will always read as 0!)
-mmu_MCR_C64MODE		= %.#......	; setting this bit makes the MMU disappear from the memory map :)
-mmu_MCR_EXROM		= %..#.....	; if zero on boot, system will enter c64 mode (writable!)
-mmu_MCR_GAME		= %...#....	; if zero on boot, system will enter c64 mode (writable!)
-mmu_MCR_FSDIR_OUTPUT	= %....#...	; direction of fast serial bus
+mmu_MCR_40COLUMNS	= %#.......	; (pin 48) 40/80 key: 0 means pressed, 1 means released (writable! if cleared, will always read as 0!)
+mmu_MCR_C64MODE		= %.#......	; (pin 47) setting this bit makes the MMU disappear from the memory map :)
+mmu_MCR_EXROM		= %..#.....	; (pin 46) if zero on boot, system will enter c64 mode (writable!)
+mmu_MCR_GAME		= %...#....	; (pin 45) if zero on boot, system will enter c64 mode (writable!)
+mmu_MCR_FSDIR_OUTPUT	= %....#...	; (pin 44) direction of fast serial bus
 mmu_MCR_UNUSED		= %.....##.	; always set
-mmu_MCR_8502MODE	= %.......#	; setting this to zero switches to Z80 cpu
+mmu_MCR_8502MODE	= %.......#	; (pin 43 inverted) setting this to zero switches to Z80 cpu
 
 !address {
 	; ram configuration register

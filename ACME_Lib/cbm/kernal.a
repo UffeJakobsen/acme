@@ -45,6 +45,6 @@ lib_cbm_kernal_a = 1
 	k_clall		= $ffe7
 	k_udtim		= $ffea
 	k_scrorg	= $ffed
-	k_plot		= $fff0	; get/set cursor (to set, clear carry)
+	k_plot		= $fff0:k_plot_CXY	= $fff0	; get/set cursor (to set, clear carry. X/Y are y/x!)
 	k_iobase	= $fff3
 }
