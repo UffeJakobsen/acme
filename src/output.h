@@ -39,10 +39,16 @@ extern struct vcpu	CPU_state;	// current CPU state	FIXME - restrict visibility t
 extern void Output_init(signed long fill_value);
 // clear segment list and disable output
 extern void Output_passinit(void);
-// call this if really calling Output_byte would be a waste of time
-extern void Output_fake(int size);
+// skip over some bytes in output buffer without starting a new segment
+// (used by "!skip", and also called by "!binary" if really calling
+// Output_byte would be a waste of time)
+extern void output_skip(int size);
 // Send low byte of arg to output buffer and advance pointer
+// FIXME - replace by output_sequence(char *src, size_t size)
 extern void (*Output_byte)(intval_t);
+// define default value for empty memory ("!initmem" pseudo opcode)
+// returns zero if ok, nonzero if already set
+extern int output_initmem(char content);
 // Output 8-bit value with range check
 extern void output_8(intval_t);
 // Output 16-bit value with range check big-endian
@@ -57,9 +63,6 @@ extern void output_le24(intval_t);
 extern void output_be32(intval_t);
 // Output 32-bit value (without range check) little-endian
 extern void output_le32(intval_t);
-// define default value for empty memory ("!initmem" pseudo opcode)
-// returns zero if ok, nonzero if already set
-extern int output_initmem(char content);
 // try to set output format held in DynaBuf. Returns zero on success.
 extern int outputfile_set_format(void);
 extern const char	outputfile_formats[];	// string to show if outputfile_set_format() returns nonzero

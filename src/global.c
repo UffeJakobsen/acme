@@ -47,6 +47,7 @@ const char	s_scr[]		= "scr";
 // Exception messages during assembly
 const char	exception_cannot_open_input_file[] = "Cannot open input file.";
 const char	exception_missing_string[]	= "No string given.";
+const char	exception_negative_size[]	= "Negative size argument.";
 const char	exception_no_left_brace[]	= "Missing '{'.";
 const char	exception_no_memory_left[]	= "Out of memory.";
 const char	exception_no_right_brace[]	= "Found end-of-file instead of '}'.";

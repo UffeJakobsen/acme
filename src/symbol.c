@@ -53,10 +53,10 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 		else
 			fprintf(fd, "$%x", (unsigned) symbol->result.val.intval);
 	} else {
-		fprintf(fd, " ?");
+		fprintf(fd, " ?");	// TODO - maybe write "UNDEFINED" instead? then the file could at least be parsed without errors
 	}
 	if (symbol->result.flags & MVALUE_UNSURE)
-		fprintf(fd, "\t; ?");
+		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
 	if (symbol->usage == 0)
 		fprintf(fd, "\t; unused");
 	fprintf(fd, "\n");

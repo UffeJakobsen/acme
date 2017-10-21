@@ -47,8 +47,8 @@ static const char	s_arctan[]	= "arctan";
 // operator handles (FIXME - use function pointers instead? or too slow?)
 enum operator_handle {
 //	special values (pseudo operators)
-	OPHANDLE_END,		//		"reached end of expression"
-	OPHANDLE_RETURN,	//		"return value to caller"
+	OPHANDLE_EXPRSTART,	//		"start of expression"
+	OPHANDLE_EXPREND,	//		"end of expression"
 //	functions
 	OPHANDLE_ADDR,		//	addr(v)
 	OPHANDLE_INT,		//	int(v)
@@ -96,8 +96,8 @@ struct operator {
 #define IS_RIGHT_ASSOCIATIVE(p)	((p) & 1)	// lsb of priority value signals right-associtivity
 
 // operator structs (only hold handle and priority/associativity value)
-static struct operator ops_end		= {OPHANDLE_END,	0};	// special
-static struct operator ops_return	= {OPHANDLE_RETURN,	2};	// special
+static struct operator ops_exprend	= {OPHANDLE_EXPREND,	0};	// special
+static struct operator ops_exprstart	= {OPHANDLE_EXPRSTART,	2};	// special
 static struct operator ops_closing	= {OPHANDLE_CLOSING,	4};	// dyadic
 static struct operator ops_opening	= {OPHANDLE_OPENING,	6};	// monadic
 static struct operator ops_or		= {OPHANDLE_OR,		8};	// dyadic
@@ -749,10 +749,12 @@ static void expect_operand_or_monadic_operator(void)
 			}
 		} else {
 			// illegal character read - so don't go on
+			// we found end-of-expression instead of an operand,
+			// that's either an empty expression or an erroneous one!
 			PUSH_INTOPERAND(0, 0, 0);	// push dummy operand so stack is ok
 			// push pseudo value, EXISTS flag is clear
-			if (operator_stack[operator_sp - 1] == &ops_return) {
-				PUSH_OPERATOR(&ops_end);
+			if (operator_stack[operator_sp - 1] == &ops_exprstart) {
+				PUSH_OPERATOR(&ops_exprend);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
 			} else {
 				Throw_error(exception_syntax);
@@ -905,7 +907,8 @@ static void expect_dyadic_operator(void)
 			Throw_error("Unknown operator.");
 			alu_state = STATE_ERROR;
 		} else {
-			operator = &ops_end;
+			// we found end-of-expression when expecting an operator, that's ok.
+			operator = &ops_exprend;
 			goto push_dyadic;
 		}
 
@@ -999,6 +1002,7 @@ static void ensure_int_from_fp(void)
 
 
 // Try to reduce stacks by performing high-priority operations
+// (if the previous operator has a higher priority than the current one, do it)
 static void try_to_reduce_stacks(int *open_parentheses)
 {
 	if (operator_sp < 2) {
@@ -1019,9 +1023,13 @@ static void try_to_reduce_stacks(int *open_parentheses)
 		return;
 	}
 
+	// process previous operator
 	switch (operator_stack[operator_sp - 2]->handle) {
 // special (pseudo) operators
-	case OPHANDLE_RETURN:
+	case OPHANDLE_EXPRSTART:
+		// the only operator with a lower priority than this
+		// "start-of-expression" operator is "end-of-expression",
+		// therefore we know we are done.
 		// don't touch indirect_flag; needed for INDIRECT flag
 		--operator_sp;	// decrement operator stack pointer
 		alu_state = STATE_END;
@@ -1033,7 +1041,7 @@ static void try_to_reduce_stacks(int *open_parentheses)
 			operator_sp -= 2;	// remove both of them
 			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
 			break;
-		case OPHANDLE_END:	// unmatched parenthesis
+		case OPHANDLE_EXPREND:	// unmatched parenthesis
 			++(*open_parentheses);	// count
 			goto RNTLObutDontTouchIndirectFlag;
 
@@ -1399,7 +1407,7 @@ static int parse_expression(struct result *result)
 	// begin by reading value (or monadic operator)
 	alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
 	indirect_flag = 0;	// Contains either 0 or MVALUE_INDIRECT
-	PUSH_OPERATOR(&ops_return);
+	PUSH_OPERATOR(&ops_exprstart);
 	do {
 		// check stack sizes. enlarge if needed
 		if (operator_sp >= operator_stk_size)

@@ -157,13 +157,16 @@ static void no_output(intval_t byte)
 }
 
 
-// call this if really calling Output_byte would be a waste of time
-// FIXME - check all users of this, because future changes
-// ("several-projects-at-once") may be incompatible with this!
-void Output_fake(int size)
+// skip over some bytes in output buffer without starting a new segment
+// (used by "!skip", and also called by "!binary" if really calling
+// Output_byte would be a waste of time)
+void output_skip(int size)
 {
-	if (size < 1)
+	if (size < 1) {
+		// FIXME - ok for zero, but why is there no error message
+		// output for negative values?
 		return;
+	}
 
 	// check whether ptr undefined
 	if (Output_byte == no_output) {

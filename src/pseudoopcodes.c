@@ -201,6 +201,59 @@ static enum eos po_le32(void)
 }
 
 
+#if 0
+// Insert bytes given as pairs of hex digits (helper for source code generators)
+static enum eos po_hex(void)	// now GotByte = illegal char
+{
+	int		digits	= 0;
+	unsigned char	byte	= 0;
+
+	for (;;) {
+		if (digits == 2) {
+			Output_byte(byte);
+			digits = 0;
+			byte = 0;
+		}
+		if (GotByte >= '0' && GotByte <= '9') {
+			byte = (byte << 4) | (GotByte - '0');
+			++digits;
+			GetByte();
+			continue;
+		}
+		if (GotByte >= 'a' && GotByte <= 'f') {
+			byte = (byte << 4) | (GotByte - 'a' + 10);
+			++digits;
+			GetByte();
+			continue;
+		}
+		if (GotByte >= 'A' && GotByte <= 'F') {
+			byte = (byte << 4) | (GotByte - 'A' + 10);
+			++digits;
+			GetByte();
+			continue;
+		}
+		// if we're here, the current character is not a hex digit,
+		// which ist only allowed outside of pairs:
+		if (digits == 1) {
+			Throw_error("Hex digits are not given in pairs");
+			return SKIP_REMAINDER;	// error exit
+		}
+		switch (GotByte) {
+		case ' ':
+		case '\t':
+			GetByte();	// spaces and tabs are ignored (maybe add commas, too?)
+			continue;
+		case CHAR_EOS:
+			return AT_EOS_ANYWAY;	// normal exit
+		default:
+			Throw_error(exception_syntax);	// all other characters are errors
+			return SKIP_REMAINDER;	// error exit
+		}
+	}
+}
+#endif
+
+
 // "!cbm" pseudo opcode (now obsolete)
 static enum eos obsolete_po_cbm(void)
 {
@@ -349,13 +402,15 @@ static enum eos po_binary(void)
 	if (Input_accept_comma()) {
 		if (ALU_optional_defined_int(&size)
 		&& (size < 0))
-			Throw_serious_error("Negative size argument.");
+			Throw_serious_error(exception_negative_size);
 		if (Input_accept_comma())
 			ALU_optional_defined_int(&skip);	// read skip
 	}
 	// check whether including is a waste of time
+	// FIXME - future changes ("several-projects-at-once")
+	// may be incompatible with this!
 	if ((size >= 0) && (pass_undefined_count || pass_real_errors)) {
-		Output_fake(size);	// really including is useless anyway
+		output_skip(size);	// really including is useless anyway
 	} else {
 		// really insert file
 		fseek(fd, skip, SEEK_SET);	// set read pointer
@@ -401,6 +456,24 @@ static enum eos po_fill(void)
 		output_8(fill);
 	return ENSURE_EOS;
 }
+
+
+#if 0
+// skip over some bytes in output without starting a new segment ("!skip" pseudo opcode)
+// in contrast to "*=*+AMOUNT", "!skip AMOUNT" does not start a new segment.
+// (...and it will be needed in future for assemble-to-end-address)
+static enum eos po_skip(void)	// now GotByte = illegal char
+{
+	struct result	amount;
+
+	ALU_defined_int(&amount);	// FIXME - forbid addresses!
+	if (amount.val.intval < 0)
+		Throw_serious_error(exception_negative_size);
+	else
+		output_skip(amount.val.intval);
+	return ENSURE_EOS;
+}
+#endif
 
 
 // insert byte until PC fits condition
@@ -538,6 +611,19 @@ static enum eos po_address(void)	// now GotByte = illegal char
 }
 
 
+#if 0
+// enumerate constants
+static enum eos po_enum(void)	// now GotByte = illegal char
+{
+	intval_t	step	= 1;
+
+	ALU_optional_defined_int(&step);
+Throw_serious_error("Not yet");        // FIXME
+	return ENSURE_EOS;
+}
+#endif
+
+
 // (re)set symbol
 static enum eos po_set(void)	// now GotByte = illegal char
 {
@@ -600,13 +686,6 @@ static enum eos po_symbollist(void)
 	return ENSURE_EOS;
 }
 
-/*
-// TODO - add "!skip AMOUNT" pseudo opcode as alternative to "* = * + AMOUNT" (needed for assemble-to-end-address)
-// the new pseudo opcode would skip the given amount of bytes without starting a new segment
-static enum eos po_skip(void)	// now GotByte = illegal char
-{
-}
-*/
 
 // switch to new zone ("!zone" or "!zn"). has to be re-entrant.
 static enum eos po_zone(void)
@@ -847,6 +926,16 @@ static enum eos po_do(void)	// now GotByte = illegal char
 }
 
 
+#if 0
+// looping assembly (alternative for people used to c-style loops)
+static enum eos po_while(void)	// now GotByte = illegal char
+{
+Throw_serious_error("Not yet");	// FIXME
+	return ENSURE_EOS;
+}
+#endif
+
+
 // macro definition ("!macro").
 static enum eos po_macro(void)	// now GotByte = illegal char
 {
@@ -1014,7 +1103,6 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("set",		po_set),
 	PREDEFNODE(s_sl,		po_symbollist),
 	PREDEFNODE("symbollist",	po_symbollist),
-//	PREDEFNODE("skip",		po_skip),
 	PREDEFNODE("zn",		po_zone),
 	PREDEFNODE(s_zone,		po_zone),
 	PREDEFNODE("sz",		obsolete_po_subzone),

@@ -41,6 +41,7 @@ extern const char	s_scr[];
 // error messages during assembly
 extern const char	exception_cannot_open_input_file[];
 extern const char	exception_missing_string[];
+extern const char	exception_negative_size[];
 extern const char	exception_no_left_brace[];
 extern const char	exception_no_memory_left[];
 extern const char	exception_no_right_brace[];

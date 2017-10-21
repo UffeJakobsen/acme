@@ -139,7 +139,7 @@ SCS jump_lind[]  = {      0,      0,   0xdc00,      0,      0,        0,   0xdc0
 
 // error message strings
 static const char	exception_illegal_combination[]	= "Illegal combination of command and addressing mode.";
-static const char	exception_highbyte_zero[]	= "Using oversized addressing mode.";
+static const char	exception_oversized_addrmode[]	= "Using oversized addressing mode.";
 
 
 // Variables
@@ -584,11 +584,11 @@ static int check_oversize(int size_bit, struct result *argument)
 	if (size_bit == MVALUE_FORCE16) {
 		// check 16-bit argument for high byte zero
 		if ((argument->val.intval <= 255) && (argument->val.intval >= -128))
-			Throw_warning(exception_highbyte_zero);
+			Throw_warning(exception_oversized_addrmode);
 	} else {
 		// check 24-bit argument for bank byte zero
 		if ((argument->val.intval <= 65535) && (argument->val.intval >= -32768))
-			Throw_warning(exception_highbyte_zero);
+			Throw_warning(exception_oversized_addrmode);
 	}
 	return size_bit;	// pass on result
 }
