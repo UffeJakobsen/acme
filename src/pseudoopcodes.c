@@ -618,7 +618,7 @@ static enum eos po_enum(void)	// now GotByte = illegal char
 	intval_t	step	= 1;
 
 	ALU_optional_defined_int(&step);
-Throw_serious_error("Not yet");        // FIXME
+Throw_serious_error("Not yet");	// FIXME
 	return ENSURE_EOS;
 }
 #endif
