@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2017 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // pseudo opcode stuff
@@ -201,7 +201,6 @@ static enum eos po_le32(void)
 }
 
 
-#if 0
 // Insert bytes given as pairs of hex digits (helper for source code generators)
 static enum eos po_hex(void)	// now GotByte = illegal char
 {
@@ -251,7 +250,6 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 		}
 	}
 }
-#endif
 
 
 // "!cbm" pseudo opcode (now obsolete)
@@ -433,7 +431,7 @@ static enum eos po_binary(void)
 	}
 	fclose(fd);
 	// if verbose, produce some output
-	if ((pass_count == 0) && (Process_verbosity > 1)) {
+	if ((pass_count == 0) && (config.process_verbosity > 1)) {
 		int	amount	= vcpu_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
@@ -458,8 +456,7 @@ static enum eos po_fill(void)
 }
 
 
-#if 0
-// skip over some bytes in output without starting a new segment ("!skip" pseudo opcode)
+// skip over some bytes in output without starting a new segment.
 // in contrast to "*=*+AMOUNT", "!skip AMOUNT" does not start a new segment.
 // (...and it will be needed in future for assemble-to-end-address)
 static enum eos po_skip(void)	// now GotByte = illegal char
@@ -473,7 +470,6 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 		output_skip(amount.val.intval);
 	return ENSURE_EOS;
 }
-#endif
 
 
 // insert byte until PC fits condition
@@ -858,20 +854,20 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	loop.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
 		loop.old_algo = FALSE;	// new format - yay!
-		if (!warn_on_old_for)
+		if (!config.warn_on_old_for)
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
 		loop.counter.first = intresult.val.intval;	// use first argument
 		ALU_defined_int(&intresult);	// read second argument
 		loop.counter.last = intresult.val.intval;	// use second argument
 		// compare addr_ref counts and complain if not equal!
-		if (warn_on_type_mismatch
+		if (config.warn_on_type_mismatch
 		&& (intresult.addr_refs != loop.counter.addr_refs)) {
 			Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
 		}
 		loop.counter.increment = (loop.counter.last < loop.counter.first) ? -1 : 1;
 	} else {
 		loop.old_algo = TRUE;	// old format - booo!
-		if (warn_on_old_for)
+		if (config.warn_on_old_for)
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)
 			Throw_serious_error("Loop count is negative.");
@@ -1019,12 +1015,19 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 }
 
 
-////
-//static enum eos po_debug(void)
-//static enum eos po_info(void)
-//{
-//	return throw_string();
-//}
+#if 0
+// show debug data given in source code
+static enum eos po_debug(void)
+{
+	// FIXME - make debug output depend on some cli switch
+	return throw_string("!debug: ", throw_message);
+}
+// show info given in source code
+static enum eos po_info(void)
+{
+	return throw_string("!info: ", throw_message);
+}
+#endif
 
 
 // throw warning as given in source code
@@ -1077,6 +1080,8 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("32",		po_32),
 	PREDEFNODE("be32",		po_be32),
 	PREDEFNODE("le32",		po_le32),
+	PREDEFNODE("h",			po_hex),
+	PREDEFNODE("hex",		po_hex),
 	PREDEFNODE(s_cbm,		obsolete_po_cbm),
 	PREDEFNODE("ct",		po_convtab),
 	PREDEFNODE("convtab",		po_convtab),
@@ -1090,6 +1095,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("binary",		po_binary),
 	PREDEFNODE("fi",		po_fill),
 	PREDEFNODE("fill",		po_fill),
+	PREDEFNODE("skip",		po_skip),
 	PREDEFNODE("align",		po_align),
 	PREDEFNODE("pseudopc",		po_pseudopc),
 	PREDEFNODE("realpc",		obsolete_po_realpc),
@@ -1100,6 +1106,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("rs",		po_rs),
 	PREDEFNODE("addr",		po_address),
 	PREDEFNODE("address",		po_address),
+//	PREDEFNODE("enum",		po_enum),
 	PREDEFNODE("set",		po_set),
 	PREDEFNODE(s_sl,		po_symbollist),
 	PREDEFNODE("symbollist",	po_symbollist),
@@ -1114,6 +1121,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("ifndef",		po_ifndef),
 	PREDEFNODE("for",		po_for),
 	PREDEFNODE("do",		po_do),
+//	PREDEFNODE("while",		po_while),
 	PREDEFNODE("macro",		po_macro),
 //	PREDEFNODE("debug",		po_debug),
 //	PREDEFNODE("info",		po_info),

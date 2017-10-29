@@ -13,6 +13,25 @@ outlining the platform specific changes.
 
 
 ----------------------------------------------------------------------
+Section:   New in release 0.96.3
+----------------------------------------------------------------------
+
+Added "!h"/"!hex" pseudo opcode: Now external source code generator
+    tools can easily put data in sources with minimal syntax overhead.
+Added "!skip" pseudo opcode: "!skip N" works like "*=*+N" without
+    starting a new segment.
+Added "cheap locals": Labels with '@' prefix have automatic scoping,
+    bounded by the preceding and the following global labels.
+Added "--fullstop" CLI switch to change pseudo opcode prefix from '!'
+    to '.' (so other assemblers' sources need less conversion work)
+Fixed a bug where expressions like "1)+1" crashed ACME. Thanks to
+    Bitbreaker for reporting this.
+Added warning when using zp-indirect addressing modes where argument
+    is $ff because pointer wraps around to $00. Thanks to Gerrit for
+    the suggestion.
+
+
+----------------------------------------------------------------------
 Section:   New in release 0.96.2
 ----------------------------------------------------------------------
 

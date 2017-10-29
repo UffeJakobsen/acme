@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2017 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Output stuff
@@ -380,7 +380,7 @@ void Output_save_file(FILE *fd)
 		start = out->lowest_written;
 		amount = out->highest_written - start + 1;
 	}
-	if (Process_verbosity)
+	if (config.process_verbosity)
 		printf("Saving %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
 			amount, amount, start, start + amount);
 	// output file header according to file format
@@ -514,7 +514,7 @@ void Output_end_segment(void)
 	// link to segment list
 	link_segment(out->segment.start, amount);
 	// announce
-	if (Process_verbosity > 1)
+	if (config.process_verbosity > 1)
 		printf("Segment size is %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
 			amount, amount, out->segment.start, out->write_idx);
 }

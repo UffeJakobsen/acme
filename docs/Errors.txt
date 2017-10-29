@@ -41,12 +41,14 @@ Assembling buggy JMP($xxff) instruction
     Note that this warning is only given for CPU types 6502 and 6510,
     because 65c02 and 65816 have been fixed in this respect.
 
+Assembling unstable ANE #NONZERO instruction
 Assembling unstable LXA #NONZERO instruction
-    This warning is only ever given for CPU type 6510. LXA is one of
-    the undocumented ("illegal") opcodes of this CPU (opcode 0xab),
-    and it only works reliably if its argument is zero. Therefore ACME
-    issues this warning if you are about to generate this instruction
-    with a non-zero argument.
+    These warnings are only ever given for CPU type 6510. ANE and LXA
+    are undocumented ("illegal") opcodes of this CPU, and they only
+    work reliably if the argument is zero or the accumulator contains
+    0xff.
+    Therefore ACME issues these warnings if it is about to generate
+    these instructions with a non-zero argument.
 
 Bug in ACME, code follows
     A situation has been encountered implying there is a bug in ACME.
@@ -154,6 +156,13 @@ Wrong type for loop's END value - must match type of START value.
     matches the instruction's addressing mode.
     In "!for" loops, START and END must have the same type, which then
     gets used for the loop counter.
+
+Zeropage pointer wraps around from $ff to $00
+    A zeropage-indirect addressing mode uses $ff as the argument. The
+    6502 will then fetch the second pointer byte from $00 instead of
+    $0100, therefore this warning is issued.
+    With the 65816's three-byte pointers, this warning is also given
+    for $fe arguments.
 
 ...called from here.
     If warnings and/or errors are output during a macro call, messages

@@ -827,6 +827,15 @@ static unsigned int imm_ops(int *force_bit, unsigned char opcode, int immediate_
 	return (((unsigned int) opcode) << 8) | opcode;
 }
 
+// helper function to warn if zp pointer wraps around
+// call with bits=0 for 2-byte pointers and bits=1 for 3-byte pointers
+static void check_zp_wraparound(struct result *result, int bits)
+{
+	if (((result->val.intval | bits) == 0xff)
+	&& (result->flags & MVALUE_DEFINED))
+		Throw_warning("Zeropage pointer wraps around from $ff to $00");
+}
+
 // The main accumulator stuff (ADC, AND, CMP, EOR, LDA, ORA, SBC, STA)
 // plus PEI.
 static void group_main(int index, int immediate_mode)
@@ -859,18 +868,23 @@ static void group_main(int index, int immediate_mode)
 		break;
 	case INDIRECT_ADDRESSING:	// ($ff)
 		make_command(force_bit, &result, accu_ind8[index]);
+		check_zp_wraparound(&result, 0);
 		break;
 	case INDIRECT_Y_INDEXED_ADDRESSING:	// ($ff),y
 		make_command(force_bit, &result, accu_indy8[index]);
+		check_zp_wraparound(&result, 0);
 		break;
 	case INDIRECT_Z_INDEXED_ADDRESSING:	// ($ff),z
 		make_command(force_bit, &result, accu_indz8[index]);
+		check_zp_wraparound(&result, 0);
 		break;
 	case LONG_INDIRECT_ADDRESSING:	// [$ff]
 		make_command(force_bit, &result, accu_lind8[index]);
+		check_zp_wraparound(&result, 1);
 		break;
 	case LONG_INDIRECT_Y_INDEXED_ADDRESSING:	// [$ff],y
 		make_command(force_bit, &result, accu_lindy8[index]);
+		check_zp_wraparound(&result, 1);
 		break;
 	case STACK_INDEXED_INDIRECT_Y_INDEXED_ADDRESSING:	// ($ff,s),y
 		make_command(force_bit, &result, accu_sindy8[index]);

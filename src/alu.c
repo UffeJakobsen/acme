@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2017 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Arithmetic/logic unit
@@ -320,12 +320,12 @@ static intval_t my_asr(intval_t left, intval_t right)
 }
 
 // if undefined, remember name for error output
-static void check_for_def(int flags, int prefix, char *name, size_t length)
+static void check_for_def(int flags, char optional_prefix_char, char *name, size_t length)
 {
 	if ((flags & MVALUE_DEFINED) == 0) {
 		DYNABUF_CLEAR(undefsym_dyna_buf);
-		if (prefix) {
-			DynaBuf_append(undefsym_dyna_buf, LOCAL_PREFIX);
+		if (optional_prefix_char) {
+			DynaBuf_append(undefsym_dyna_buf, optional_prefix_char);
 			length++;
 		}
 		DynaBuf_add_string(undefsym_dyna_buf, name);
@@ -344,14 +344,14 @@ static void check_for_def(int flags, int prefix, char *name, size_t length)
 // their internal name is different (longer) than their displayed name.
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-static void get_symbol_value(scope_t scope, int prefix, size_t name_length)
+static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length)
 {
 	struct symbol	*symbol;
 
 	// if the symbol gets created now, mark it as unsure
 	symbol = symbol_find(scope, MVALUE_UNSURE);
 	// if needed, remember name for "undefined" error output
-	check_for_def(symbol->result.flags, prefix, GLOBALDYNABUF_CURRENT, name_length);
+	check_for_def(symbol->result.flags, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// in first pass, count usage
 	if (pass_count == 0)
 		symbol->usage++;
@@ -374,7 +374,7 @@ static void parse_quoted_character(char closing_quote)
 	// on empty string, complain
 	if (GotByte == closing_quote) {
 		Throw_error(exception_missing_string);
-		Input_skip_remainder();
+		alu_state = STATE_ERROR;
 		return;
 	}
 
@@ -387,7 +387,7 @@ static void parse_quoted_character(char closing_quote)
 		if (GotByte) {
 			// if longer than one character
 			Throw_error("There's more than one character.");
-			Input_skip_remainder();
+			alu_state = STATE_ERROR;
 		}
 	}
 	PUSH_INTOPERAND(value, MVALUE_GIVEN | MVALUE_ISBYTE, 0);
@@ -593,10 +593,12 @@ static void parse_function_call(void)
 	// make lower case version of name in local dynamic buffer
 	DynaBuf_to_lower(function_dyna_buf, GlobalDynaBuf);
 	// search for tree item
-	if (Tree_easy_scan(function_tree, &node_body, function_dyna_buf))
+	if (Tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
 		PUSH_OPERATOR((struct operator *) node_body);
-	else
+	} else {
 		Throw_error("Unknown function.");
+		alu_state = STATE_ERROR;
+	}
 }
 
 
@@ -617,7 +619,7 @@ static void expect_operand_or_monadic_operator(void)
 		while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->scope, 0, ugly_length_kluge);
+		get_symbol_value(section_now->local_scope, 0, ugly_length_kluge);
 		goto now_expect_dyadic;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -631,7 +633,7 @@ static void expect_operand_or_monadic_operator(void)
 		SKIPSPACE();
 		if (BYTEFLAGS(GotByte) & FOLLOWS_ANON) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->scope, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			get_symbol_value(section_now->local_scope, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
 			goto now_expect_dyadic;
 		}
 
@@ -704,10 +706,23 @@ static void expect_operand_or_monadic_operator(void)
 
 		if (Input_read_keyword()) {
 			// Now GotByte = illegal char
-			get_symbol_value(section_now->scope, 1, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
 			goto now_expect_dyadic;
 		}
 
+		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
+		alu_state = STATE_ERROR;
+		break;
+	case CHEAP_PREFIX:	// cheap local symbol
+		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
+		GetByte();	// start after '@'
+		if (Input_read_keyword()) {
+			// Now GotByte = illegal char
+			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			goto now_expect_dyadic;
+		}
+
+		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
 		alu_state = STATE_ERROR;
 		break;
 	// decimal values and global symbols
@@ -772,7 +787,9 @@ get_byte_and_push_monadic:
 		break;
 
 now_expect_dyadic:
-		alu_state = STATE_EXPECT_DYADIC_OPERATOR;
+		// bugfix: if in error state, do not change state back to valid one
+		if (alu_state < STATE_MAX_GO_ON)
+			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
 		break;
 	}
 }
@@ -1051,7 +1068,8 @@ static void try_to_reduce_stacks(int *open_parentheses)
 		break;
 	case OPHANDLE_CLOSING:
 		Throw_error("Too many ')'.");
-		goto remove_next_to_last_operator;
+		alu_state = STATE_ERROR;
+		return;
 
 // functions
 	case OPHANDLE_ADDR:
@@ -1471,8 +1489,16 @@ static int parse_expression(struct result *result)
 				result->flags |= MVALUE_ISBYTE;
 		}
 	} else {
-		// State is STATE_ERROR. But actually, nobody cares.
-		// ...errors have already been reported anyway. :)
+		// State is STATE_ERROR. Errors have already been reported,
+		// but we must make sure not to pass bogus data to caller.
+		result->flags = 0;	// maybe set DEFINED flag to suppress follow-up errors?
+		result->val.intval = 0;
+		result->addr_refs = 0;
+		// make sure no additional (spurious) errors are reported:
+		Input_skip_remainder();
+		// FIXME - remove this when new function interface gets used:
+		// callers must decide for themselves what to do when expression parser returns error
+		// (currently LDA'' results in both "no string given" AND "illegal combination of command and addressing mode"!)
 	}
 	// return number of open (unmatched) parentheses
 	return open_parentheses;

@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2017 Marco Baye
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -62,6 +62,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_VERSION		"version"
 #define OPTION_MSVC		"msvc"
 #define OPTION_COLOR		"color"
+#define OPTION_FULLSTOP		"fullstop"
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
 #define OPTIONWNO_OLD_FOR	"no-old-for"
@@ -138,8 +139,9 @@ static void show_help_and_exit(void)
 // when there are more, use next line and add a separate function:
 //"  -W                     show warning level options\n"
 "      --" OPTION_USE_STDOUT "       fix for 'Relaunch64' IDE (see docs)\n"
-"      --" OPTION_MSVC "             set output error message format to that of MS Visual Studio\n"
-"      --" OPTION_COLOR "            enable colored error output using ANSI escape codes\n"
+"      --" OPTION_MSVC "             output errors in MS VS format\n"
+"      --" OPTION_COLOR "            uses ANSI color codes for error output\n"
+"      --" OPTION_FULLSTOP "         use '.' as pseudo opcode prefix\n"
 PLATFORM_OPTION_HELP
 "  -V, --" OPTION_VERSION "          show version and exit\n");
 	exit(EXIT_SUCCESS);
@@ -274,7 +276,7 @@ static int do_actual_work(void)
 
 	report = &global_report;	// let global pointer point to something
 	report_init(report);	// we must init struct before doing passes
-	if (Process_verbosity > 1)
+	if (config.process_verbosity > 1)
 		puts("First pass.");
 	pass_count = 0;
 	undefined_curr = perform_pass();	// First pass
@@ -285,7 +287,7 @@ static int do_actual_work(void)
 	while (undefined_curr && (undefined_curr < undefined_prev)) {
 		++pass_count;
 		undefined_prev = undefined_curr;
-		if (Process_verbosity > 1)
+		if (config.process_verbosity > 1)
 			puts("Further pass.");
 		undefined_curr = perform_pass();
 	}
@@ -294,7 +296,7 @@ static int do_actual_work(void)
 		// if listing report is wanted and there were no errors,
 		// do another pass to generate listing report
 		if (report_filename) {
-			if (Process_verbosity > 1)
+			if (config.process_verbosity > 1)
 				puts("Extra pass to generate listing report.");
 			if (report_open(report, report_filename) == 0) {
 				++pass_count;
@@ -306,7 +308,7 @@ static int do_actual_work(void)
 	}
 	// There are still errors (unsolvable by doing further passes),
 	// so perform additional pass to find and show them.
-	if (Process_verbosity > 1)
+	if (config.process_verbosity > 1)
 		puts("Extra pass needed to find error.");
 	// activate error output
 	ALU_optional_notdef_handler = Throw_error;
@@ -456,7 +458,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_INITMEM) == 0)
 		set_mem_contents();
 	else if (strcmp(string, OPTION_MAXERRORS) == 0)
-		max_errors = string_to_number(cliargs_safe_get_next("maximum error count"));
+		config.max_errors = string_to_number(cliargs_safe_get_next("maximum error count"));
 	else if (strcmp(string, OPTION_MAXDEPTH) == 0)
 		macro_recursions_left = (source_recursions_left = string_to_number(cliargs_safe_get_next("recursion depth")));
 //	else if (strcmp(string, "strictsyntax") == 0)
@@ -464,10 +466,12 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_USE_STDOUT) == 0)
 		msg_stream = stdout;
 	else if (strcmp(string, OPTION_MSVC) == 0)
-		format_msvc = TRUE;
+		config.format_msvc = TRUE;
+	else if (strcmp(string, OPTION_FULLSTOP) == 0)
+		config.pseudoop_prefix = '.';
 	PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
-		format_color = TRUE;
+		config.format_color = TRUE;
 	else if (strcmp(string, OPTION_VERSION) == 0)
 		show_version(TRUE);
 	else
@@ -499,9 +503,9 @@ static char short_option(const char *argument)
 			report_filename = cliargs_safe_get_next(arg_reportfile);
 			break;
 		case 'v':	// "-v" changes verbosity
-			++Process_verbosity;
+			++config.process_verbosity;
 			if ((argument[1] >= '0') && (argument[1] <= '9'))
-				Process_verbosity = *(++argument) - '0';
+				config.process_verbosity = *(++argument) - '0';
 			break;
 		// platform specific switches are inserted here
 			PLATFORM_SHORTOPTION_CODE
@@ -510,13 +514,13 @@ static char short_option(const char *argument)
 			break;
 		case 'W':	// "-W" tunes warning level
 			if (strcmp(argument + 1, OPTIONWNO_LABEL_INDENT) == 0) {
-				warn_on_indented_labels = FALSE;
+				config.warn_on_indented_labels = FALSE;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_OLD_FOR) == 0) {
-				warn_on_old_for = FALSE;
+				config.warn_on_old_for = FALSE;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWTYPE_MISMATCH) == 0) {
-				warn_on_type_mismatch = TRUE;
+				config.warn_on_type_mismatch = TRUE;
 				goto done;
 			} else {
 				fprintf(stderr, "%sUnknown warning level.\n", cliargs_error);
@@ -536,6 +540,7 @@ done:
 // guess what
 int main(int argc, const char *argv[])
 {
+	config_default(&config);
 	// if called without any arguments, show usage info (not full help)
 	if (argc == 1)
 		show_help_and_exit();
