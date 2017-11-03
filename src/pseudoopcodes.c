@@ -232,9 +232,9 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 			continue;
 		}
 		// if we're here, the current character is not a hex digit,
-		// which ist only allowed outside of pairs:
+		// which is only allowed outside of pairs:
 		if (digits == 1) {
-			Throw_error("Hex digits are not given in pairs");
+			Throw_error("Hex digits are not given in pairs.");
 			return SKIP_REMAINDER;	// error exit
 		}
 		switch (GotByte) {

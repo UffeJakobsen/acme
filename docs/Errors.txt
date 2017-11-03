@@ -221,6 +221,10 @@ Found '}' instead of end-of-file.
 Garbage data at end of statement.
     There are still arguments when there should not be any more.
 
+Hex digits are not given in pairs.
+    The two digits of a hex byte are separated by another character,
+    or there is an odd number of digits.
+
 Illegal combination of command and addressing mode.
     The given command cannot be used with the given addressing mode on
     the CPU you have chosen.
@@ -247,6 +251,10 @@ Macro not defined (or wrong signature).
 Macro parameter twice.
     The same symbol name is used two (or more) times in the same macro
     parameter list.
+
+Negative size argument.
+    The size argument of "!bin" or "!skip" must be zero or positive,
+    but cannot be negative.
 
 Negative value - cannot choose addressing mode.
     Because the argument is a negative value, ACME does not know what
