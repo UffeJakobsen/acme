@@ -131,6 +131,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_MAXDEPTH " NUMBER  set recursion depth for macro calls and !src\n"
 "  -vDIGIT                set verbosity level\n"
 "  -DSYMBOL=VALUE         define global symbol\n"
+"  -I PATH/TO/DIR         add search path for input files\n"
 // as long as there is only one -W option:
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
 "  -W" OPTIONWNO_LABEL_INDENT "      suppress warnings about indented labels\n"
@@ -185,7 +186,7 @@ int ACME_finalize(int exit_code)
 
 	report_close(report);
 	if (symbollist_filename) {
-		fd = fopen(symbollist_filename, FILE_WRITETEXT);
+		fd = fopen(symbollist_filename, FILE_WRITETEXT);	// FIXME - what if filename is given via !sl in sub-dir? fix path!
 		if (fd) {
 			symbols_list(fd);
 			fclose(fd);
@@ -220,7 +221,7 @@ static void save_output_file(void)
 		fputs("No output file specified (use the \"-o\" option or the \"!to\" pseudo opcode).\n", stderr);
 		return;
 	}
-	fd = fopen(output_filename, FILE_WRITEBINARY);
+	fd = fopen(output_filename, FILE_WRITEBINARY);	// FIXME - what if filename is given via !to in sub-dir? fix path!
 	if (fd == NULL) {
 		fprintf(stderr, "Error: Cannot open output file \"%s\".\n",
 			output_filename);
@@ -488,16 +489,23 @@ static char short_option(const char *argument)
 		case 'D':	// "-D" define constants
 			define_symbol(argument + 1);
 			goto done;
-		case 'h':	// "-h" shows help
-			show_help_and_exit();
 		case 'f':	// "-f" selects output format
 			set_output_format();
 			break;
-		case 'o':	// "-o" selects output filename
-			output_filename = cliargs_safe_get_next(name_outfile);
+		case 'h':	// "-h" shows help
+			show_help_and_exit();
 			break;
+		case 'I':	// "-I" adds an include directory
+			if (argument[1])
+				includepaths_add(argument + 1);
+			else
+				includepaths_add(cliargs_safe_get_next("include path"));
+			goto done;
 		case 'l':	// "-l" selects symbol list filename
 			symbollist_filename = cliargs_safe_get_next(arg_symbollist);
+			break;
+		case 'o':	// "-o" selects output filename
+			output_filename = cliargs_safe_get_next(name_outfile);
 			break;
 		case 'r':	// "-r" selects report filename
 			report_filename = cliargs_safe_get_next(arg_reportfile);
@@ -553,6 +561,7 @@ int main(int argc, const char *argv[])
 	PLATFORM_INIT;
 	// prepare a buffer large enough to hold pointers to "-D" switch values
 //	cli_defines = safe_malloc(argc * sizeof(*cli_defines));
+	includepaths_init();	// must be done before cli arg handling
 	// handle command line arguments
 	cliargs_handle_options(short_option, long_option);
 	// generate list of files to process

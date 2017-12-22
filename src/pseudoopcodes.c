@@ -89,6 +89,26 @@ static enum eos po_initmem(void)
 }
 
 
+// change output "encryption" ("!xor" pseudo opcode)
+static enum eos po_xor(void)
+{
+	char		old_value;
+	intval_t	change;
+
+	old_value = output_get_xor();
+	change = ALU_any_int();
+	if ((change > 0xff) || (change < -0x80)) {
+		Throw_error(exception_number_out_of_range);
+		change = 0;
+	}
+	output_set_xor(old_value ^ change);
+	// if there's a block, parse that and then restore old value!
+	if (Parse_optional_block())
+		output_set_xor(old_value);
+	return ENSURE_EOS;
+}
+
+
 // select output file and format ("!to" pseudo opcode)
 static enum eos po_to(void)
 {
@@ -99,7 +119,7 @@ static enum eos po_to(void)
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
-	if (Input_read_filename(FALSE))
+	if (Input_read_filename(FALSE, NULL))
 		return SKIP_REMAINDER;
 
 	// only act upon this pseudo opcode in first pass
@@ -260,13 +280,16 @@ static enum eos obsolete_po_cbm(void)
 }
 
 // read encoding table from file
-static enum eos user_defined_encoding(void)
+static enum eos user_defined_encoding(FILE *stream)
 {
 	char			local_table[256],
 				*buffered_table		= encoding_loaded_table;
 	const struct encoder	*buffered_encoder	= encoder_current;
 
-	encoding_load(local_table, GLOBALDYNABUF_CURRENT);
+	if (stream) {
+		encoding_load_from_file(local_table, stream);
+		fclose(stream);
+	}
 	encoder_current = &encoder_file;	// activate new encoding
 	encoding_loaded_table = local_table;		// activate local table
 	// If there's a block, parse that and then restore old values
@@ -306,11 +329,16 @@ static enum eos predefined_encoding(void)
 // set current encoding ("!convtab" pseudo opcode)
 static enum eos po_convtab(void)
 {
+	int	uses_lib;
+	FILE	*stream;
+
 	if ((GotByte == '<') || (GotByte == '"')) {
 		// if file name is missing, don't bother continuing
-		if (Input_read_filename(TRUE))
+		if (Input_read_filename(TRUE, &uses_lib))
 			return SKIP_REMAINDER;
-		return user_defined_encoding();
+
+		stream = includepaths_open_ro(uses_lib);
+		return user_defined_encoding(stream);
 	} else {
 		return predefined_encoding();
 	}
@@ -382,20 +410,21 @@ static enum eos po_scrxor(void)
 // FIXME - split this into "parser" and "worker" fn and move worker fn somewhere else.
 static enum eos po_binary(void)
 {
-	FILE		*fd;
+	int		uses_lib;
+	FILE		*stream;
 	int		byte;
 	intval_t	size	= -1,	// means "not given" => "until EOF"
 			skip	= 0;
 
 	// if file name is missing, don't bother continuing
-	if (Input_read_filename(TRUE))
+	if (Input_read_filename(TRUE, &uses_lib))
 		return SKIP_REMAINDER;
+
 	// try to open file
-	fd = fopen(GLOBALDYNABUF_CURRENT, FILE_READBINARY);
-	if (fd == NULL) {
-		Throw_error(exception_cannot_open_input_file);
+	stream = includepaths_open_ro(uses_lib);
+	if (stream == NULL)
 		return SKIP_REMAINDER;
-	}
+
 	// read optional arguments
 	if (Input_accept_comma()) {
 		if (ALU_optional_defined_int(&size)
@@ -411,11 +440,11 @@ static enum eos po_binary(void)
 		output_skip(size);	// really including is useless anyway
 	} else {
 		// really insert file
-		fseek(fd, skip, SEEK_SET);	// set read pointer
+		fseek(stream, skip, SEEK_SET);	// set read pointer
 		// if "size" non-negative, read "size" bytes.
 		// otherwise, read until EOF.
 		while (size != 0) {
-			byte = getc(fd);
+			byte = getc(stream);
 			if (byte == EOF)
 				break;
 			Output_byte(byte);
@@ -429,7 +458,7 @@ static enum eos po_binary(void)
 			while (--size);
 		}
 	}
-	fclose(fd);
+	fclose(stream);
 	// if verbose, produce some output
 	if ((pass_count == 0) && (config.process_verbosity > 1)) {
 		int	amount	= vcpu_get_statement_size();
@@ -663,7 +692,7 @@ static enum eos po_symbollist(void)
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
-	if (Input_read_filename(FALSE))
+	if (Input_read_filename(FALSE, NULL))
 		return SKIP_REMAINDER;
 
 	// only process this pseudo opcode in first pass
@@ -730,7 +759,8 @@ static enum eos obsolete_po_subzone(void)
 // include source file ("!source" or "!src"). has to be re-entrant.
 static enum eos po_source(void)	// now GotByte = illegal char
 {
-	FILE		*fd;
+	int		uses_lib;
+	FILE		*stream;
 	char		local_gotbyte;
 	struct input	new_input,
 			*outer_input;
@@ -740,11 +770,12 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	if (--source_recursions_left < 0)
 		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 	// read file name. quit function on error
-	if (Input_read_filename(TRUE))
+	if (Input_read_filename(TRUE, &uses_lib))
 		return SKIP_REMAINDER;
 
 	// if file could be opened, parse it. otherwise, complain
-	if ((fd = fopen(GLOBALDYNABUF_CURRENT, FILE_READBINARY))) {
+	stream = includepaths_open_ro(uses_lib);
+	if (stream) {
 #ifdef __GNUC__
 		char	filename[GlobalDynaBuf->size];	// GCC can do this
 #else
@@ -755,14 +786,12 @@ static enum eos po_source(void)	// now GotByte = illegal char
 		outer_input = Input_now;	// remember old input
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
 		Input_now = &new_input;	// activate new input
-		flow_parse_and_close_file(fd, filename);
+		flow_parse_and_close_file(stream, filename);
 		Input_now = outer_input;	// restore previous input
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
 #ifndef __GNUC__
 		free(filename);	// GCC auto-frees
 #endif
-	} else {
-		Throw_error(exception_cannot_open_input_file);
 	}
 	// leave nesting level
 	++source_recursions_left;
@@ -1064,6 +1093,7 @@ static enum eos po_endoffile(void)
 // pseudo opcode table
 static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("initmem",		po_initmem),
+	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("to",		po_to),
 	PREDEFNODE(s_8,			po_byte),
 	PREDEFNODE(s_08,		po_byte),

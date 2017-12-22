@@ -161,8 +161,6 @@ Zeropage pointer wraps around from $ff to $00
     A zeropage-indirect addressing mode uses $ff as the argument. The
     6502 will then fetch the second pointer byte from $00 instead of
     $0100, therefore this warning is issued.
-    With the 65816's three-byte pointers, this warning is also given
-    for $fe arguments.
 
 ...called from here.
     If warnings and/or errors are output during a macro call, messages

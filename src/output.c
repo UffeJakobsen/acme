@@ -49,6 +49,7 @@ struct output {
 		int		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
 	} segment;
+	char		xor;		// output modifier
 };
 
 
@@ -142,7 +143,7 @@ static void real_output(intval_t byte)
 	// write byte and advance ptrs
 	if (report->fd)
 		report_binary(byte & 0xff);	// file for reporting, taking also CPU_2add
-	out->buffer[out->write_idx++] = byte & 0xff;
+	out->buffer[out->write_idx++] = (byte & 0xff) ^ out->xor;
 	++CPU_state.add_to_pc;
 }
 
@@ -478,6 +479,7 @@ void Output_passinit(void)
 	out->segment.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
 	out->segment.max = OUTBUFFERSIZE - 1;
 	out->segment.flags = 0;
+	out->xor = 0;
 
 	//vcpu stuff:
 	CPU_state.pc.flags = 0;	// not defined yet
@@ -538,6 +540,16 @@ void Output_start_segment(intval_t address_change, int segment_flags)
 			check_segment(out->segment.start);
 		find_segment_max(out->segment.start);
 	}
+}
+
+
+char output_get_xor(void)
+{
+	return out->xor;
+}
+void output_set_xor(char xor)
+{
+	out->xor = xor;
 }
 
 

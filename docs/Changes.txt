@@ -13,6 +13,20 @@ outlining the platform specific changes.
 
 
 ----------------------------------------------------------------------
+Section:   New in release 0.96.4
+----------------------------------------------------------------------
+
+Bugfix: Removed warnings about zero page wrap-around for the 65816's
+    24-bit pointers (because wrap-around does not actually happen).
+    Thanks to Johann Klasek for reporting this.
+Added "!xor" pseudo opcode to compensate for the shortcomings of the
+    "!scrxor" pseudo opcode. Thanks to spider-j for the initial bug
+    report.
+Added "-I" CLI switch to add search paths for input files. Thanks to
+    peiselulli for the suggestion.
+
+
+----------------------------------------------------------------------
 Section:   New in release 0.96.3
 ----------------------------------------------------------------------
 

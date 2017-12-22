@@ -798,6 +798,24 @@ Examples:	!to "TinyDemo", cbm	; define output file + format
 		; Useful if you want to store your code in an EPROM.
 
 
+Call:		!xor EXPRESSION [ { BLOCK } ]
+Purpose:	Change the value to XOR all output bytes with (the
+		value defaults to zero on startup). This "encryption"
+		facility was added to compensate for the shortcomings
+		of the "!scrxor" pseudo opcode, which only XORs
+		strings and characters, but not numbers.
+		When used with block syntax, the previously chosen
+		value is restored afterwards.
+Parameters:	EXPRESSION: Any formula the value parser accepts.
+		BLOCK: A block of assembler statements.
+Examples:	; first as normal screencodes:
+		!scr "Hello everybody...", GROUPLOGOCHAR
+		; and now as inverted screencodes:
+		!xor $80 {
+		!scr "Hello everybody...", GROUPLOGOCHAR
+		}
+		
+
 ----------------------------------------------------------------------
 Section:   Offset assembly
 ----------------------------------------------------------------------

@@ -87,6 +87,8 @@ extern void Output_save_file(FILE *fd);
 extern void Output_start_segment(intval_t address_change, int segment_flags);
 // Show start and end of current segment
 extern void Output_end_segment(void);
+extern char output_get_xor(void);
+extern void output_set_xor(char xor);
 
 // set program counter to defined value (TODO - allow undefined!)
 extern void vcpu_set_pc(intval_t new_pc, int flags);

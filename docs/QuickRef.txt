@@ -251,6 +251,12 @@ Available options are:
         "-DSYSTEM=128" could build the C128 version of the software
         (using conditional assembly in your source code file).
 
+    -I PATH/TO/DIR         add search path for input files
+        This option allows to add a directory to the search list for
+        input files. If an input file cannot be found in the current
+        working directory, all directories in the search list are
+        tried (the first match is used).
+
     -W                     fine-tune amount and type of warnings
         -Wno-label-indent
             Disables warnings about labels not being in the leftmost
