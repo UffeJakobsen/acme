@@ -109,7 +109,7 @@ lib_cbm_c64_float_a = 1
 	fac1_fac2_to_the_power_of_memAY	= $bf78
 	fac1_negate			= $bfb4
 	fac1_exp			= $bfed	; EXP()
-	; end of basic rom jumps to start of kernel rom!
+	; end of basic rom jumps to start of kernal rom!
 	fac1_rnd			= $e097	; RND()
 	fac1_cos			= $e264 ; COS()
 	fac1_sin			= $e26b	; SIN()
