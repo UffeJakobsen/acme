@@ -19,32 +19,32 @@ lib_cbm_c64_float_a = 2
 ; convenience macros:
 
 ; some float functions need a memory address in YYAA
-!macro movYYAA .adr {
-	lda #<.adr
-	ldy #>.adr
+!macro movYYAA @addr {
+	lda #<@addr
+	ldy #>@addr
 }
 ; ...or in YYXX
-!macro movYYXX .adr {
-	ldx #<.adr
-	ldy #>.adr
+!macro movYYXX @addr {
+	ldx #<@addr
+	ldy #>@addr
 }
 ; other float functions expect or output a value in AAYY
-!macro movAAYY .val {
-	ldy #<.val
-	lda #>.val
+!macro movAAYY @val {
+	ldy #<@val
+	lda #>@val
 }
-!macro ldAAYY .adr {
-	ldy .adr
-	lda .adr + 1
+!macro ldAAYY @addr {
+	ldy @addr
+	lda @addr + 1
 }
-!macro stAAYY .adr {
-	sty .adr
-	sta .adr + 1
+!macro stAAYY @addr {
+	sty @addr
+	sta @addr + 1
 }
 ; ...or in AAXX
-!macro ldAAXX .adr {
-	ldx .adr
-	lda .adr + 1
+!macro ldAAXX @addr {
+	ldx @addr
+	lda @addr + 1
 }
 
 !address {
@@ -118,12 +118,12 @@ lib_cbm_c64_float_a = 2
 }
 
 ; wrappers for names from older version of this file:
-!macro movAY .adr {	+movYYAA .adr	}
-!macro movXY .adr {	+movYYXX .adr	}
-!macro movYA .val {	+movAAYY .val	}
-!macro ldYA .adr {	+ldAAYY .adr	}
-!macro stYA .adr {	+stAAYY .adr	}
-!macro ldXA .adr {	+ldAAXX .adr	}
+!macro movAY @addr {	+movYYAA @addr	}
+!macro movXY @addr {	+movYYXX @addr	}
+!macro movYA @val {	+movAAYY @val	}
+!macro ldYA @addr {	+ldAAYY @addr	}
+!macro stYA @addr {	+stAAYY @addr	}
+!macro ldXA @addr {	+ldAAXX @addr	}
 	fac1_to_signedYA		= fac1_to_signedAAYY
 	fac1_read_signedYA		= fac1_read_signedAAYY
 	fac1_to_unsignedYA		= fac1_to_unsignedAAYY
