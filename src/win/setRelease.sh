@@ -43,7 +43,7 @@ BEGIN
       VALUE "FileDescription", "Acme crossassembler"
       VALUE "FileVersion", $FILEVERSION
       VALUE "InternalName", "ACME crossassembler"
-      VALUE "LegalCopyright", "Copyright © 2015 Marco Baye"
+      VALUE "LegalCopyright", "Copyright © 2018 Marco Baye"
       VALUE "OriginalFilename", "acme.exe"
       VALUE "ProductName", "ACME Crossassembler"
       VALUE "ProductVersion", $FILEVERSION
