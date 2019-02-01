@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2019 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Flow control stuff (loops, conditional assembly etc.)
@@ -224,6 +224,7 @@ void flow_parse_block_else_block(int parse_first)
 // parse a whole source code file
 void flow_parse_and_close_file(FILE *fd, const char *filename)
 {
+	//TODO - check for bogus/malformed BOM and ignore!
 	// be verbose
 	if (config.process_verbosity > 2)
 		printf("Parsing source file '%s'\n", filename);

@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2019 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Arithmetic/logic unit
@@ -12,6 +12,7 @@
 //		give a warning).
 // 31 May 2014	Added "0b" binary number prefix as alternative to "%".
 // 28 Apr 2015	Added symbol name output to "value not defined" error.
+//  1 Feb 2019	Prepared to make "honor leading zeroes" optionally later on.
 #include "alu.h"
 #include <stdlib.h>
 #include <math.h>	// only for fp support
@@ -24,6 +25,8 @@
 #include "section.h"
 #include "symbol.h"
 #include "tree.h"
+
+#define honor_leading_zeroes	1	// FIXME - make a CLI argument for this
 
 
 // constants
@@ -421,13 +424,15 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 		}
 	} while (go_on);
 	// set force bits
-	if (digits > 8) {
-		if (digits > 16) {
-			if (value < 65536)
-				flags |= MVALUE_FORCE24;
-		} else {
-			if (value < 256)
-				flags |= MVALUE_FORCE16;
+	if (honor_leading_zeroes) {
+		if (digits > 8) {
+			if (digits > 16) {
+				if (value < 65536)
+					flags |= MVALUE_FORCE24;
+			} else {
+				if (value < 256)
+					flags |= MVALUE_FORCE16;
+			}
 		}
 	}
 	PUSH_INTOPERAND(value, flags, 0);
@@ -465,13 +470,15 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 		}
 	} while (go_on);
 	// set force bits
-	if (digits > 2) {
-		if (digits > 4) {
-			if (value < 65536)
-				flags |= MVALUE_FORCE24;
-		} else {
-			if (value < 256)
-				flags |= MVALUE_FORCE16;
+	if (honor_leading_zeroes) {
+		if (digits > 2) {
+			if (digits > 4) {
+				if (value < 65536)
+					flags |= MVALUE_FORCE24;
+			} else {
+				if (value < 256)
+					flags |= MVALUE_FORCE16;
+			}
 		}
 	}
 	PUSH_INTOPERAND(value, flags, 0);
@@ -558,13 +565,15 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 		GetByte();
 	}
 	// set force bits
-	if (digits > 3) {
-		if (digits > 6) {
-			if (value < 65536)
-				flags |= MVALUE_FORCE24;
-		} else {
-			if (value < 256)
-				flags |= MVALUE_FORCE16;
+	if (honor_leading_zeroes) {
+		if (digits > 3) {
+			if (digits > 6) {
+				if (value < 65536)
+					flags |= MVALUE_FORCE24;
+			} else {
+				if (value < 256)
+					flags |= MVALUE_FORCE16;
+			}
 		}
 	}
 	PUSH_INTOPERAND(value, flags, 0);
