@@ -1,8 +1,8 @@
 
   6502 opcode table
 
-all empty entries are undocumented opcodes.
-notice there are no documented opcodes in the fourth column.
+All empty entries are undocumented opcodes.
+Notice there are no documented opcodes in the fourth column.
 
 
 00  brk             01  ora (zp, x)     02                  03
