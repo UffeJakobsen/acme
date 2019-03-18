@@ -6,7 +6,7 @@
 
                           - free  software -
 
-                       (C) 1998-2017 Marco Baye
+                       (C) 1998-2019 Marco Baye
 
 
 ----------------------------------------------------------------------
@@ -64,7 +64,7 @@ The files in the docs directory and what they contain:
     QuickRef.txt   All the basic stuff about ACME
     Source.txt     How to compile ACME
     Upgrade.txt    Incompatibilities to earlier versions
-    cputypes.txt   Instruction sets of target CPUs
+    cputypes/      Instruction sets of target CPUs
 
 IMPORTANT: If you upgrade from ACME 0.05 or earlier, don't forget to
 read the file "Upgrade.txt" - release 0.07 and all later ones are

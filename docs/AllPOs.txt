@@ -872,7 +872,7 @@ Parameters:	KEYWORD: Currently valid keywords are:
 			4502	65ce02 with MAP instead of AUG
 			c64dtv2	6502 plus BRA/SAC/SIR plus some of the
 				undocumented opcodes
-			See "docs/cputypes.txt" for more info.
+			See "docs/cputypes/all.txt" for more info.
 		BLOCK: A block of assembler statements.
 Examples:	!if cputype = $65c02 {
 			!cpu 65c02 {	; temporarily allow 65c02 stuff
