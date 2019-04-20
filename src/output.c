@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2019 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Output stuff
@@ -8,6 +8,7 @@
 //  5 Mar 2014	Fixed bug where setting *>0xffff resulted in hangups.
 // 19 Nov 2014	Merged Johann Klasek's report listing generator patch
 // 22 Sep 2015	Added big-endian output functions
+// 20 Apr 2019	Prepared for "make segment overlap warnings into errors" later on
 #include "output.h"
 #include <stdlib.h>
 #include <string.h>	// for memset()
@@ -20,6 +21,8 @@
 #include "input.h"
 #include "platform.h"
 #include "tree.h"
+
+#define segment_warnings_to_errors	0	// FIXME - make a CLI argument for this
 
 
 // constants
@@ -118,7 +121,10 @@ static void border_crossed(int current_offset)
 	if (current_offset >= OUTBUFFERSIZE)
 		Throw_serious_error("Produced too much code.");
 	if (pass_count == 0) {
-		Throw_warning("Segment reached another one, overwriting it.");
+		if (segment_warnings_to_errors)
+			Throw_error("Segment reached another one, overwriting it.");
+		else
+			Throw_warning("Segment reached another one, overwriting it.");
 		find_segment_max(current_offset + 1);	// find new (next) limit
 	}
 }
@@ -447,7 +453,10 @@ static void check_segment(intval_t new_pc)
 	// search ring for matching entry
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
-			Throw_warning("Segment starts inside another one, overwriting it.");
+			if (segment_warnings_to_errors)
+				Throw_error("Segment starts inside another one, overwriting it.");
+			else
+				Throw_warning("Segment starts inside another one, overwriting it.");
 			return;
 		}
 
