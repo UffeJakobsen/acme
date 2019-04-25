@@ -1,5 +1,5 @@
 // ToACME - converts other source codes to ACME format.
-// Copyright (C) 1999-2016 Marco Baye
+// Copyright (C) 1999-2019 Marco Baye
 // Have a look at "main.c" for further info
 //
 // "Professional Ass by Oliver Stiller" stuff (NOT "Profi-Ass" by Data Becker!)
@@ -40,6 +40,12 @@
 #define REV_START	";-=#"
 #define REV_END		"#=-"
 
+enum linestate {
+	LINESTATE_REMOVEPLUS,		// before label def
+	LINESTATE_DOUBLENEXTSPACE,	// entered when removing '+'
+	LINESTATE_NOTHINGSPECIAL	// afterward
+};
+
 // main
 void prof_main(void)
 {
@@ -49,6 +55,7 @@ void prof_main(void)
 		byte,
 		hibit,
 		length2;
+	enum linestate	linestate;
 
 	IO_set_input_padding(0);
 	IO_process_load_address();
@@ -57,7 +64,8 @@ void prof_main(void)
 		if (length1 == EOF)
 			break;
 		if (length1 < 3) {
-			fprintf(stderr, "Error: Short line (%d bytes)\n", length1);
+			fprintf(stderr, "Error: Short line (%d bytes), stopping.\n", length1);
+			return;
 		}
 		// read amount of indentation and output tabs/spaces
 		indent = IO_get_byte();
@@ -71,13 +79,34 @@ void prof_main(void)
 		}
 		// now convert line
 		hibit = 0;
+		linestate = LINESTATE_REMOVEPLUS;
 		for (ii = 0; ii < length1 - 3; ii++) {
 			byte = IO_get_byte();
 			if ((byte & 128) != hibit) {
 				hibit = byte & 128;
 				IO_put_string(hibit ? REV_START : REV_END);
 			}
-			IO_put_byte(SCR2ISO(byte & 127));
+			byte = SCR2ISO(byte & 127);
+			// outside of comments, remove leading '+'
+			if (hibit == 0) {
+				if (byte == '+') {
+					if (linestate == LINESTATE_REMOVEPLUS) {
+						linestate = LINESTATE_DOUBLENEXTSPACE;
+						continue;	// eat '+'
+					}
+				} else if (byte == ' ') {
+					if (linestate == LINESTATE_DOUBLENEXTSPACE) {
+						linestate = LINESTATE_NOTHINGSPECIAL;
+						IO_put_byte(' ');	// add space to compensate for eaten '+'
+					}
+				} else {
+					// any other char -> do not remove any '+'
+					if (linestate == LINESTATE_REMOVEPLUS) {
+						linestate = LINESTATE_NOTHINGSPECIAL;
+					}
+				}
+			}
+			IO_put_byte(byte);
 		}
 		if (hibit)
 			IO_put_string(REV_END);

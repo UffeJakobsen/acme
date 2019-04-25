@@ -1,15 +1,15 @@
 // ToACME - converts other source codes to ACME format.
-// Copyright (C) 1999-2015 Marco Baye
+// Copyright (C) 1999-2019 Marco Baye
 // Have a look at "main.c" for further info
 //
 // Version
 
-#define RELEASE_NUMBER	"0.14"		// change before release (FIXME)
-#define CHANGE_DATE	"19 Feb"		// change before release
-#define CHANGE_YEAR	"2017"		// change before release
+#define RELEASE_NUMBER	"0.15"		// change before release (FIXME)
+#define CHANGE_DATE	"25 Apr"		// change before release
+#define CHANGE_YEAR	"2019"		// change before release
 #define HOME_PAGE	"http://sourceforge.net/projects/acme-crossass/"
 //			"http://home.pages.de/~mac_bacon/smorbrod/acme/"
-#define FILE_TAG	";ACME 0.96.1"	// check before release
+#define FILE_TAG	";ACME 0.96.4"	// check before release
 
 #include <stdio.h>
 #include <string.h>
