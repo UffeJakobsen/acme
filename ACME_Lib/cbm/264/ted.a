@@ -91,7 +91,18 @@ lib_cbm_264_ted_a = 1
 		tedhorz_SMOOTH	= %.....###	; horizontal smooth scroll (std: %000, higher values move text right)
 
 	; i/o
-	ted_keyboard	= ted_base + $08	; keyboard input latch
+	ted_keyboard	= ted_base + $08	; keyboard input latch (write to trigger sampling, then read input byte)
+		; to scan keyboard, write output byte to $fd30, then write $ff here (to disable joysticks) and read input byte.
+		; to scan joysticks, write $ff to $fd30 (to disable keyboard), then write SELECT value here and read input byte.
+		tedjoy1_SELECT	= %#####.##	; d2 low selects joy #1
+		tedjoy2_SELECT	= %######.#	; d1 low selects joy #2
+		; CAUTION, the joystick bits are low-active, so invert input byte before using these:
+		tedjoy2_FIRE	= %#.......
+		tedjoy1_FIRE	= %.#......
+		tedjoy_RIGHT	= %....#...
+		tedjoy_LEFT	= %.....#..
+		tedjoy_DOWN	= %......#.
+		tedjoy_UP	= %.......#
 
 	; interrupts
 	ted_irq		= ted_base + $09	; interrupt request register (write back its value to acknowledge interrupt)
@@ -114,7 +125,7 @@ lib_cbm_264_ted_a = 1
 	ted_hwcursor_lo	= ted_base + $0d	; hardware cursor offset (low byte)
 
 	; sound
-	; to calculated the register values:
+	; to calculate the register values:
 	; NTSC: reg = 1024 - (111860.781 / frequency_in_Hz)
 	; PAL:  reg = 1024 - (111840.45  / frequency_in_Hz)
 	ted_sound1_low	= ted_base + $0e	; low 8 bits of voice #1 frequency
