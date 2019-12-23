@@ -20,6 +20,8 @@ CODENAME=`grep "define CODENAME"  ../version.h  | cut -f2`
 DEBUG echo $CODENAME
 FILEVERSION=\""$RELEASE ${CODENAME//\"/}"\"
 DEBUG echo $FILEVERSION
+CHANGE_YEAR=`grep "define CHANGE_YEAR"  ../version.h  | cut -f2 | tr -d '"'`
+DEBUG echo CHANGE_YEAR
 
 cat << EndOfFile > $FILE
 // Iconfile (64/32/16)
@@ -43,7 +45,7 @@ BEGIN
       VALUE "FileDescription", "Acme crossassembler"
       VALUE "FileVersion", $FILEVERSION
       VALUE "InternalName", "ACME crossassembler"
-      VALUE "LegalCopyright", "Copyright © 2018 Marco Baye"
+      VALUE "LegalCopyright", "Copyright © $CHANGE_YEAR Marco Baye"
       VALUE "OriginalFilename", "acme.exe"
       VALUE "ProductName", "ACME Crossassembler"
       VALUE "ProductVersion", $FILEVERSION
