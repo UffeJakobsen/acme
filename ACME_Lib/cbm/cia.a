@@ -75,7 +75,7 @@ lib_cbm_cia_a = 1
 
 	; control registers:
 	cia_interrupt_control	= $d
-	; %7.......	read: 1 = interrupt requested
+	; %7.......	read: 1 = interrupt requested (reading clears register)
 	;		write:	0 = disable interrupts indicated by set bits
 	;			1 = enable interrupts indicated by set bits
 	; %.65.....	unused
