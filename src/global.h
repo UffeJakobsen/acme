@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Global stuff - things that are needed by several modules
@@ -65,17 +65,19 @@ extern int	pass_count;
 extern char	GotByte;	// Last byte read (processed)
 extern int	pass_undefined_count;	// "NeedValue" type errors in current pass
 extern int	pass_real_errors;	// Errors yet
-extern FILE	*msg_stream;		// set to stdout by --errors_to_stdout
 // configuration
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
 	int		process_verbosity;	// level of additional output
-	int		warn_on_indented_labels;	// warn if indented label is encountered
-	int		warn_on_old_for;	// warn if "!for" with old syntax is found
-	int		warn_on_type_mismatch;	// use type-checking system
+	int		warn_on_indented_labels;	// actually bool: warn if indented label is encountered
+	int		warn_on_old_for;	// actually bool: warn if "!for" with old syntax is found
+	int		warn_on_type_mismatch;	// actually bool: use type-checking system
 	signed long	max_errors;	// errors before giving up
 	int		format_msvc;		// actually bool, enabled by --msvc
 	int		format_color;		// actually bool, enabled by --color
+	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
+	int		honor_leading_zeroes;	// actually bool, TRUE, disabled by --ignore-zeroes
+	int		segment_warning_is_error;	// actually bool, FALSE, enabled by --strict-segments
 };
 extern struct config	config;
 

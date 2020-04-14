@@ -26,8 +26,6 @@
 #include "symbol.h"
 #include "tree.h"
 
-#define honor_leading_zeroes	1	// FIXME - make a CLI argument for this
-
 
 // constants
 
@@ -424,7 +422,7 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 		}
 	} while (go_on);
 	// set force bits
-	if (honor_leading_zeroes) {
+	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
 			if (digits > 16) {
 				if (value < 65536)
@@ -470,7 +468,7 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 		}
 	} while (go_on);
 	// set force bits
-	if (honor_leading_zeroes) {
+	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
 			if (digits > 4) {
 				if (value < 65536)
@@ -565,7 +563,7 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 		GetByte();
 	}
 	// set force bits
-	if (honor_leading_zeroes) {
+	if (config.honor_leading_zeroes) {
 		if (digits > 3) {
 			if (digits > 6) {
 				if (value < 65536)

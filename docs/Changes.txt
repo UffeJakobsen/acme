@@ -13,6 +13,22 @@ outlining the platform specific changes.
 
 
 ----------------------------------------------------------------------
+Section:   New in release 0.96.5
+----------------------------------------------------------------------
+
+Allowed C++-style comments via "//". Thanks to awsm for the
+    suggestion (and please accept my apologies for taking so long to
+    release this)
+Added "--ignore-zeroes" CLI switch. This disables the "leading zeroes
+    determine number size" algorithm. Thanks to groepaz for the
+    suggestion.
+Added "--strict-segments" CLI switch. This changes warnings about
+    overlapping memory segments into errors. Thanks to groepaz for the
+    suggestion.
+Added 6502 family tree to docs/cpu_types/all.txt
+
+
+----------------------------------------------------------------------
 Section:   New in release 0.96.4
 ----------------------------------------------------------------------
 

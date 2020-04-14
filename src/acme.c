@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -63,6 +63,8 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_MSVC		"msvc"
 #define OPTION_COLOR		"color"
 #define OPTION_FULLSTOP		"fullstop"
+#define OPTION_IGNORE_ZEROES	"ignore-zeroes"
+#define OPTION_STRICT_SEGMENTS	"strict-segments"
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
 #define OPTIONWNO_OLD_FOR	"no-old-for"
@@ -129,15 +131,16 @@ static void show_help_and_exit(void)
 "      --" OPTION_INITMEM " NUMBER   define 'empty' memory\n"
 "      --" OPTION_MAXERRORS " NUMBER set number of errors before exiting\n"
 "      --" OPTION_MAXDEPTH " NUMBER  set recursion depth for macro calls and !src\n"
+"      --" OPTION_IGNORE_ZEROES "    do not determine number size by leading zeroes\n"
+"      --" OPTION_STRICT_SEGMENTS "  turn segment overlap warnings into errors\n"
 "  -vDIGIT                set verbosity level\n"
 "  -DSYMBOL=VALUE         define global symbol\n"
 "  -I PATH/TO/DIR         add search path for input files\n"
-// as long as there is only one -W option:
-#define OPTIONWNO_LABEL_INDENT	"no-label-indent"
+// TODO: replace these:
 "  -W" OPTIONWNO_LABEL_INDENT "      suppress warnings about indented labels\n"
 "  -W" OPTIONWNO_OLD_FOR "           suppress warnings about old \"!for\" syntax\n"
 "  -W" OPTIONWTYPE_MISMATCH "        enable type checking (warn about type mismatch)\n"
-// when there are more, use next line and add a separate function:
+// with this line and add a separate function:
 //"  -W                     show warning level options\n"
 "      --" OPTION_USE_STDOUT "       fix for 'Relaunch64' IDE (see docs)\n"
 "      --" OPTION_MSVC "             output errors in MS VS format\n"
@@ -342,11 +345,11 @@ static void set_output_format(void)
 
 
 // check CPU type (the cpu type tree must be set up at this point!)
-static void set_starting_cpu(void)
+static void set_starting_cpu(const char expression[])
 {
 	const struct cpu_type	*new_cpu_type;
 
-	keyword_to_dynabuf(cliargs_safe_get_next("CPU type"));
+	keyword_to_dynabuf(expression);
 	new_cpu_type = cputype_find();
 	if (new_cpu_type) {
 		default_cpu = new_cpu_type;
@@ -366,8 +369,8 @@ static void could_not_parse(const char strange[])
 
 // return signed long representation of string.
 // copes with hexadecimal if prefixed with "$", "0x" or "0X".
-// copes with octal if prefixed with "&".
-// copes with binary if prefixed with "%".
+// copes with octal if prefixed with "&".	FIXME - add "0o" prefix?
+// copes with binary if prefixed with "%".	FIXME - add "0b" prefix!
 // assumes decimal otherwise.
 static signed long string_to_number(const char *string)
 {
@@ -396,9 +399,9 @@ static signed long string_to_number(const char *string)
 
 
 // set program counter
-static void set_starting_pc(void)
+static void set_starting_pc(const char expression[])
 {
-	start_address = string_to_number(cliargs_safe_get_next("program counter"));
+	start_address = string_to_number(expression);
 	if ((start_address > -1) && (start_address < 65536))
 		return;
 	fprintf(stderr, "%sProgram counter out of range (0-0xffff).\n", cliargs_error);
@@ -407,9 +410,9 @@ static void set_starting_pc(void)
 
 
 // set initial memory contents
-static void set_mem_contents(void)
+static void set_mem_contents(const char expression[])
 {
-	fill_value = string_to_number(cliargs_safe_get_next("initmem value"));
+	fill_value = string_to_number(expression);
 	if ((fill_value >= -128) && (fill_value <= 255))
 		return;
 	fprintf(stderr, "%sInitmem value out of range (0-0xff).\n", cliargs_error);
@@ -453,11 +456,11 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_REPORT) == 0)
 		report_filename = cliargs_safe_get_next(arg_reportfile);
 	else if (strcmp(string, OPTION_SETPC) == 0)
-		set_starting_pc();
+		set_starting_pc(cliargs_safe_get_next("program counter"));
 	else if (strcmp(string, OPTION_CPU) == 0)
-		set_starting_cpu();
+		set_starting_cpu(cliargs_safe_get_next("CPU type"));
 	else if (strcmp(string, OPTION_INITMEM) == 0)
-		set_mem_contents();
+		set_mem_contents(cliargs_safe_get_next("initmem value"));
 	else if (strcmp(string, OPTION_MAXERRORS) == 0)
 		config.max_errors = string_to_number(cliargs_safe_get_next("maximum error count"));
 	else if (strcmp(string, OPTION_MAXDEPTH) == 0)
@@ -465,11 +468,15 @@ static const char *long_option(const char *string)
 //	else if (strcmp(string, "strictsyntax") == 0)
 //		strict_syntax = TRUE;
 	else if (strcmp(string, OPTION_USE_STDOUT) == 0)
-		msg_stream = stdout;
+		config.msg_stream = stdout;
 	else if (strcmp(string, OPTION_MSVC) == 0)
 		config.format_msvc = TRUE;
 	else if (strcmp(string, OPTION_FULLSTOP) == 0)
 		config.pseudoop_prefix = '.';
+	else if (strcmp(string, OPTION_IGNORE_ZEROES) == 0)
+		config.honor_leading_zeroes = FALSE;
+	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
+		config.segment_warning_is_error = TRUE;
 	PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
 		config.format_color = TRUE;
@@ -552,7 +559,6 @@ int main(int argc, const char *argv[])
 	// if called without any arguments, show usage info (not full help)
 	if (argc == 1)
 		show_help_and_exit();
-	msg_stream = stderr;
 	cliargs_init(argc, argv);
 	DynaBuf_init();	// inits *global* dynamic buffer - important, so first
 	// Init platform-specific stuff.

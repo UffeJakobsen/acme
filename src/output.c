@@ -22,8 +22,6 @@
 #include "platform.h"
 #include "tree.h"
 
-#define segment_warnings_to_errors	0	// FIXME - make a CLI argument for this
-
 
 // constants
 #define OUTBUFFERSIZE		65536
@@ -121,7 +119,8 @@ static void border_crossed(int current_offset)
 	if (current_offset >= OUTBUFFERSIZE)
 		Throw_serious_error("Produced too much code.");
 	if (pass_count == 0) {
-		if (segment_warnings_to_errors)
+		// TODO: make warn/err an arg for a general "Throw" function
+		if (config.segment_warning_is_error)
 			Throw_error("Segment reached another one, overwriting it.");
 		else
 			Throw_warning("Segment reached another one, overwriting it.");
@@ -453,7 +452,7 @@ static void check_segment(intval_t new_pc)
 	// search ring for matching entry
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
-			if (segment_warnings_to_errors)
+			if (config.segment_warning_is_error)
 				Throw_error("Segment starts inside another one, overwriting it.");
 			else
 				Throw_warning("Segment starts inside another one, overwriting it.");

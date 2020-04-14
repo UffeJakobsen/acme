@@ -140,3 +140,26 @@ This is the cpu in version 2 of the C64DTV. It uses a superset of the
 	SAC #$12		set accumulator mapping
 	SIR #$12		set index register mapping
 - support for some of the undocumented opcodes.
+
+
+
+
+Here's a family tree:
+
+    6502                    (standard)
+     |
+     |\_6510                (+ undocumented opcodes of nmos6502)
+     |
+     |\_c64dtv2             (+ bra/sac/sir and some illegals)
+     |
+      \_65c02               (+ bra/phx/phy/plx/ply/stz/trb/tsb, ...)
+         |
+         |\_65816           (16 bit regs, 24 bit address space, ...)
+         |
+          \_r65c02          (+ bit manipulation instructions)
+             |
+             |\_w65c02      (+ stp/wai)
+             |
+              \_65ce02      (+ Z reg, long branches, ...)
+                 |
+                  \_4502    (+ map/eom)

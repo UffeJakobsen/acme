@@ -85,6 +85,9 @@ will be assembled to
   ad fd 00	; lda $00fd
   8f ff 00 00	; sta $0000ff
 
+This feature can be disabled using the "--ignore-zeroes" CLI switch.
+
+
 The other possibility is to use the postfix method (described in the
 next paragraph).
 

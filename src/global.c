@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Global stuff - things that are needed by several modules
@@ -8,6 +8,8 @@
 //  2 Jun 2014	Added warn_on_old_for and warn_on_type_mismatch
 // 19 Nov 2014	Merged Johann Klasek's report listing generator patch
 // 23 Nov 2014	Merged Martin Piper's "--msvc" error output patch
+//  9 Jan 2018	Made '/' a syntax char to allow for "//" comments
+// 14 Apr 2020	Added config vars for "ignore zeroes" and "segment warnings to errors"
 #include "global.h"
 #include <stdio.h>
 #include "platform.h"
@@ -66,7 +68,7 @@ const char	exception_syntax[]		= "Syntax error.";
 // 7.......	Byte allowed to start keyword
 // .6......	Byte allowed in keyword
 // ..5.....	Byte is upper case, can be lowercased by OR-ing this bit(!)
-// ...4....	special character for input syntax: 0x00 TAB LF CR SPC : ; }
+// ...4....	special character for input syntax: 0x00 TAB LF CR SPC / : ; }
 // ....3...	preceding sequence of '-' characters is anonymous backward
 //		label. Currently only set for ')', ',' and CHAR_EOS.
 // .....210	currently unused
@@ -76,7 +78,7 @@ const char	Byte_flags[256]	= {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 /*$20*/	0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,// " !"#$%&'"
-	0x00, 0x08, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00,// "()*+,-./"
+	0x00, 0x08, 0x00, 0x00, 0x08, 0x00, 0x00, 0x10,// "()*+,-./"
 	0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,// "01234567"
 	0x40, 0x40, 0x10, 0x10, 0x00, 0x00, 0x00, 0x00,// "89:;<=>?"
 /*$40*/	0x00, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0, 0xe0,// "@ABCDEFG"
@@ -112,7 +114,6 @@ char		GotByte;			// Last byte read (processed)
 // global counters
 int		pass_undefined_count;	// "NeedValue" type errors
 int		pass_real_errors;	// Errors yet
-FILE		*msg_stream		= NULL;	// set to stdout by --use-stdout
 struct report 	*report			= NULL;
 
 // configuration
@@ -127,8 +128,11 @@ void config_default(struct config *conf)
 	conf->warn_on_old_for		= TRUE;	// warn if "!for" with old syntax is found
 	conf->warn_on_type_mismatch	= FALSE;	// use type-checking system
 	conf->max_errors		= MAXERRORS;	// errors before giving up
-	conf->format_msvc		= FALSE;	// actually bool, enabled by --msvc
-	conf->format_color		= FALSE;	// actually bool, enabled by --color
+	conf->format_msvc		= FALSE;	// enabled by --msvc
+	conf->format_color		= FALSE;	// enabled by --color
+	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
+	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
+	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
 }
 
 // memory allocation stuff
@@ -341,11 +345,11 @@ static void throw_message(const char *message, const char *type)
 {
 	++throw_counter;
 	if (config.format_msvc)
-		fprintf(msg_stream, "%s(%d) : %s (%s %s): %s\n",
+		fprintf(config.msg_stream, "%s(%d) : %s (%s %s): %s\n",
 			Input_now->original_filename, Input_now->line_number,
 			type, section_now->type, section_now->title, message);
 	else
-		fprintf(msg_stream, "%s - File %s, line %d (%s %s): %s\n",
+		fprintf(config.msg_stream, "%s - File %s, line %d (%s %s): %s\n",
 			type, Input_now->original_filename, Input_now->line_number,
 			section_now->type, section_now->title, message);
 }

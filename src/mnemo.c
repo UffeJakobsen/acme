@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Mnemonics stuff
@@ -427,7 +427,7 @@ static struct ronode	mnemos_65ce02[]	= {
 	PREDEFNODE("dew", MERGE(GROUP_MISC,	IDXeDEW)),
 	PREDEFNODE("inw", MERGE(GROUP_MISC,	IDXeINW)),
 	PREDEFNODE("ldz", MERGE(GROUP_MISC,	IDXeLDZ)),
-	PREDEFNODE("phw", MERGE(GROUP_MISC,	IDXePHW | IM_FORCE16)),
+	PREDEFNODE("phw", MERGE(GROUP_MISC,	IDXePHW | IM_FORCE16)),	// when using immediate addressing, arg is 16 bit
 	PREDEFNODE("row", MERGE(GROUP_MISC,	IDXeROW)),
 	PREDEFNODE("rtn", MERGE(GROUP_MISC,	IDXeRTN)),
 	PREDEFNODE("cle", MERGE(GROUP_IMPLIEDONLY, 0x02)),

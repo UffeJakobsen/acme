@@ -227,6 +227,18 @@ Available options are:
     --maxdepth NUMBER      set recursion depth for macro calls and !src
         The default value for this is 64.
 
+    --ignore-zeroes        do not determine number size by leading zeroes
+        Normally, using leading zeroes forces ACME to generate
+        oversized addressing modes, like 3-byte absolute instructions
+        instead of 2-byte zero page instructions.
+        Using this CLI switch disables this behavior.
+
+    --strict-segments      turn segment overlap warnings into errors
+        When changing the program counter, segment overlap warnings may
+        be generated. Using this CLI switch turns those warnings into
+        errors (which is recommended).
+        This strict behavior may become the default in future releases!
+
     -vDIGIT                set verbosity level
         Sets how much additional informational output is generated.
         Higher values mean more output:
@@ -408,7 +420,7 @@ or CRLF characters.
 Every line consists of a non-negative number of "statements" and an
 optional comment. Statements have to be separated from each other
 using colon (":") characters, the comment has to be prefixed with a
-semicolon (";") character.
+semicolon (";") character or two slashes ("//").
 
 Every statement consists of an optional "label" and an optional
 "command". These are separated from each other using any number of
