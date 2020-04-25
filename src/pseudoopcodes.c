@@ -61,6 +61,12 @@ void notreallypo_setpc(void)
 			segment_flags |= SEGMENT_FLAG_OVERLAY;
 		} else if (strcmp(GlobalDynaBuf->buffer, "invisible") == 0) {
 			segment_flags |= SEGMENT_FLAG_INVISIBLE;
+/*TODO		} else if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
+			skip '='
+			read memory limit
+		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
+			skip '='
+			read segment name	*/
 		} else {
 			Throw_error("Unknown \"* =\" segment modifier.");
 			return;
@@ -517,6 +523,10 @@ static enum eos po_align(void)
 		return SKIP_REMAINDER;
 	}
 
+	// TODO:
+	// now: !align ANDVALUE, EQUALVALUE [,FILLVALUE]
+	// new: !align BLOCKSIZE
+	// ...where block size must be a power of two
 	ALU_defined_int(&andresult);	// FIXME - forbid addresses!
 	if (!Input_accept_comma())
 		Throw_error(exception_syntax);
@@ -548,6 +558,7 @@ static enum eos po_pseudopc(void)
 	new_offset = (new_pc_result.val.intval - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc_result.val.intval;
 	CPU_state.pc.flags |= MVALUE_DEFINED;	// FIXME - remove when allowing undefined!
+	// TODO - accept ", name=SECTIONNAME"
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
 		// restore old

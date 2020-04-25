@@ -55,7 +55,7 @@ void flow_forloop(struct for_loop *loop)
 	// (not yet useable; pointer and line number are still missing)
 	Input_now = &loop_input;
 	// init counter
-	loop_counter.flags = MVALUE_DEFINED | MVALUE_EXISTS;
+	loop_counter.flags = MVALUE_DEFINED | MVALUE_EXISTS;	// TODO - remove EXISTS, it is never checked
 	loop_counter.val.intval = loop->counter.first;
 	loop_counter.addr_refs = loop->counter.addr_refs;
 	symbol_set_value(loop->symbol, &loop_counter, TRUE);

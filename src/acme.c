@@ -263,10 +263,13 @@ static int perform_pass(void)
  			++pass_real_errors;
 		}
 	}
+	Output_end_segment();
+/*	TODO:
+	if --save-start is given, parse arg string
+	if --save-limit is given, parse arg string
+*/
 	if (pass_real_errors)
 		exit(ACME_finalize(EXIT_FAILURE));
-	else
-		Output_end_segment();
 	return pass_undefined_count;
 }
 

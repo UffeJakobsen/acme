@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // symbol stuff
@@ -222,7 +222,7 @@ void symbol_define(intval_t value)
 	struct result	result;
 	struct symbol	*symbol;
 
-	result.flags = MVALUE_GIVEN;
+	result.flags = MVALUE_DEFINED | MVALUE_EXISTS;	// TODO - remove EXISTS, it is never checked
 	result.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL, 0);
 	symbol_set_value(symbol, &result, TRUE);

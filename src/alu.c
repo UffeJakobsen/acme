@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2019 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Arithmetic/logic unit
@@ -391,7 +391,7 @@ static void parse_quoted_character(char closing_quote)
 			alu_state = STATE_ERROR;
 		}
 	}
-	PUSH_INTOPERAND(value, MVALUE_GIVEN | MVALUE_ISBYTE, 0);
+	PUSH_INTOPERAND(value, MVALUE_DEFINED | MVALUE_EXISTS | MVALUE_ISBYTE, 0);
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 }
 
@@ -403,7 +403,7 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
 	int		go_on	= TRUE,	// continue loop flag
-			flags	= MVALUE_GIVEN,
+			flags	= MVALUE_DEFINED | MVALUE_EXISTS,
 			digits	= -1;	// digit counter
 
 	do {
@@ -447,7 +447,7 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 	char		byte;
 	int		go_on,		// continue loop flag
 			digits	= -1,	// digit counter
-			flags	= MVALUE_GIVEN;
+			flags	= MVALUE_DEFINED | MVALUE_EXISTS;
 	intval_t	value	= 0;
 
 	do {
@@ -497,7 +497,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 		GetByte();
 	}
 	// FIXME - add possibility to read 'e' and exponent!
-	PUSH_FPOPERAND(fpval / denominator, MVALUE_GIVEN);
+	PUSH_FPOPERAND(fpval / denominator, MVALUE_DEFINED | MVALUE_EXISTS);
 }
 
 
@@ -542,7 +542,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 		GetByte();
 		parse_frac_part(intval);
 	} else {
-		PUSH_INTOPERAND(intval, MVALUE_GIVEN, 0);
+		PUSH_INTOPERAND(intval, MVALUE_DEFINED | MVALUE_EXISTS, 0);
 	}
 	// Now GotByte = non-decimal char
 }
@@ -553,7 +553,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 static void parse_octal_value(void)	// Now GotByte = "&"
 {
 	intval_t	value	= 0;
-	int		flags	= MVALUE_GIVEN,
+	int		flags	= MVALUE_DEFINED | MVALUE_EXISTS,
 			digits	= 0;	// digit counter
 
 	GetByte();
@@ -1527,8 +1527,10 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 
 	if (parse_expression(&result))
 		Throw_error(exception_paren_open);
-	if ((result.flags & MVALUE_GIVEN) == MVALUE_EXISTS)
-		Throw_serious_error(value_not_defined());
+	// do not combine the next two checks, they were separated because EXISTS should move from result flags to expression flags...
+	if (result.flags & MVALUE_EXISTS)
+		if ((result.flags & MVALUE_DEFINED) == 0)
+			Throw_serious_error(value_not_defined());
 	if ((result.flags & MVALUE_EXISTS) == 0)
 		return 0;
 

@@ -452,6 +452,7 @@ static void check_segment(intval_t new_pc)
 	// search ring for matching entry
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
+			// TODO - include overlap size in error message!
 			if (config.segment_warning_is_error)
 				Throw_error("Segment starts inside another one, overwriting it.");
 			else
@@ -525,6 +526,8 @@ void Output_end_segment(void)
 	link_segment(out->segment.start, amount);
 	// announce
 	if (config.process_verbosity > 1)
+		// TODO - change output to start, limit, size, name:
+		// TODO - output hex numbers as %04x? What about limit 0x10000?
 		printf("Segment size is %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
 			amount, amount, out->segment.start, out->write_idx);
 }

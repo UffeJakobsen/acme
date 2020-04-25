@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // ALU stuff (the expression parser)
@@ -12,10 +12,11 @@
 
 // constants
 
-// meaning of bits in "flags" of struct result:	TODO - this is only for future "number" result type!
-#define MVALUE_IS_FP	(1u << 8)	// floating point value
+// meaning of bits in "flags" of struct result:
+// TODO - this is only for future "number" result type, so move EXISTS and INDIRECT somewhere else (expression flags? make "nothing" its own result type!)
+#define MVALUE_EXISTS	(1u << 8)	// 0: expression was empty. 1: there was *something* to parse.
 #define MVALUE_INDIRECT	(1u << 7)	// needless parentheses indicate use of indirect addressing modes
-#define MVALUE_EXISTS	(1u << 6)	// 0: expression was empty. 1: there was *something* to parse.	TODO - get rid of this, make "nothing" its own result type instead!
+#define MVALUE_IS_FP	(1u << 6)	// floating point value
 #define MVALUE_UNSURE	(1u << 5)	// value once was related to undefined
 // expression. Needed for producing the same addresses in all passes; because in
 // the first pass there will almost for sure be labels that are undefined, you
@@ -26,7 +27,7 @@
 #define MVALUE_FORCE16	(1u << 1)	// value usage forces 16-bit usage
 #define MVALUE_FORCE08	(1u << 0)	// value usage forces 8-bit usage
 #define MVALUE_FORCEBITS	(MVALUE_FORCE08|MVALUE_FORCE16|MVALUE_FORCE24)
-#define MVALUE_GIVEN	(MVALUE_DEFINED | MVALUE_EXISTS)	// bit mask for fixed values (defined and existing)
+//#define MVALUE_GIVEN	(MVALUE_DEFINED | MVALUE_EXISTS)	// bit mask for fixed values (defined and existing)	TODO: remove this
 
 
 // create dynamic buffer, operator/function trees and operator/operand stacks
