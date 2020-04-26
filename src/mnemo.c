@@ -552,7 +552,7 @@ static int get_argument(struct result *result)
 		*result = expression.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing
-		if (expression.number.flags & MVALUE_INDIRECT)
+		if (expression.is_parenthesized)
 			address_mode_bits |= AMB_INDIRECT;
 		// check for internal index (before closing parenthesis)
 		if (expression.open_parentheses) {

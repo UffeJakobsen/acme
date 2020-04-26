@@ -25,6 +25,7 @@ struct expression {
 	struct result		number;
 	//int			flags;	// TODO: move EXISTS and INDIRECT here
 	int			open_parentheses;	// number of parentheses still open
+	int			is_parenthesized;	// actually bool: whole expression was in parentheses (indicating indirect addressing)
 };
 
 
@@ -32,7 +33,7 @@ struct expression {
 
 // TODO - move EXISTS and INDIRECT to a new "expression flags" struct! make "nothing" its own result type?
 #define MVALUE_EXISTS	(1u << 8)	// 0: expression was empty. 1: there was *something* to parse.
-#define MVALUE_INDIRECT	(1u << 7)	// needless parentheses indicate use of indirect addressing modes
+
 // meaning of bits in "flags" of struct result:
 #define MVALUE_IS_FP	(1u << 6)	// floating point value
 #define MVALUE_UNSURE	(1u << 5)	// value once was related to undefined

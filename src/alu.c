@@ -158,9 +158,6 @@ static int		operator_sp;		// operator stack pointer
 static struct result	*operand_stack		= NULL;	// flags and value
 static int		operand_stk_size	= HALF_INITIAL_STACK_SIZE;
 static int		operand_sp;		// value stack pointer
-static int		indirect_flag;	// Flag for indirect addressing		TODO - get rid of extra var
-					// (indicated by useless parentheses)
-					// Contains either 0 or MVALUE_INDIRECT
 enum alu_state {
 	STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR,
 	STATE_EXPECT_DYADIC_OPERATOR,
@@ -1029,7 +1026,7 @@ static void ensure_int_from_fp(void)
 
 // Try to reduce stacks by performing high-priority operations
 // (if the previous operator has a higher priority than the current one, do it)
-static void try_to_reduce_stacks(int *open_parentheses)
+static void try_to_reduce_stacks(struct expression *expression)
 {
 	if (operator_sp < 2) {
 		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
@@ -1056,29 +1053,29 @@ static void try_to_reduce_stacks(int *open_parentheses)
 		// the only operator with a lower priority than this
 		// "start-of-expression" operator is "end-of-expression",
 		// therefore we know we are done.
-		// don't touch indirect_flag; needed for INDIRECT flag
+		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
 		--operator_sp;	// decrement operator stack pointer
 		alu_state = STATE_END;
-		break;
+		break;	// FIXME - why not return?
 	case OPHANDLE_OPENING:
-		indirect_flag = MVALUE_INDIRECT;	// parentheses found
+		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this.
 		switch (operator_stack[operator_sp - 1]->handle) {
 		case OPHANDLE_CLOSING:	// matching parentheses
 			operator_sp -= 2;	// remove both of them
 			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
 			break;
 		case OPHANDLE_EXPREND:	// unmatched parenthesis
-			++(*open_parentheses);	// count
+			++(expression->open_parentheses);	// count
 			goto RNTLObutDontTouchIndirectFlag;
 
 		default:
 			Bug_found("StrangeParenthesis", operator_stack[operator_sp - 1]->handle);
 		}
-		break;
+		break;	// FIXME - why not return?
 	case OPHANDLE_CLOSING:
 		Throw_error("Too many ')'.");
 		alu_state = STATE_ERROR;
-		return;
+		return;	// FIXME - why not break?
 
 // functions
 	case OPHANDLE_ADDR:
@@ -1413,9 +1410,9 @@ handle_flags_and_dec_stacks:
 	--operand_sp;
 // entry point for monadic operators
 remove_next_to_last_operator:
-	// toplevel operation was something other than parentheses
-	indirect_flag = 0;
-// entry point for '(' operator (has set indirect_flag, so don't clear now)
+	// operation was something other than parentheses
+	expression->is_parenthesized = FALSE;
+// entry point for when '(' operator meets "end of expression": keep is_parenthesized set!
 RNTLObutDontTouchIndirectFlag:
 	// Remove operator and shift down next one
 	operator_stack[operator_sp - 2] = operator_stack[operator_sp - 1];
@@ -1429,13 +1426,15 @@ static void parse_expression(struct expression *expression)
 {
 	struct result	*result	= &expression->number;
 
+	// init
 	expression->open_parentheses = 0;
+	expression->is_parenthesized = FALSE;	// toplevel operator will set this: '(' to TRUE, all others to FALSE
+	//expression->number will be overwritten later, so no need to init
 
 	operator_sp = 0;	// operator stack pointer
 	operand_sp = 0;	// value stack pointer
 	// begin by reading value (or monadic operator)
 	alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
-	indirect_flag = 0;	// Contains either 0 or MVALUE_INDIRECT		// FIXME
 	PUSH_OPERATOR(&ops_exprstart);
 	do {
 		// check stack sizes. enlarge if needed
@@ -1452,7 +1451,7 @@ static void parse_expression(struct expression *expression)
 			break;	// no fallthrough; state might
 			// have been changed to END or ERROR
 		case STATE_TRY_TO_REDUCE_STACKS:
-			try_to_reduce_stacks(&expression->open_parentheses);
+			try_to_reduce_stacks(expression);
 			break;
 		case STATE_MAX_GO_ON:	// suppress
 		case STATE_ERROR:	// compiler
@@ -1469,7 +1468,6 @@ static void parse_expression(struct expression *expression)
 			Bug_found("OperatorStackNotEmpty", operator_sp);
 		// copy result
 		*result = operand_stack[0];
-		expression->number.flags |= indirect_flag;	// OR indirect flag		FIXME - get rid of "indirect"
 		// only allow *one* force bit
 		if (result->flags & MVALUE_FORCE24)
 			result->flags &= ~(MVALUE_FORCE16 | MVALUE_FORCE08);
