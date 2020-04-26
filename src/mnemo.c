@@ -523,8 +523,8 @@ static int get_index(int next)
 // structure (using the valueparser). The addressing mode is returned.
 static int get_argument(struct result *result)
 {
-	int	open_paren,
-		address_mode_bits	= 0;
+	struct expression	expression;
+	int			address_mode_bits	= 0;
 
 	SKIPSPACE();
 	switch (GotByte) {
@@ -548,13 +548,14 @@ static int get_argument(struct result *result)
 		break;
 	default:
 		// liberal, to allow for "(...,"
-		open_paren = ALU_liberal_int(result);
+		ALU_liberal_int(&expression);
+		*result = expression.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing
-		if (result->flags & MVALUE_INDIRECT)
+		if (expression.number.flags & MVALUE_INDIRECT)
 			address_mode_bits |= AMB_INDIRECT;
 		// check for internal index (before closing parenthesis)
-		if (open_paren) {
+		if (expression.open_parentheses) {
 			// in case there are still open parentheses,
 			// read internal index
 			address_mode_bits |= AMB_PREINDEX(get_index(FALSE));

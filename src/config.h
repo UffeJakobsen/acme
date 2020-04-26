@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Configuration
@@ -12,9 +12,8 @@ typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
 // result structure type definition with support for floating point
-// future result types: EMPTY, UNDEFINED, INT, FLOAT (, STRING)
-struct result {	// either int or float
-	int	flags;	// expression flags
+struct result {	// either int or float (TODO - rename to "number"?)
+	int	flags;	// result flags (see alu.h, one if these tells ints and floats apart)
 	union {
 		intval_t	intval;	// integer value
 		double		fpval;	// floating point value

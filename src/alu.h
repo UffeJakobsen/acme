@@ -10,6 +10,24 @@
 #include "config.h"
 
 
+// types
+/*
+enum expression_type {
+	EXTY_EMPTY,	// next char after space was comma or end-of-statement
+	EXTY_NUMBER,	// int or float (what is returned by the current functions)
+	EXTY_STRING,	// TODO
+	EXTY_REGISTER,	// reserved cpu constant (register names), TODO
+	EXTY_LIST	// TODO
+};
+*/
+struct expression {
+	//enum expression_type	type;
+	struct result		number;
+	//int			flags;	// TODO: move EXISTS and INDIRECT here
+	int			open_parentheses;	// number of parentheses still open
+};
+
+
 // constants
 
 // TODO - move EXISTS and INDIRECT to a new "expression flags" struct! make "nothing" its own result type?
@@ -38,15 +56,7 @@ extern void (*ALU_optional_notdef_handler)(const char *);
 
 
 // FIXME - replace all the functions below with a single one using a "flags" arg!
-/* its return value would then be:
-enum expression_result {
-	EXRE_ERROR,	// error (has been reported, so skip remainder of statement)
-	EXRE_NOTHING,	// next char after space was comma or end-of-statement
-	EXRE_NUMBER,	// int or float (what is returned by the current functions)
-	EXRE_STRING,	// TODO
-	EXRE_RESERVED,	// reserved cpu constant (register names), TODO
-	EXRE_LIST	// TODO
-};
+/* its return value would then be "error"/"ok".
 // input flags:
 #define ACCEPT_EMPTY		(1u << 0)	// if not given, throws error
 #define ACCEPT_UNDEFINED	(1u << 1)	// if not given, undefined throws serious error
@@ -67,8 +77,7 @@ extern void ALU_int_result(struct result *intresult);
 // if result was undefined, serious error is thrown
 extern void ALU_defined_int(struct result *intresult);
 // stores int value and flags, allowing for one '(' too many (x-indirect addr).
-// returns number of additional '(' (1 or 0).
-extern int ALU_liberal_int(struct result *intresult);
+extern void ALU_liberal_int(struct expression *expression);
 // stores value and flags (result may be either int or float)
 extern void ALU_any_result(struct result *result);
 

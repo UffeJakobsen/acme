@@ -158,7 +158,7 @@ static int		operator_sp;		// operator stack pointer
 static struct result	*operand_stack		= NULL;	// flags and value
 static int		operand_stk_size	= HALF_INITIAL_STACK_SIZE;
 static int		operand_sp;		// value stack pointer
-static int		indirect_flag;	// Flag for indirect addressing
+static int		indirect_flag;	// Flag for indirect addressing		TODO - get rid of extra var
 					// (indicated by useless parentheses)
 					// Contains either 0 or MVALUE_INDIRECT
 enum alu_state {
@@ -1423,17 +1423,19 @@ RNTLObutDontTouchIndirectFlag:
 }
 
 
-// The core of it. Returns number of parentheses left open.
+// The core of it.
 // FIXME - make state machine using function pointers? or too slow?
-static int parse_expression(struct result *result)
+static void parse_expression(struct expression *expression)
 {
-	int	open_parentheses	= 0;
+	struct result	*result	= &expression->number;
+
+	expression->open_parentheses = 0;
 
 	operator_sp = 0;	// operator stack pointer
 	operand_sp = 0;	// value stack pointer
 	// begin by reading value (or monadic operator)
 	alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
-	indirect_flag = 0;	// Contains either 0 or MVALUE_INDIRECT
+	indirect_flag = 0;	// Contains either 0 or MVALUE_INDIRECT		// FIXME
 	PUSH_OPERATOR(&ops_exprstart);
 	do {
 		// check stack sizes. enlarge if needed
@@ -1450,7 +1452,7 @@ static int parse_expression(struct result *result)
 			break;	// no fallthrough; state might
 			// have been changed to END or ERROR
 		case STATE_TRY_TO_REDUCE_STACKS:
-			try_to_reduce_stacks(&open_parentheses);
+			try_to_reduce_stacks(&expression->open_parentheses);
 			break;
 		case STATE_MAX_GO_ON:	// suppress
 		case STATE_ERROR:	// compiler
@@ -1467,7 +1469,7 @@ static int parse_expression(struct result *result)
 			Bug_found("OperatorStackNotEmpty", operator_sp);
 		// copy result
 		*result = operand_stack[0];
-		result->flags |= indirect_flag;	// OR indirect flag
+		expression->number.flags |= indirect_flag;	// OR indirect flag		FIXME - get rid of "indirect"
 		// only allow *one* force bit
 		if (result->flags & MVALUE_FORCE24)
 			result->flags &= ~(MVALUE_FORCE16 | MVALUE_FORCE08);
@@ -1475,7 +1477,7 @@ static int parse_expression(struct result *result)
 			result->flags &= ~MVALUE_FORCE08;
 		// if there was nothing to parse, mark as undefined
 		// (so ALU_defined_int() can react)
-		if ((result->flags & MVALUE_EXISTS) == 0)
+		if ((expression->number.flags & MVALUE_EXISTS) == 0)
 			result->flags &= ~MVALUE_DEFINED;
 		// do some checks depending on int/float
 		if (result->flags & MVALUE_IS_FP) {
@@ -1509,8 +1511,6 @@ static int parse_expression(struct result *result)
 		// callers must decide for themselves what to do when expression parser returns error
 		// (currently LDA'' results in both "no string given" AND "illegal combination of command and addressing mode"!)
 	}
-	// return number of open (unmatched) parentheses
-	return open_parentheses;	// FIXME - move this into "expression struct flags", together with indirect flag and EXISTS flag
 }
 
 
@@ -1525,22 +1525,23 @@ static int parse_expression(struct result *result)
 // FLOAT: convert to int
 int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 {
-	struct result	result;
+	struct expression	expression;
 
-	if (parse_expression(&result))
+	parse_expression(&expression);
+	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	// do not combine the next two checks, they were separated because EXISTS should move from result flags to expression flags...
-	if ((result.flags & MVALUE_EXISTS)
-	&& ((result.flags & MVALUE_DEFINED) == 0))
+	if ((expression.number.flags & MVALUE_EXISTS)
+	&& ((expression.number.flags & MVALUE_DEFINED) == 0))
 		Throw_serious_error(value_not_defined());
-	if ((result.flags & MVALUE_EXISTS) == 0)
+	if ((expression.number.flags & MVALUE_EXISTS) == 0)
 		return 0;
 
 	// something was given, so store
-	if (result.flags & MVALUE_IS_FP)
-		*target = result.val.fpval;
+	if (expression.number.flags & MVALUE_IS_FP)
+		*target = expression.number.val.fpval;
 	else
-		*target = result.val.intval;
+		*target = expression.number.val.intval;
 	return 1;
 }
 
@@ -1555,14 +1556,18 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 // FLOAT: convert to int
 void ALU_int_result(struct result *intresult)	// ACCEPT_UNDEFINED
 {
-	if (parse_expression(intresult))
+	struct expression	expression;
+
+	parse_expression(&expression);
+	*intresult = expression.number;
+	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	// make sure result is not float
 	if (intresult->flags & MVALUE_IS_FP) {
 		intresult->val.intval = intresult->val.fpval;
 		intresult->flags &= ~MVALUE_IS_FP;
 	}
-	if ((intresult->flags & MVALUE_EXISTS) == 0)
+	if ((expression.number.flags & MVALUE_EXISTS) == 0)
 		Throw_error(exception_no_value);
 	else if ((intresult->flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();
@@ -1580,18 +1585,19 @@ void ALU_int_result(struct result *intresult)	// ACCEPT_UNDEFINED
 intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 {
 	// FIXME - replace this fn with a call to ALU_int_result() above!
-	struct result	result;
+	struct expression	expression;
 
-	if (parse_expression(&result))
+	parse_expression(&expression);
+	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((result.flags & MVALUE_EXISTS) == 0)
+	if ((expression.number.flags & MVALUE_EXISTS) == 0)
 		Throw_error(exception_no_value);
-	else if ((result.flags & MVALUE_DEFINED) == 0)
+	else if ((expression.number.flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();
-	if (result.flags & MVALUE_IS_FP)
-		return result.val.fpval;
+	if (expression.number.flags & MVALUE_IS_FP)
+		return expression.number.val.fpval;
 	else
-		return result.val.intval;
+		return expression.number.val.intval;
 }
 
 
@@ -1601,9 +1607,13 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 // EMPTY: treat as UNDEFINED		<= this is a problem - maybe use a wrapper fn for this use case?
 // UNDEFINED: complain _seriously_
 // FLOAT: convert to int
-extern void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
+void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
 {
-	if (parse_expression(intresult))
+	struct expression	expression;
+
+	parse_expression(&expression);
+	*intresult = expression.number;
+	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if ((intresult->flags & MVALUE_DEFINED) == 0)
 		Throw_serious_error(value_not_defined());
@@ -1616,34 +1626,32 @@ extern void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
 
 // Store int value and flags.
 // This function allows for one '(' too many. Needed when parsing indirect
-// addressing modes where internal indices have to be possible. Returns number
-// of parentheses still open (either 0 or 1).
+// addressing modes where internal indices have to be possible.
 // If the result's "exists" flag is clear (=empty expression), it throws an
 // error.
 // OPEN_PARENTHESIS: allow
 // UNDEFINED: allow
 // EMPTY: complain
 // FLOAT: convert to int
-int ALU_liberal_int(struct result *intresult)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
+void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
-	int	parentheses_still_open;
+	struct result	*intresult	= &expression->number;
 
-	parentheses_still_open = parse_expression(intresult);
+	parse_expression(expression);
 	// make sure result is not float
 	if (intresult->flags & MVALUE_IS_FP) {
 		intresult->val.intval = intresult->val.fpval;
 		intresult->flags &= ~MVALUE_IS_FP;
 	}
-	if (parentheses_still_open > 1) {
-		parentheses_still_open = 0;
+	if (expression->open_parentheses > 1) {
+		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);
 	}
-	if ((intresult->flags & MVALUE_EXISTS) == 0)
+	if ((expression->number.flags & MVALUE_EXISTS) == 0)
 		Throw_error(exception_no_value);
-	if ((intresult->flags & MVALUE_EXISTS)
+	if ((expression->number.flags & MVALUE_EXISTS)
 	&& ((intresult->flags & MVALUE_DEFINED) == 0))
 		result_is_undefined();
-	return parentheses_still_open;
 }
 
 
@@ -1657,9 +1665,13 @@ int ALU_liberal_int(struct result *intresult)	// ACCEPT_UNDEFINED | ACCEPT_OPENP
 // FLOAT: keep
 void ALU_any_result(struct result *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 {
-	if (parse_expression(result))
+	struct expression	expression;
+
+	parse_expression(&expression);
+	*result = expression.number;
+	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((result->flags & MVALUE_EXISTS) == 0)
+	if ((expression.number.flags & MVALUE_EXISTS) == 0)
 		Throw_error(exception_no_value);
 	else if ((result->flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();
