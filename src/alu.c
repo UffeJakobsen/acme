@@ -354,8 +354,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	if (pass_count == 0)
 		symbol->usage++;
 	// push operand, regardless of whether int or float
-	operand_stack[operand_sp] = symbol->result;
-	operand_stack[operand_sp++].flags |= MVALUE_EXISTS;
+	operand_stack[operand_sp++] = symbol->result;
 }
 
 
@@ -388,7 +387,7 @@ static void parse_quoted_character(char closing_quote)
 			alu_state = STATE_ERROR;
 		}
 	}
-	PUSH_INTOPERAND(value, MVALUE_DEFINED | MVALUE_EXISTS | MVALUE_ISBYTE, 0);
+	PUSH_INTOPERAND(value, MVALUE_DEFINED | MVALUE_ISBYTE, 0);
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 }
 
@@ -400,7 +399,7 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
 	int		go_on	= TRUE,	// continue loop flag
-			flags	= MVALUE_DEFINED | MVALUE_EXISTS,
+			flags	= MVALUE_DEFINED,
 			digits	= -1;	// digit counter
 
 	do {
@@ -444,7 +443,7 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 	char		byte;
 	int		go_on,		// continue loop flag
 			digits	= -1,	// digit counter
-			flags	= MVALUE_DEFINED | MVALUE_EXISTS;
+			flags	= MVALUE_DEFINED;
 	intval_t	value	= 0;
 
 	do {
@@ -494,7 +493,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 		GetByte();
 	}
 	// FIXME - add possibility to read 'e' and exponent!
-	PUSH_FPOPERAND(fpval / denominator, MVALUE_DEFINED | MVALUE_EXISTS);
+	PUSH_FPOPERAND(fpval / denominator, MVALUE_DEFINED);
 }
 
 
@@ -539,7 +538,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 		GetByte();
 		parse_frac_part(intval);
 	} else {
-		PUSH_INTOPERAND(intval, MVALUE_DEFINED | MVALUE_EXISTS, 0);
+		PUSH_INTOPERAND(intval, MVALUE_DEFINED, 0);
 	}
 	// Now GotByte = non-decimal char
 }
@@ -550,7 +549,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 static void parse_octal_value(void)	// Now GotByte = "&"
 {
 	intval_t	value	= 0;
-	int		flags	= MVALUE_DEFINED | MVALUE_EXISTS,
+	int		flags	= MVALUE_DEFINED,
 			digits	= 0;	// digit counter
 
 	GetByte();
@@ -585,7 +584,7 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 	vcpu_read_pc(&pc);
 	// if needed, remember name for "undefined" error output
 	check_for_def(pc.flags, 0, "*", 1);
-	PUSH_INTOPERAND(pc.val.intval, pc.flags | MVALUE_EXISTS, pc.addr_refs);
+	PUSH_INTOPERAND(pc.val.intval, pc.flags, pc.addr_refs);
 }
 
 
@@ -607,11 +606,13 @@ static void parse_function_call(void)
 
 
 // Expect operand or monadic operator (hopefully inlined)
-static void expect_operand_or_monadic_operator(void)
+// returns TRUE if it ate any non-space (-> so expression isn't empty)
+// returns FALSE if first non-space is delimiter (-> end of expression)
+static int expect_operand_or_monadic_operator(void)
 {
 	struct operator	*operator;
 	int		ugly_length_kluge;
-	int		perform_negation;
+	int		perform_negation;	// actually bool
 
 	SKIPSPACE();
 	switch (GotByte) {
@@ -771,15 +772,14 @@ static void expect_operand_or_monadic_operator(void)
 			// we found end-of-expression instead of an operand,
 			// that's either an empty expression or an erroneous one!
 			PUSH_INTOPERAND(0, 0, 0);	// push dummy operand so stack is ok
-			// push pseudo value, EXISTS flag is clear
 			if (operator_stack[operator_sp - 1] == &ops_exprstart) {
 				PUSH_OPERATOR(&ops_exprend);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
-				// TODO - return "there was nothing" to get rid of "EXISTS" flag?
 			} else {
 				Throw_error(exception_syntax);
 				alu_state = STATE_ERROR;
 			}
+			return FALSE;	// found delimiter
 		}
 		break;
 
@@ -797,7 +797,7 @@ now_expect_dyadic:
 			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
 		break;
 	}
-	// TODO - return "there was something" to get rid of "EXISTS" flag?
+	return TRUE;	// parsed something
 }
 
 
@@ -1402,8 +1402,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 // entry point for dyadic operators
 handle_flags_and_dec_stacks:
 	// Handle flags and decrement value stack pointer
-	// "OR" EXISTS, UNSURE and FORCEBIT flags
-	LEFT_FLAGS |= RIGHT_FLAGS & (MVALUE_EXISTS | MVALUE_UNSURE | MVALUE_FORCEBITS);
+	// "OR" UNSURE and FORCEBIT flags
+	LEFT_FLAGS |= RIGHT_FLAGS & (MVALUE_UNSURE | MVALUE_FORCEBITS);
 	// "AND" DEFINED flag
 	LEFT_FLAGS &= (RIGHT_FLAGS | ~MVALUE_DEFINED);
 	LEFT_FLAGS &= ~MVALUE_ISBYTE;	// clear ISBYTE flag
@@ -1427,6 +1427,7 @@ static void parse_expression(struct expression *expression)
 	struct result	*result	= &expression->number;
 
 	// init
+	expression->is_empty = TRUE;	// becomes FALSE when first valid char gets parsed
 	expression->open_parentheses = 0;
 	expression->is_parenthesized = FALSE;	// toplevel operator will set this: '(' to TRUE, all others to FALSE
 	//expression->number will be overwritten later, so no need to init
@@ -1444,7 +1445,8 @@ static void parse_expression(struct expression *expression)
 			enlarge_operand_stack();
 		switch (alu_state) {
 		case STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR:
-			expect_operand_or_monadic_operator();
+			if (expect_operand_or_monadic_operator())
+				expression->is_empty = FALSE;
 			break;
 		case STATE_EXPECT_DYADIC_OPERATOR:
 			expect_dyadic_operator();
@@ -1475,7 +1477,7 @@ static void parse_expression(struct expression *expression)
 			result->flags &= ~MVALUE_FORCE08;
 		// if there was nothing to parse, mark as undefined
 		// (so ALU_defined_int() can react)
-		if ((expression->number.flags & MVALUE_EXISTS) == 0)
+		if (expression->is_empty)
 			result->flags &= ~MVALUE_DEFINED;
 		// do some checks depending on int/float
 		if (result->flags & MVALUE_IS_FP) {
@@ -1528,11 +1530,10 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 	parse_expression(&expression);
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	// do not combine the next two checks, they were separated because EXISTS should move from result flags to expression flags...
-	if ((expression.number.flags & MVALUE_EXISTS)
+	if ((expression.is_empty == FALSE)
 	&& ((expression.number.flags & MVALUE_DEFINED) == 0))
 		Throw_serious_error(value_not_defined());
-	if ((expression.number.flags & MVALUE_EXISTS) == 0)
+	if (expression.is_empty)
 		return 0;
 
 	// something was given, so store
@@ -1565,7 +1566,7 @@ void ALU_int_result(struct result *intresult)	// ACCEPT_UNDEFINED
 		intresult->val.intval = intresult->val.fpval;
 		intresult->flags &= ~MVALUE_IS_FP;
 	}
-	if ((expression.number.flags & MVALUE_EXISTS) == 0)
+	if (expression.is_empty)
 		Throw_error(exception_no_value);
 	else if ((intresult->flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();
@@ -1588,7 +1589,7 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 	parse_expression(&expression);
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((expression.number.flags & MVALUE_EXISTS) == 0)
+	if (expression.is_empty)
 		Throw_error(exception_no_value);
 	else if ((expression.number.flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();
@@ -1645,9 +1646,9 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);
 	}
-	if ((expression->number.flags & MVALUE_EXISTS) == 0)
+	if (expression->is_empty)
 		Throw_error(exception_no_value);
-	if ((expression->number.flags & MVALUE_EXISTS)
+	if ((expression->is_empty == FALSE)
 	&& ((intresult->flags & MVALUE_DEFINED) == 0))
 		result_is_undefined();
 }
@@ -1669,7 +1670,7 @@ void ALU_any_result(struct result *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 	*result = expression.number;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((expression.number.flags & MVALUE_EXISTS) == 0)
+	if (expression.is_empty)
 		Throw_error(exception_no_value);
 	else if ((result->flags & MVALUE_DEFINED) == 0)
 		result_is_undefined();

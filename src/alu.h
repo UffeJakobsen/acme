@@ -23,16 +23,13 @@ enum expression_type {
 struct expression {
 	//enum expression_type	type;
 	struct result		number;
-	//int			flags;	// TODO: move EXISTS and INDIRECT here
+	int			is_empty;		// actually bool: nothing parsed (first character was a delimiter)	FIXME - make into its own result type!
 	int			open_parentheses;	// number of parentheses still open
 	int			is_parenthesized;	// actually bool: whole expression was in parentheses (indicating indirect addressing)
 };
 
 
 // constants
-
-// TODO - move EXISTS and INDIRECT to a new "expression flags" struct! make "nothing" its own result type?
-#define MVALUE_EXISTS	(1u << 8)	// 0: expression was empty. 1: there was *something* to parse.
 
 // meaning of bits in "flags" of struct result:
 #define MVALUE_IS_FP	(1u << 6)	// floating point value
