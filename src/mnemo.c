@@ -528,28 +528,28 @@ static int get_argument(struct result *result)
 
 	SKIPSPACE();
 	switch (GotByte) {
+	case CHAR_EOS:
+		address_mode_bits = AMB_IMPLIED;
+		break;
+	case '#':
+		GetByte();	// proceed with next char
+		address_mode_bits = AMB_IMMEDIATE;
+		ALU_int_result(result);
+		typesystem_want_imm(result);	// FIXME - this is wrong for 65ce02's PHW#
+		break;
 	case '[':
 		GetByte();	// proceed with next char
 		ALU_int_result(result);
 		typesystem_want_addr(result);
 		if (GotByte == ']')
-			address_mode_bits |= AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
+			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
 		else
 			Throw_error(exception_syntax);
-		break;
-	case '#':
-		GetByte();	// proceed with next char
-		address_mode_bits |= AMB_IMMEDIATE;
-		ALU_int_result(result);
-		typesystem_want_imm(result);	// FIXME - this is wrong for 65ce02's PHW#
 		break;
 	default:
 		// liberal, to allow for "(...,"
 		open_paren = ALU_liberal_int(result);
 		typesystem_want_addr(result);
-		// check for implied addressing
-		if ((result->flags & MVALUE_EXISTS) == 0)
-			address_mode_bits |= AMB_IMPLIED;
 		// check for indirect addressing
 		if (result->flags & MVALUE_INDIRECT)
 			address_mode_bits |= AMB_INDIRECT;
@@ -568,7 +568,7 @@ static int get_argument(struct result *result)
 	}
 	// ensure end of line
 	Input_ensure_EOS();
-	//printf("AM: %x\n", addressing_mode);
+	//printf("AM: %x\n", address_mode_bits);
 	return address_mode_bits;
 }
 

@@ -12,7 +12,7 @@
 //		give a warning).
 // 31 May 2014	Added "0b" binary number prefix as alternative to "%".
 // 28 Apr 2015	Added symbol name output to "value not defined" error.
-//  1 Feb 2019	Prepared to make "honor leading zeroes" optionally later on.
+//  1 Feb 2019	Prepared to make "honor leading zeroes" optionally (now done)
 #include "alu.h"
 #include <stdlib.h>
 #include <math.h>	// only for fp support
@@ -778,6 +778,7 @@ static void expect_operand_or_monadic_operator(void)
 			if (operator_stack[operator_sp - 1] == &ops_exprstart) {
 				PUSH_OPERATOR(&ops_exprend);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
+				// TODO - return "there was nothing" to get rid of "EXISTS" flag?
 			} else {
 				Throw_error(exception_syntax);
 				alu_state = STATE_ERROR;
@@ -799,6 +800,7 @@ now_expect_dyadic:
 			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
 		break;
 	}
+	// TODO - return "there was something" to get rid of "EXISTS" flag?
 }
 
 
@@ -1508,7 +1510,7 @@ static int parse_expression(struct result *result)
 		// (currently LDA'' results in both "no string given" AND "illegal combination of command and addressing mode"!)
 	}
 	// return number of open (unmatched) parentheses
-	return open_parentheses;
+	return open_parentheses;	// FIXME - move this into "expression struct flags", together with indirect flag and EXISTS flag
 }
 
 
@@ -1528,9 +1530,9 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 	if (parse_expression(&result))
 		Throw_error(exception_paren_open);
 	// do not combine the next two checks, they were separated because EXISTS should move from result flags to expression flags...
-	if (result.flags & MVALUE_EXISTS)
-		if ((result.flags & MVALUE_DEFINED) == 0)
-			Throw_serious_error(value_not_defined());
+	if ((result.flags & MVALUE_EXISTS)
+	&& ((result.flags & MVALUE_DEFINED) == 0))
+		Throw_serious_error(value_not_defined());
 	if ((result.flags & MVALUE_EXISTS) == 0)
 		return 0;
 
@@ -1616,11 +1618,13 @@ extern void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
 // This function allows for one '(' too many. Needed when parsing indirect
 // addressing modes where internal indices have to be possible. Returns number
 // of parentheses still open (either 0 or 1).
+// If the result's "exists" flag is clear (=empty expression), it throws an
+// error.
 // OPEN_PARENTHESIS: allow
 // UNDEFINED: allow
-// EMPTY: allow
+// EMPTY: complain
 // FLOAT: convert to int
-int ALU_liberal_int(struct result *intresult)	// ACCEPT_EMPTY | ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
+int ALU_liberal_int(struct result *intresult)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
 	int	parentheses_still_open;
 
@@ -1634,6 +1638,8 @@ int ALU_liberal_int(struct result *intresult)	// ACCEPT_EMPTY | ACCEPT_UNDEFINED
 		parentheses_still_open = 0;
 		Throw_error(exception_paren_open);
 	}
+	if ((intresult->flags & MVALUE_EXISTS) == 0)
+		Throw_error(exception_no_value);
 	if ((intresult->flags & MVALUE_EXISTS)
 	&& ((intresult->flags & MVALUE_DEFINED) == 0))
 		result_is_undefined();

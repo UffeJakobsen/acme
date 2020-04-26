@@ -12,10 +12,10 @@
 
 // constants
 
-// meaning of bits in "flags" of struct result:
-// TODO - this is only for future "number" result type, so move EXISTS and INDIRECT somewhere else (expression flags? make "nothing" its own result type!)
+// TODO - move EXISTS and INDIRECT to a new "expression flags" struct! make "nothing" its own result type?
 #define MVALUE_EXISTS	(1u << 8)	// 0: expression was empty. 1: there was *something* to parse.
 #define MVALUE_INDIRECT	(1u << 7)	// needless parentheses indicate use of indirect addressing modes
+// meaning of bits in "flags" of struct result:
 #define MVALUE_IS_FP	(1u << 6)	// floating point value
 #define MVALUE_UNSURE	(1u << 5)	// value once was related to undefined
 // expression. Needed for producing the same addresses in all passes; because in
@@ -26,8 +26,7 @@
 #define MVALUE_FORCE24	(1u << 2)	// value usage forces 24-bit usage
 #define MVALUE_FORCE16	(1u << 1)	// value usage forces 16-bit usage
 #define MVALUE_FORCE08	(1u << 0)	// value usage forces 8-bit usage
-#define MVALUE_FORCEBITS	(MVALUE_FORCE08|MVALUE_FORCE16|MVALUE_FORCE24)
-//#define MVALUE_GIVEN	(MVALUE_DEFINED | MVALUE_EXISTS)	// bit mask for fixed values (defined and existing)	TODO: remove this
+#define MVALUE_FORCEBITS	(MVALUE_FORCE08 | MVALUE_FORCE16 | MVALUE_FORCE24)
 
 
 // create dynamic buffer, operator/function trees and operator/operand stacks

@@ -222,7 +222,7 @@ void symbol_define(intval_t value)
 	struct result	result;
 	struct symbol	*symbol;
 
-	result.flags = MVALUE_DEFINED | MVALUE_EXISTS;	// TODO - remove EXISTS, it is never checked
+	result.flags = MVALUE_DEFINED;
 	result.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL, 0);
 	symbol_set_value(symbol, &result, TRUE);
