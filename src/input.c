@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Input stuff
@@ -135,7 +135,7 @@ static char get_processed_from_file(void)
 			// defined "from_file", trouble may arise...
 			Input_now->state = INPUTSTATE_NORMAL;
 			// EOF must be checked first because it cannot be used
-			// as an index into Byte_flags[]
+			// as an index into global_byte_flags[]
 			if (from_file == EOF) {
 				// remember to send an end-of-file
 				Input_now->state = INPUTSTATE_EOF;
@@ -144,7 +144,7 @@ static char get_processed_from_file(void)
 
 			// check whether character is special one
 			// if not, everything's cool and froody, so return it
-			if ((BYTEFLAGS(from_file) & BYTEIS_SYNTAX) == 0)
+			if (BYTE_IS_SYNTAX_CHAR(from_file) == 0)
 				return (char) from_file;
 
 			// check special characters ("0x00 TAB LF CR SPC / : ; }")
@@ -423,7 +423,7 @@ int Input_append_keyword_to_global_dynabuf(void)
 	int	length	= 0;
 
 	// add characters to buffer until an illegal one comes along
-	while (BYTEFLAGS(GotByte) & CONTS_KEYWORD) {
+	while (BYTE_CONTINUES_KEYWORD(GotByte)) {
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
 		++length;
 		GetByte();

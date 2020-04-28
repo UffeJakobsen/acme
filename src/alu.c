@@ -398,25 +398,23 @@ static void parse_quoted_character(char closing_quote)
 static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
-	int		go_on	= TRUE,	// continue loop flag
-			flags	= MVALUE_DEFINED,
+	int		flags	= MVALUE_DEFINED,
 			digits	= -1;	// digit counter
 
-	do {
+	for (;;) {
 		++digits;
 		switch (GetByte()) {
 		case '0':
 		case '.':
 			value <<= 1;
-			break;
+			continue;
 		case '1':
 		case '#':
 			value = (value << 1) | 1;
-			break;
-		default:
-			go_on = 0;
+			continue;
 		}
-	} while (go_on);
+		break;	// found illegal character
+	}
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
@@ -435,34 +433,33 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 
 
 // Parse hexadecimal value. It accepts "0" to "9", "a" to "f" and "A" to "F".
-// Capital letters will be converted to lowercase letters using the flagtable.
 // The current value is stored as soon as a character is read that is none of
 // those given above.
 static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 {
 	char		byte;
-	int		go_on,		// continue loop flag
-			digits	= -1,	// digit counter
+	int		digits	= -1,	// digit counter
 			flags	= MVALUE_DEFINED;
 	intval_t	value	= 0;
 
-	do {
+	for (;;) {
 		++digits;
-		go_on = 0;
 		byte = GetByte();
-		//	first, convert "A-F" to "a-f"
-		byte |= (BYTEFLAGS(byte) & BYTEIS_UPCASE);
-		// if digit, add digit value
+		// if digit or legal character, add value
 		if ((byte >= '0') && (byte <= '9')) {
 			value = (value << 4) + (byte - '0');
-			go_on = 1;	// keep going
+			continue;
 		}
-		// if legal ("a-f") character, add character value
 		if ((byte >= 'a') && (byte <= 'f')) {
 			value = (value << 4) + (byte - 'a') + 10;
-			go_on = 1;	// keep going
+			continue;
 		}
-	} while (go_on);
+		if ((byte >= 'A') && (byte <= 'F')) {
+			value = (value << 4) + (byte - 'A') + 10;
+			continue;
+		}
+		break;	// found illegal character
+	}
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -636,7 +633,7 @@ static int expect_operand_or_monadic_operator(void)
 			perform_negation = !perform_negation;
 		} while (GetByte() == '-');
 		SKIPSPACE();
-		if (BYTEFLAGS(GotByte) & FOLLOWS_ANON) {
+		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
 			get_symbol_value(section_now->local_scope, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
 			goto now_expect_dyadic;
@@ -738,7 +735,7 @@ static int expect_operand_or_monadic_operator(void)
 			goto now_expect_dyadic;
 		}
 
-		if (BYTEFLAGS(GotByte) & STARTS_KEYWORD) {
+		if (BYTE_STARTS_KEYWORD(GotByte)) {
 			register int	length;
 
 			// Read global label (or "NOT")
@@ -917,7 +914,7 @@ static void expect_dyadic_operator(void)
 // end of expression or text version of dyadic operator
 	default:
 		// check string versions of operators
-		if (BYTEFLAGS(GotByte) & STARTS_KEYWORD) {
+		if (BYTE_STARTS_KEYWORD(GotByte)) {
 			Input_read_and_lower_keyword();
 			// Now GotByte = illegal char
 			// search for tree item

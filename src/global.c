@@ -72,7 +72,7 @@ const char	exception_syntax[]		= "Syntax error.";
 // ....3...	preceding sequence of '-' characters is anonymous backward
 //		label. Currently only set for ')', ',' and CHAR_EOS.
 // .....210	currently unused
-const char	Byte_flags[256]	= {
+const char	global_byte_flags[256]	= {
 /*$00*/	0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,// control characters
 	0x00, 0x10, 0x10, 0x00, 0x00, 0x10, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -281,7 +281,7 @@ void Parse_until_eob_or_eof(void)
 				case '+':
 					GetByte();
 					if ((GotByte == LOCAL_PREFIX)	// TODO - allow "cheap macros"?!
-					|| (BYTEFLAGS(GotByte) & CONTS_KEYWORD))
+					|| (BYTE_CONTINUES_KEYWORD(GotByte)))
 						Macro_parse_call();
 					else
 						parse_forward_anon_def(&statement_flags);
@@ -296,7 +296,7 @@ void Parse_until_eob_or_eof(void)
 					parse_local_symbol_def(&statement_flags, section_now->cheap_scope);
 					break;
 				default:
-					if (BYTEFLAGS(GotByte) & STARTS_KEYWORD) {
+					if (BYTE_STARTS_KEYWORD(GotByte)) {
 						parse_mnemo_or_global_symbol_def(&statement_flags);
 					} else {
 						Throw_error(exception_syntax);

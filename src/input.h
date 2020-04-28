@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Input stuff
@@ -46,7 +46,7 @@ extern const char	FILE_READBINARY[];
 #define CHAR_EOB	'}'	// end of block
 #define CHAR_SOL	(10)	// start of line	(in high-level format)
 #define CHAR_EOF	(13)	// end of file		(in high-level format)
-// If the characters above are changed, don't forget to adjust Byte_flags[]!
+// if the characters above are changed, don't forget to adjust global_byte_flags[]!
 
 
 // Variables

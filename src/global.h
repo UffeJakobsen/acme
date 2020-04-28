@@ -50,14 +50,12 @@ extern const char	exception_number_out_of_range[];
 extern const char	exception_pc_undefined[];
 extern const char	exception_syntax[];
 // byte flags table
-extern const char	Byte_flags[];
-#define BYTEFLAGS(c)	(Byte_flags[(unsigned char) c])
-#define STARTS_KEYWORD	(1u << 7)	// Byte is allowed to start a keyword
-#define CONTS_KEYWORD	(1u << 6)	// Byte is allowed in a keyword
-#define BYTEIS_UPCASE	(1u << 5)	// Byte is upper case and can be
-			// converted to lower case by OR-ing this bit(!)
-#define BYTEIS_SYNTAX	(1u << 4)	// special character for input syntax
-#define FOLLOWS_ANON	(1u << 3)	// preceding '-' are backward label
+extern const char	global_byte_flags[];
+#define BYTE_STARTS_KEYWORD(b)		(global_byte_flags[(unsigned char) b] & (1u << 7))	// byte is allowed at start of keyword (a-z, A-Z, _, everything>127)
+#define BYTE_CONTINUES_KEYWORD(b)	(global_byte_flags[(unsigned char) b] & (1u << 6))	// byte is allowed in a keyword (as above, plus digits)
+//#define BYTE_TO_LOWER_CASE(b)	bit 5 means: "byte is upper case, and can be converted to lower case by ORing this bit" - but this is not used at the moment!
+#define BYTE_IS_SYNTAX_CHAR(b)		(global_byte_flags[(unsigned char) b] & (1u << 4))	// special character for input syntax
+#define BYTE_FOLLOWS_ANON(b)		(global_byte_flags[(unsigned char) b] & (1u << 3))	// preceding '-' are backward label
 // bits 2, 1 and 0 are currently unused
 
 // TODO - put in runtime struct:

@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Dynamic buffer stuff
@@ -123,6 +123,7 @@ void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 	// But actually it doesn't matter, because only pre-defined
 	// keywords are converted, and all of those are plain
 	// old-fashioned 7-bit ASCII anyway. So I guess it'll do.
+	// FIXME - use BYTE_ macro from global.h
 	*write = '\0';	// terminate
 }
 

@@ -737,7 +737,7 @@ static enum eos po_zone(void)
 	allocated = FALSE;
 	// Check whether a zone title is given. If yes and it can be read,
 	// get copy, remember pointer and remember to free it later on.
-	if (BYTEFLAGS(GotByte) & CONTS_KEYWORD) {
+	if (BYTE_CONTINUES_KEYWORD(GotByte)) {
 		// Because we know of one character for sure,
 		// there's no need to check the return value.
 		Input_read_keyword();
