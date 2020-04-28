@@ -573,7 +573,7 @@ void vcpu_set_pc(intval_t new_pc, int segment_flags)
 
 	new_offset = (new_pc - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc;
-	CPU_state.pc.flags |= MVALUE_DEFINED;	// FIXME - remove when allowing undefined!
+	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
 	CPU_state.pc.addr_refs = 1;	// yes, PC counts as address
 	// now tell output buffer to start a new segment
 	Output_start_segment(new_offset, segment_flags);
@@ -609,7 +609,7 @@ Maybe like this:
 
 
 // get program counter
-void vcpu_read_pc(struct result *target)
+void vcpu_read_pc(struct number *target)
 {
 	*target = CPU_state.pc;
 }

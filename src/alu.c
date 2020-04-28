@@ -155,7 +155,7 @@ static struct dynabuf	*undefsym_dyna_buf;	// dynamic buffer for name of undefine
 static struct operator	**operator_stack	= NULL;
 static int		operator_stk_size	= HALF_INITIAL_STACK_SIZE;
 static int		operator_sp;		// operator stack pointer
-static struct result	*operand_stack		= NULL;	// flags and value
+static struct number	*operand_stack		= NULL;	// flags and value
 static int		operand_stk_size	= HALF_INITIAL_STACK_SIZE;
 static int		operand_sp;		// value stack pointer
 enum alu_state {
@@ -214,11 +214,11 @@ do {							\
 	operand_stack[operand_sp].val.intval = (i);	\
 	operand_stack[operand_sp++].addr_refs = (r);	\
 } while (0)
-#define PUSH_FPOPERAND(fp, f)					\
-do {								\
-	operand_stack[operand_sp].flags = (f) | MVALUE_IS_FP;	\
-	operand_stack[operand_sp].val.fpval = (fp);		\
-	operand_stack[operand_sp++].addr_refs = 0;		\
+#define PUSH_FPOPERAND(fp, f)						\
+do {									\
+	operand_stack[operand_sp].flags = (f) | NUMBER_IS_FLOAT;	\
+	operand_stack[operand_sp].val.fpval = (fp);			\
+	operand_stack[operand_sp++].addr_refs = 0;			\
 } while (0)
 
 
@@ -320,7 +320,7 @@ static intval_t my_asr(intval_t left, intval_t right)
 // if undefined, remember name for error output
 static void check_for_def(int flags, char optional_prefix_char, char *name, size_t length)
 {
-	if ((flags & MVALUE_DEFINED) == 0) {
+	if ((flags & NUMBER_IS_DEFINED) == 0) {
 		DYNABUF_CLEAR(undefsym_dyna_buf);
 		if (optional_prefix_char) {
 			DynaBuf_append(undefsym_dyna_buf, optional_prefix_char);
@@ -347,7 +347,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	struct symbol	*symbol;
 
 	// if the symbol gets created now, mark it as unsure
-	symbol = symbol_find(scope, MVALUE_UNSURE);
+	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
 	// if needed, remember name for "undefined" error output
 	check_for_def(symbol->result.flags, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// in first pass, count usage
@@ -387,7 +387,7 @@ static void parse_quoted_character(char closing_quote)
 			alu_state = STATE_ERROR;
 		}
 	}
-	PUSH_INTOPERAND(value, MVALUE_DEFINED | MVALUE_ISBYTE, 0);
+	PUSH_INTOPERAND(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 }
 
@@ -398,7 +398,7 @@ static void parse_quoted_character(char closing_quote)
 static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
-	int		flags	= MVALUE_DEFINED,
+	int		flags	= NUMBER_IS_DEFINED,
 			digits	= -1;	// digit counter
 
 	for (;;) {
@@ -420,10 +420,10 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 		if (digits > 8) {
 			if (digits > 16) {
 				if (value < 65536)
-					flags |= MVALUE_FORCE24;
+					flags |= NUMBER_FORCES_24;
 			} else {
 				if (value < 256)
-					flags |= MVALUE_FORCE16;
+					flags |= NUMBER_FORCES_16;
 			}
 		}
 	}
@@ -439,7 +439,7 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 {
 	char		byte;
 	int		digits	= -1,	// digit counter
-			flags	= MVALUE_DEFINED;
+			flags	= NUMBER_IS_DEFINED;
 	intval_t	value	= 0;
 
 	for (;;) {
@@ -465,10 +465,10 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 		if (digits > 2) {
 			if (digits > 4) {
 				if (value < 65536)
-					flags |= MVALUE_FORCE24;
+					flags |= NUMBER_FORCES_24;
 			} else {
 				if (value < 256)
-					flags |= MVALUE_FORCE16;
+					flags |= NUMBER_FORCES_16;
 			}
 		}
 	}
@@ -490,7 +490,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 		GetByte();
 	}
 	// FIXME - add possibility to read 'e' and exponent!
-	PUSH_FPOPERAND(fpval / denominator, MVALUE_DEFINED);
+	PUSH_FPOPERAND(fpval / denominator, NUMBER_IS_DEFINED);
 }
 
 
@@ -535,7 +535,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 		GetByte();
 		parse_frac_part(intval);
 	} else {
-		PUSH_INTOPERAND(intval, MVALUE_DEFINED, 0);
+		PUSH_INTOPERAND(intval, NUMBER_IS_DEFINED, 0);
 	}
 	// Now GotByte = non-decimal char
 }
@@ -546,7 +546,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 static void parse_octal_value(void)	// Now GotByte = "&"
 {
 	intval_t	value	= 0;
-	int		flags	= MVALUE_DEFINED,
+	int		flags	= NUMBER_IS_DEFINED,
 			digits	= 0;	// digit counter
 
 	GetByte();
@@ -560,10 +560,10 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 		if (digits > 3) {
 			if (digits > 6) {
 				if (value < 65536)
-					flags |= MVALUE_FORCE24;
+					flags |= NUMBER_FORCES_24;
 			} else {
 				if (value < 256)
-					flags |= MVALUE_FORCE16;
+					flags |= NUMBER_FORCES_16;
 			}
 		}
 	}
@@ -575,7 +575,7 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 // Parse program counter ('*')
 static void parse_program_counter(void)	// Now GotByte = "*"
 {
-	struct result	pc;
+	struct number	pc;
 
 	GetByte();
 	vcpu_read_pc(&pc);
@@ -947,9 +947,9 @@ push_dyadic:
 // call C's sin/cos/tan function
 static void perform_fp(double (*fn)(double))
 {
-	if ((RIGHT_FLAGS & MVALUE_IS_FP) == 0) {
+	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
 		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= MVALUE_IS_FP;
+		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
 	}
 	RIGHT_FPVAL = fn(RIGHT_FPVAL);
 	RIGHT_ADDRREFS = 0;	// result now is a non-address
@@ -959,14 +959,14 @@ static void perform_fp(double (*fn)(double))
 // make sure arg is in [-1, 1] range before calling function
 static void perform_ranged_fp(double (*fn)(double))
 {
-	if ((RIGHT_FLAGS & MVALUE_IS_FP) == 0) {
+	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
 		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= MVALUE_IS_FP;
+		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
 	}
 	if ((RIGHT_FPVAL >= -1) && (RIGHT_FPVAL <= 1)) {
 		RIGHT_FPVAL = fn(RIGHT_FPVAL);
 	} else {
-		if (RIGHT_FLAGS & MVALUE_DEFINED)
+		if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 			Throw_error("Argument out of range.");
 		RIGHT_FPVAL = 0;
 	}
@@ -978,7 +978,7 @@ static void perform_ranged_fp(double (*fn)(double))
 static void right_fp_to_int(void)
 {
 	RIGHT_INTVAL = RIGHT_FPVAL;
-	RIGHT_FLAGS &= ~MVALUE_IS_FP;
+	RIGHT_FLAGS &= ~NUMBER_IS_FLOAT;
 }
 
 
@@ -986,13 +986,13 @@ static void right_fp_to_int(void)
 // in first pass, throw warning
 static void both_ensure_int(int warn)
 {
-	if (LEFT_FLAGS & MVALUE_IS_FP) {
+	if (LEFT_FLAGS & NUMBER_IS_FLOAT) {
 		LEFT_INTVAL = LEFT_FPVAL;
-		LEFT_FLAGS &= ~MVALUE_IS_FP;
+		LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
 	}
-	if (RIGHT_FLAGS & MVALUE_IS_FP) {
+	if (RIGHT_FLAGS & NUMBER_IS_FLOAT) {
 		RIGHT_INTVAL = RIGHT_FPVAL;
-		RIGHT_FLAGS &= ~MVALUE_IS_FP;
+		RIGHT_FLAGS &= ~NUMBER_IS_FLOAT;
 	}
 	// FIXME - warning is never seen if both operands are undefined in first pass!
 	Throw_first_pass_warning("Converted to integer for binary logic operator.");
@@ -1002,13 +1002,13 @@ static void both_ensure_int(int warn)
 // check both left-hand and right-hand values. if int, convert to float.
 static void both_ensure_fp(void)
 {
-	if ((LEFT_FLAGS & MVALUE_IS_FP) == 0) {
+	if ((LEFT_FLAGS & NUMBER_IS_FLOAT) == 0) {
 		LEFT_FPVAL = LEFT_INTVAL;
-		LEFT_FLAGS |= MVALUE_IS_FP;
+		LEFT_FLAGS |= NUMBER_IS_FLOAT;
 	}
-	if ((RIGHT_FLAGS & MVALUE_IS_FP) == 0) {
+	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
 		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= MVALUE_IS_FP;
+		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
 	}
 }
 
@@ -1017,7 +1017,7 @@ static void both_ensure_fp(void)
 static void ensure_int_from_fp(void)
 {
 	both_ensure_fp();
-	LEFT_FLAGS &= ~MVALUE_IS_FP;
+	LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
 }
 
 
@@ -1080,16 +1080,16 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_INT:
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_FLOAT:
 		// convert right-hand value from int to fp
-		if ((RIGHT_FLAGS & MVALUE_IS_FP) == 0) {
+		if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
 			RIGHT_FPVAL = RIGHT_INTVAL;
-			RIGHT_FLAGS |= MVALUE_IS_FP;
+			RIGHT_FLAGS |= NUMBER_IS_FLOAT;
 		}
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
@@ -1121,55 +1121,55 @@ static void try_to_reduce_stacks(struct expression *expression)
 // monadic operators
 	case OPHANDLE_NOT:
 		// fp becomes int
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
 		RIGHT_INTVAL = ~(RIGHT_INTVAL);
-		RIGHT_FLAGS &= ~MVALUE_ISBYTE;
+		RIGHT_FLAGS &= ~NUMBER_FITS_BYTE;
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_NEGATE:
 		// different operations for fp and int
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			RIGHT_FPVAL = -(RIGHT_FPVAL);
 		else
 			RIGHT_INTVAL = -(RIGHT_INTVAL);
-		RIGHT_FLAGS &= ~MVALUE_ISBYTE;
+		RIGHT_FLAGS &= ~NUMBER_FITS_BYTE;
 		RIGHT_ADDRREFS = -RIGHT_ADDRREFS;	// negate address ref count as well
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_LOWBYTEOF:
 		// fp becomes int
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
 		RIGHT_INTVAL = (RIGHT_INTVAL) & 255;
-		RIGHT_FLAGS |= MVALUE_ISBYTE;
-		RIGHT_FLAGS &= ~MVALUE_FORCEBITS;
+		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
+		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_HIGHBYTEOF:
 		// fp becomes int
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
 		RIGHT_INTVAL = ((RIGHT_INTVAL) >> 8) & 255;
-		RIGHT_FLAGS |= MVALUE_ISBYTE;
-		RIGHT_FLAGS &= ~MVALUE_FORCEBITS;
+		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
+		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
 
 	case OPHANDLE_BANKBYTEOF:
 		// fp becomes int
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
 		RIGHT_INTVAL = ((RIGHT_INTVAL) >> 16) & 255;
-		RIGHT_FLAGS |= MVALUE_ISBYTE;
-		RIGHT_FLAGS &= ~MVALUE_FORCEBITS;
+		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
+		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
 
 // dyadic operators
 	case OPHANDLE_POWEROF:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			LEFT_FPVAL = pow(LEFT_FPVAL, RIGHT_FPVAL);
 			LEFT_ADDRREFS = 0;	// result now is a non-address
@@ -1179,7 +1179,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		if (RIGHT_INTVAL >= 0) {
 			LEFT_INTVAL = my_pow(LEFT_INTVAL, RIGHT_INTVAL);
 		} else {
-			if (RIGHT_FLAGS & MVALUE_DEFINED)
+			if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 				Throw_error("Exponent is negative.");
 			LEFT_INTVAL = 0;
 		}
@@ -1187,7 +1187,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_MULTIPLY:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			LEFT_FPVAL *= RIGHT_FPVAL;
 		} else {
@@ -1197,12 +1197,12 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_DIVIDE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			if (RIGHT_FPVAL) {
 				LEFT_FPVAL /= RIGHT_FPVAL;
 			} else {
-				if (RIGHT_FLAGS & MVALUE_DEFINED)
+				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 					Throw_error(exception_div_by_zero);
 				LEFT_FPVAL = 0;
 			}
@@ -1210,7 +1210,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 			if (RIGHT_INTVAL) {
 				LEFT_INTVAL /= RIGHT_INTVAL;
 			} else {
-				if (RIGHT_FLAGS & MVALUE_DEFINED)
+				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 					Throw_error(exception_div_by_zero);
 				LEFT_INTVAL = 0;
 			}
@@ -1219,21 +1219,21 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_INTDIV:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			if (RIGHT_FPVAL) {
 				LEFT_INTVAL = LEFT_FPVAL / RIGHT_FPVAL;
 			} else {
-				if (RIGHT_FLAGS & MVALUE_DEFINED)
+				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 					Throw_error(exception_div_by_zero);
 				LEFT_INTVAL = 0;
 			}
-			LEFT_FLAGS &= ~MVALUE_IS_FP;
+			LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
 		} else {
 			if (RIGHT_INTVAL) {
 				LEFT_INTVAL /= RIGHT_INTVAL;
 			} else {
-				if (RIGHT_FLAGS & MVALUE_DEFINED)
+				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 					Throw_error(exception_div_by_zero);
 				LEFT_INTVAL = 0;
 			}
@@ -1242,12 +1242,12 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_MODULO:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP)
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
 			both_ensure_int(FALSE);
 		if (RIGHT_INTVAL) {
 			LEFT_INTVAL %= RIGHT_INTVAL;
 		} else {
-			if (RIGHT_FLAGS & MVALUE_DEFINED)
+			if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
 				Throw_error(exception_div_by_zero);
 			LEFT_INTVAL = 0;
 		}
@@ -1255,7 +1255,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_ADD:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			LEFT_FPVAL += RIGHT_FPVAL;
 		} else {
@@ -1265,7 +1265,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_SUBTRACT:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
 			LEFT_FPVAL -= RIGHT_FPVAL;
 		} else {
@@ -1275,9 +1275,9 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_SL:
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
-		if (LEFT_FLAGS & MVALUE_IS_FP)
+		if (LEFT_FLAGS & NUMBER_IS_FLOAT)
 			LEFT_FPVAL *= pow(2.0, RIGHT_INTVAL);
 		else
 			LEFT_INTVAL <<= RIGHT_INTVAL;
@@ -1285,9 +1285,9 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_ASR:
-		if (RIGHT_FLAGS & MVALUE_IS_FP)
+		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
 			right_fp_to_int();
-		if (LEFT_FLAGS & MVALUE_IS_FP)
+		if (LEFT_FLAGS & NUMBER_IS_FLOAT)
 			LEFT_FPVAL /= (1 << RIGHT_INTVAL);
 		else
 			LEFT_INTVAL = my_asr(LEFT_INTVAL, RIGHT_INTVAL);
@@ -1296,14 +1296,14 @@ static void try_to_reduce_stacks(struct expression *expression)
 
 	case OPHANDLE_LSR:
 		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP)
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
 			both_ensure_int(TRUE);
 		LEFT_INTVAL = ((uintval_t) LEFT_INTVAL) >> RIGHT_INTVAL;
 		LEFT_ADDRREFS = 0;	// result now is a non-address
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_LE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL <= RIGHT_FPVAL);
 		} else {
@@ -1313,7 +1313,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_LESSTHAN:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL < RIGHT_FPVAL);
 		} else {
@@ -1323,7 +1323,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_GE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL >= RIGHT_FPVAL);
 		} else {
@@ -1333,7 +1333,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_GREATERTHAN:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL > RIGHT_FPVAL);
 		} else {
@@ -1343,7 +1343,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_NOTEQUAL:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL != RIGHT_FPVAL);
 		} else {
@@ -1353,7 +1353,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		goto handle_flags_and_dec_stacks;
 
 	case OPHANDLE_EQUALS:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP) {
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			ensure_int_from_fp();
 			LEFT_INTVAL = (LEFT_FPVAL == RIGHT_FPVAL);
 		} else {
@@ -1364,7 +1364,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 
 	case OPHANDLE_AND:
 		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP)
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
 			both_ensure_int(TRUE);
 		LEFT_INTVAL &= RIGHT_INTVAL;
 		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
@@ -1375,7 +1375,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		/*FALLTHROUGH*/
 	case OPHANDLE_XOR:
 		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP)
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
 			both_ensure_int(TRUE);
 		LEFT_INTVAL ^= RIGHT_INTVAL;
 		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
@@ -1383,7 +1383,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 
 	case OPHANDLE_OR:
 		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & MVALUE_IS_FP)
+		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
 			both_ensure_int(TRUE);
 		LEFT_INTVAL |= RIGHT_INTVAL;
 		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
@@ -1399,11 +1399,11 @@ static void try_to_reduce_stacks(struct expression *expression)
 // entry point for dyadic operators
 handle_flags_and_dec_stacks:
 	// Handle flags and decrement value stack pointer
-	// "OR" UNSURE and FORCEBIT flags
-	LEFT_FLAGS |= RIGHT_FLAGS & (MVALUE_UNSURE | MVALUE_FORCEBITS);
+	// "OR" EVER_UNDEFINED and FORCEBIT flags
+	LEFT_FLAGS |= RIGHT_FLAGS & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
 	// "AND" DEFINED flag
-	LEFT_FLAGS &= (RIGHT_FLAGS | ~MVALUE_DEFINED);
-	LEFT_FLAGS &= ~MVALUE_ISBYTE;	// clear ISBYTE flag
+	LEFT_FLAGS &= (RIGHT_FLAGS | ~NUMBER_IS_DEFINED);
+	LEFT_FLAGS &= ~NUMBER_FITS_BYTE;	// clear FITS BYTE flag
 	--operand_sp;
 // entry point for monadic operators
 remove_next_to_last_operator:
@@ -1421,7 +1421,7 @@ RNTLObutDontTouchIndirectFlag:
 // FIXME - make state machine using function pointers? or too slow?
 static void parse_expression(struct expression *expression)
 {
-	struct result	*result	= &expression->number;
+	struct number	*result	= &expression->number;
 
 	// init
 	expression->is_empty = TRUE;	// becomes FALSE when first valid char gets parsed
@@ -1468,33 +1468,33 @@ static void parse_expression(struct expression *expression)
 		// copy result
 		*result = operand_stack[0];
 		// only allow *one* force bit
-		if (result->flags & MVALUE_FORCE24)
-			result->flags &= ~(MVALUE_FORCE16 | MVALUE_FORCE08);
-		else if (result->flags & MVALUE_FORCE16)
-			result->flags &= ~MVALUE_FORCE08;
+		if (result->flags & NUMBER_FORCES_24)
+			result->flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
+		else if (result->flags & NUMBER_FORCES_16)
+			result->flags &= ~NUMBER_FORCES_8;
 		// if there was nothing to parse, mark as undefined
 		// (so ALU_defined_int() can react)
 		if (expression->is_empty)
-			result->flags &= ~MVALUE_DEFINED;
+			result->flags &= ~NUMBER_IS_DEFINED;
 		// do some checks depending on int/float
-		if (result->flags & MVALUE_IS_FP) {
+		if (result->flags & NUMBER_IS_FLOAT) {
 /*float*/		// if undefined, return zero
-			if ((result->flags & MVALUE_DEFINED) == 0)
+			if ((result->flags & NUMBER_IS_DEFINED) == 0)
 				result->val.fpval = 0;
-			// if value is sure, check to set ISBYTE
-			else if (((result->flags & MVALUE_UNSURE) == 0)
+			// if value is sure, check to set FITS BYTE
+			else if (((result->flags & NUMBER_EVER_UNDEFINED) == 0)
 			&& (result->val.fpval <= 255.0)
 			&& (result->val.fpval >= -128.0))
-				result->flags |= MVALUE_ISBYTE;
+				result->flags |= NUMBER_FITS_BYTE;
 		} else {
 /*int*/			// if undefined, return zero
-			if ((result->flags & MVALUE_DEFINED) == 0)
+			if ((result->flags & NUMBER_IS_DEFINED) == 0)
 				result->val.intval = 0;
-			// if value is sure, check to set ISBYTE
-			else if (((result->flags & MVALUE_UNSURE) == 0)
+			// if value is sure, check to set FITS BYTE
+			else if (((result->flags & NUMBER_EVER_UNDEFINED) == 0)
 			&& (result->val.intval <= 255)
 			&& (result->val.intval >= -128))
-				result->flags |= MVALUE_ISBYTE;
+				result->flags |= NUMBER_FITS_BYTE;
 		}
 	} else {
 		// State is STATE_ERROR. Errors have already been reported,
@@ -1528,13 +1528,13 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if ((expression.is_empty == FALSE)
-	&& ((expression.number.flags & MVALUE_DEFINED) == 0))
+	&& ((expression.number.flags & NUMBER_IS_DEFINED) == 0))
 		Throw_serious_error(value_not_defined());
 	if (expression.is_empty)
 		return 0;
 
 	// something was given, so store
-	if (expression.number.flags & MVALUE_IS_FP)
+	if (expression.number.flags & NUMBER_IS_FLOAT)
 		*target = expression.number.val.fpval;
 	else
 		*target = expression.number.val.intval;
@@ -1550,7 +1550,7 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 // EMPTY: complain
 // UNDEFINED: allow
 // FLOAT: convert to int
-void ALU_int_result(struct result *intresult)	// ACCEPT_UNDEFINED
+void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
 {
 	struct expression	expression;
 
@@ -1559,13 +1559,13 @@ void ALU_int_result(struct result *intresult)	// ACCEPT_UNDEFINED
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	// make sure result is not float
-	if (intresult->flags & MVALUE_IS_FP) {
+	if (intresult->flags & NUMBER_IS_FLOAT) {
 		intresult->val.intval = intresult->val.fpval;
-		intresult->flags &= ~MVALUE_IS_FP;
+		intresult->flags &= ~NUMBER_IS_FLOAT;
 	}
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((intresult->flags & MVALUE_DEFINED) == 0)
+	else if ((intresult->flags & NUMBER_IS_DEFINED) == 0)
 		result_is_undefined();
 }
 
@@ -1588,9 +1588,9 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((expression.number.flags & MVALUE_DEFINED) == 0)
+	else if ((expression.number.flags & NUMBER_IS_DEFINED) == 0)
 		result_is_undefined();
-	if (expression.number.flags & MVALUE_IS_FP)
+	if (expression.number.flags & NUMBER_IS_FLOAT)
 		return expression.number.val.fpval;
 	else
 		return expression.number.val.intval;
@@ -1603,7 +1603,7 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 // EMPTY: treat as UNDEFINED		<= this is a problem - maybe use a wrapper fn for this use case?
 // UNDEFINED: complain _seriously_
 // FLOAT: convert to int
-void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
+void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 {
 	struct expression	expression;
 
@@ -1611,11 +1611,11 @@ void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
 	*intresult = expression.number;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((intresult->flags & MVALUE_DEFINED) == 0)
+	if ((intresult->flags & NUMBER_IS_DEFINED) == 0)
 		Throw_serious_error(value_not_defined());
-	if (intresult->flags & MVALUE_IS_FP) {
+	if (intresult->flags & NUMBER_IS_FLOAT) {
 		intresult->val.intval = intresult->val.fpval;
-		intresult->flags &= ~MVALUE_IS_FP;
+		intresult->flags &= ~NUMBER_IS_FLOAT;
 	}
 }
 
@@ -1631,13 +1631,13 @@ void ALU_defined_int(struct result *intresult)	// no ACCEPT constants?
 // FLOAT: convert to int
 void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
-	struct result	*intresult	= &expression->number;
+	struct number	*intresult	= &expression->number;
 
 	parse_expression(expression);
 	// make sure result is not float
-	if (intresult->flags & MVALUE_IS_FP) {
+	if (intresult->flags & NUMBER_IS_FLOAT) {
 		intresult->val.intval = intresult->val.fpval;
-		intresult->flags &= ~MVALUE_IS_FP;
+		intresult->flags &= ~NUMBER_IS_FLOAT;
 	}
 	if (expression->open_parentheses > 1) {
 		expression->open_parentheses = 0;
@@ -1646,7 +1646,7 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 	if (expression->is_empty)
 		Throw_error(exception_no_value);
 	if ((expression->is_empty == FALSE)
-	&& ((intresult->flags & MVALUE_DEFINED) == 0))
+	&& ((intresult->flags & NUMBER_IS_DEFINED) == 0))
 		result_is_undefined();
 }
 
@@ -1659,7 +1659,7 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 // EMPTY: complain
 // UNDEFINED: allow
 // FLOAT: keep
-void ALU_any_result(struct result *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
+void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 {
 	struct expression	expression;
 
@@ -1669,6 +1669,6 @@ void ALU_any_result(struct result *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((result->flags & MVALUE_DEFINED) == 0)
+	else if ((result->flags & NUMBER_IS_DEFINED) == 0)
 		result_is_undefined();
 }

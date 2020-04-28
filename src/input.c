@@ -575,11 +575,11 @@ int Input_get_force_bit(void)
 	if (GotByte == '+') {
 		byte = GetByte();
 		if (byte == '1')
-			force_bit = MVALUE_FORCE08;
+			force_bit = NUMBER_FORCES_8;
 		else if (byte == '2')
-			force_bit = MVALUE_FORCE16;
+			force_bit = NUMBER_FORCES_16;
 		else if (byte == '3')
-			force_bit = MVALUE_FORCE24;
+			force_bit = NUMBER_FORCES_24;
 		if (force_bit)
 			GetByte();
 		else

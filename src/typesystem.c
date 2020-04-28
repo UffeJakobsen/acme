@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // type system stuff
@@ -33,23 +33,27 @@ void typesystem_force_address_statement(int value)
 	in_address_statement = value;
 }
 
-void typesystem_want_imm(struct result *result)
+void typesystem_want_imm(struct number *result)
 {
 	if (!config.warn_on_type_mismatch)
 		return;
-	if (!(result->flags & MVALUE_DEFINED))
+
+	if (!(result->flags & NUMBER_IS_DEFINED))
 		return;
+
 	if (result->addr_refs != 0) {
 		Throw_warning("Wrong type - expected integer.");
 		//printf("refcount should be 0, but is %d\n", result->addr_refs);
 	}
 }
-void typesystem_want_addr(struct result *result)
+void typesystem_want_addr(struct number *result)
 {
 	if (!config.warn_on_type_mismatch)
 		return;
-	if (!(result->flags & MVALUE_DEFINED))
+
+	if (!(result->flags & NUMBER_IS_DEFINED))
 		return;
+
 	if (result->addr_refs != 1) {
 		Throw_warning("Wrong type - expected address.");
 		//printf("refcount should be 1, but is %d\n", result->addr_refs);

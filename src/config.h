@@ -12,7 +12,7 @@ typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
 // result structure type definition with support for floating point
-struct result {	// either int or float (TODO - rename to "number"?)
+struct number {	// either int or float
 	int	flags;	// result flags (see alu.h, one if these tells ints and floats apart)
 	union {
 		intval_t	intval;	// integer value

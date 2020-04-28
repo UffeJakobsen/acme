@@ -22,7 +22,7 @@ enum expression_type {
 */
 struct expression {
 	//enum expression_type	type;
-	struct result		number;
+	struct number		number;
 	int			is_empty;		// actually bool: nothing parsed (first character was a delimiter)	FIXME - make into its own result type!
 	int			open_parentheses;	// number of parentheses still open
 	int			is_parenthesized;	// actually bool: whole expression was in parentheses (indicating indirect addressing)
@@ -31,18 +31,18 @@ struct expression {
 
 // constants
 
-// meaning of bits in "flags" of struct result:
-#define MVALUE_IS_FP	(1u << 6)	// floating point value
-#define MVALUE_UNSURE	(1u << 5)	// value once was related to undefined
+// flag bits in number struct:
+#define NUMBER_IS_FLOAT		(1u << 6)	// floating point value
+#define NUMBER_EVER_UNDEFINED	(1u << 5)	// value once was related to undefined
 // expression. Needed for producing the same addresses in all passes; because in
 // the first pass there will almost for sure be labels that are undefined, you
 // can't simply get the addressing mode from looking at the parameter's value.
-#define MVALUE_DEFINED	(1u << 4)	// 0: undefined expression (value will be zero). 1: known result
-#define MVALUE_ISBYTE	(1u << 3)	// value is guaranteed to fit in one byte
-#define MVALUE_FORCE24	(1u << 2)	// value usage forces 24-bit usage
-#define MVALUE_FORCE16	(1u << 1)	// value usage forces 16-bit usage
-#define MVALUE_FORCE08	(1u << 0)	// value usage forces 8-bit usage
-#define MVALUE_FORCEBITS	(MVALUE_FORCE08 | MVALUE_FORCE16 | MVALUE_FORCE24)
+#define NUMBER_IS_DEFINED	(1u << 4)	// 0: undefined expression (value will be zero). 1: known result
+#define NUMBER_FITS_BYTE	(1u << 3)	// value is guaranteed to fit in one byte
+#define NUMBER_FORCES_24	(1u << 2)	// value usage forces 24-bit usage
+#define NUMBER_FORCES_16	(1u << 1)	// value usage forces 16-bit usage
+#define NUMBER_FORCES_8		(1u << 0)	// value usage forces 8-bit usage
+#define NUMBER_FORCEBITS	(NUMBER_FORCES_8 | NUMBER_FORCES_16 | NUMBER_FORCES_24)
 
 
 // create dynamic buffer, operator/function trees and operator/operand stacks
@@ -70,14 +70,14 @@ extern int ALU_optional_defined_int(intval_t *target);
 // returns int value (0 if result was undefined)
 extern intval_t ALU_any_int(void);
 // stores int value and flags (floats are transformed to int)
-extern void ALU_int_result(struct result *intresult);
+extern void ALU_int_result(struct number *intresult);
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
-extern void ALU_defined_int(struct result *intresult);
+extern void ALU_defined_int(struct number *intresult);
 // stores int value and flags, allowing for one '(' too many (x-indirect addr).
 extern void ALU_liberal_int(struct expression *expression);
 // stores value and flags (result may be either int or float)
-extern void ALU_any_result(struct result *result);
+extern void ALU_any_result(struct number *result);
 
 
 #endif

@@ -48,7 +48,7 @@ static struct ronode	*pseudo_opcode_tree	= NULL;	// tree to hold pseudo opcodes
 void notreallypo_setpc(void)
 {
 	int		segment_flags	= 0;
-	struct result	intresult;
+	struct number	intresult;
 
 	ALU_defined_int(&intresult);	// read new address
 	// check for modifiers
@@ -79,7 +79,7 @@ void notreallypo_setpc(void)
 // define default value for empty memory ("!initmem" pseudo opcode)
 static enum eos po_initmem(void)
 {
-	struct result	intresult;
+	struct number	intresult;
 
 	// ignore in all passes but in first
 	if (pass_count)
@@ -479,7 +479,7 @@ static enum eos po_binary(void)
 // reserve space by sending bytes of given value ("!fi" / "!fill" pseudo opcode)
 static enum eos po_fill(void)
 {
-	struct result	sizeresult;
+	struct number	sizeresult;
 	intval_t	fill	= FILLVALUE_FILL;
 
 	ALU_defined_int(&sizeresult);	// FIXME - forbid addresses!
@@ -496,7 +496,7 @@ static enum eos po_fill(void)
 // (...and it will be needed in future for assemble-to-end-address)
 static enum eos po_skip(void)	// now GotByte = illegal char
 {
-	struct result	amount;
+	struct number	amount;
 
 	ALU_defined_int(&amount);	// FIXME - forbid addresses!
 	if (amount.val.intval < 0)
@@ -511,15 +511,15 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 static enum eos po_align(void)
 {
 	// FIXME - read cpu state via function call!
-	struct result	andresult,
+	struct number	andresult,
 			equalresult;
 	intval_t	fill,
 			test	= CPU_state.pc.val.intval;
 
 	// make sure PC is defined.
-	if ((CPU_state.pc.flags & MVALUE_DEFINED) == 0) {
+	if ((CPU_state.pc.flags & NUMBER_IS_DEFINED) == 0) {
 		Throw_error(exception_pc_undefined);
-		CPU_state.pc.flags |= MVALUE_DEFINED;	// do not complain again
+		CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// do not complain again
 		return SKIP_REMAINDER;
 	}
 
@@ -549,7 +549,7 @@ static const char	Error_old_offset_assembly[]	=
 static enum eos po_pseudopc(void)
 {
 	// FIXME - read pc using a function call!
-	struct result	new_pc_result;
+	struct number	new_pc_result;
 	intval_t	new_offset;
 	int		outer_flags	= CPU_state.pc.flags;
 
@@ -557,7 +557,7 @@ static enum eos po_pseudopc(void)
 	ALU_defined_int(&new_pc_result);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
 	new_offset = (new_pc_result.val.intval - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc_result.val.intval;
-	CPU_state.pc.flags |= MVALUE_DEFINED;	// FIXME - remove when allowing undefined!
+	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
 	// TODO - accept ", name=SECTIONNAME"
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
@@ -663,7 +663,7 @@ Throw_serious_error("Not yet");	// FIXME
 // (re)set symbol
 static enum eos po_set(void)	// now GotByte = illegal char
 {
-	struct result	result;
+	struct number	result;
 	int		force_bit;
 	struct symbol	*symbol;
 	scope_t		scope;
@@ -683,10 +683,10 @@ static enum eos po_set(void)	// now GotByte = illegal char
 	GetByte();	// proceed with next char
 	ALU_any_result(&result);
 	// clear symbol's force bits and set new ones
-	symbol->result.flags &= ~(MVALUE_FORCEBITS | MVALUE_ISBYTE);
+	symbol->result.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
 	if (force_bit) {
 		symbol->result.flags |= force_bit;
-		result.flags &= ~(MVALUE_FORCEBITS | MVALUE_ISBYTE);
+		result.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
 	}
 	symbol_set_value(symbol, &result, TRUE);
 	return ENSURE_EOS;
@@ -813,7 +813,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 // conditional assembly ("!if"). has to be re-entrant.
 static enum eos po_if(void)	// now GotByte = illegal char
 {
-	struct result	cond_result;
+	struct number	cond_result;
 
 	ALU_defined_int(&cond_result);
 	if (GotByte != CHAR_SOB)
@@ -840,7 +840,7 @@ static enum eos ifdef_ifndef(int is_ifndef)	// now GotByte = illegal char
 		// in first pass, count usage
 		if (pass_count == 0)
 			symbol->usage++;
-		if (symbol->result.flags & MVALUE_DEFINED)
+		if (symbol->result.flags & NUMBER_IS_DEFINED)
 			defined = TRUE;
 	}
 	SKIPSPACE();
@@ -876,7 +876,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 {
 	scope_t		scope;
 	int		force_bit;
-	struct result	intresult;
+	struct number	intresult;
 	struct for_loop	loop;
 
 	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
@@ -1003,7 +1003,7 @@ static struct dynabuf	*user_message;	// dynamic buffer (!warn/error/serious)
 // helper function to show user-defined messages
 static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 {
-	struct result	result;
+	struct number	result;
 
 	DYNABUF_CLEAR(user_message);
 	DynaBuf_add_string(user_message, prefix);
@@ -1023,9 +1023,9 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 		} else {
 			// parse value
 			ALU_any_result(&result);
-			if (result.flags & MVALUE_IS_FP) {
+			if (result.flags & NUMBER_IS_FLOAT) {
 				// floating point
-				if (result.flags & MVALUE_DEFINED) {
+				if (result.flags & NUMBER_IS_DEFINED) {
 					char	buffer[40];
 
 					// write up to 30 significant characters.
@@ -1038,7 +1038,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 				}
 			} else {
 				// integer
-				if (result.flags & MVALUE_DEFINED) {
+				if (result.flags & NUMBER_IS_DEFINED) {
 					char	buffer[32];	// 11 for dec, 8 for hex
 
 					sprintf(buffer, "%ld (0x%lx)", (long) result.val.intval, (long) result.val.intval);

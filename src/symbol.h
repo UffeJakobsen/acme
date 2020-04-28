@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // symbol stuff
@@ -12,7 +12,7 @@
 
 
 struct symbol {
-	struct result	result;	// expression flags and value
+	struct number	result;	// flags, value, address refs
 	int		usage;	// usage count
 	int		pass;	// pass of creation (for anon counters)
 	// add flag to indicate "has already been reported as undefined"
@@ -29,7 +29,7 @@ extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 
 // function acts upon the symbol's flag bits and produces an error if needed.
-extern void symbol_set_value(struct symbol *symbol, struct result *new_value, int change_allowed);
+extern void symbol_set_value(struct symbol *symbol, struct number *new_value, int change_allowed);
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
 extern void symbol_set_label(scope_t scope, int stat_flags, int force_bit, int change_allowed);

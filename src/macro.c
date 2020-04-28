@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Macro stuff
@@ -42,7 +42,7 @@ struct macro {
 // gives us the possibility to find out which args are call-by-value and
 // which ones are call-by-reference.
 union macro_arg_t {
-	struct result	result;	// value and flags (call by value)
+	struct number	result;	// value and flags (call by value)
 	struct symbol	*symbol;	// pointer to symbol struct (call by reference)
 };
 

@@ -54,16 +54,11 @@
 #define LONG_INDIRECT_Y_INDEXED_ADDRESSING		(AMB_LONGINDIRECT | AMB_INDEX(INDEX_Y))
 
 // Constant values, used to mark the possible parameter lengths of commands.
-// Not all of the eight values are actually used, however (because of the
-// supported CPUs).
-#define MAYBE______	(0)
-#define MAYBE_1____	(MVALUE_FORCE08)
-#define MAYBE___2__	(MVALUE_FORCE16)
-#define MAYBE_1_2__	(MVALUE_FORCE08 | MVALUE_FORCE16)
-#define MAYBE_____3	(MVALUE_FORCE24)
-#define MAYBE_1___3	(MVALUE_FORCE08 | MVALUE_FORCE24)
-#define MAYBE___2_3	(MVALUE_FORCE16 | MVALUE_FORCE24)
-#define MAYBE_1_2_3	(MVALUE_FORCE08 | MVALUE_FORCE16 | MVALUE_FORCE24)
+// Not all of the eight possible combinations are actually used, however (because of the supported CPUs).
+#define MAYBE______	0
+#define MAYBE_1____	NUMBER_FORCES_8
+#define MAYBE___2__	NUMBER_FORCES_16
+#define MAYBE_____3	NUMBER_FORCES_24
 
 // The mnemonics are split up into groups, each group has its own function to be dealt with:
 enum mnemogroup {
@@ -521,7 +516,7 @@ static int get_index(int next)
 
 // This function stores the command's argument in the given result
 // structure (using the valueparser). The addressing mode is returned.
-static int get_argument(struct result *result)
+static int get_argument(struct number *result)
 {
 	struct expression	expression;
 	int			address_mode_bits	= 0;
@@ -574,15 +569,15 @@ static int get_argument(struct result *result)
 }
 
 // Helper function for calc_arg_size()
-// Only call with "size_bit = MVALUE_FORCE16" or "size_bit = MVALUE_FORCE24"
-static int check_oversize(int size_bit, struct result *argument)
+// Only call with "size_bit = NUMBER_FORCES_16" or "size_bit = NUMBER_FORCES_24"
+static int check_oversize(int size_bit, struct number *argument)
 {
 	// only check if value is *defined*
-	if ((argument->flags & MVALUE_DEFINED) == 0)
+	if ((argument->flags & NUMBER_IS_DEFINED) == 0)
 		return size_bit;	// pass on result
 
 	// value is defined, so check
-	if (size_bit == MVALUE_FORCE16) {
+	if (size_bit == NUMBER_FORCES_16) {
 		// check 16-bit argument for high byte zero
 		if ((argument->val.intval <= 255) && (argument->val.intval >= -128))
 			Throw_warning(exception_oversized_addrmode);
@@ -602,7 +597,7 @@ static int check_oversize(int size_bit, struct result *argument)
 // argument		value and flags of parameter
 // addressing_modes	adressing modes (8b, 16b, 24b or any combination)
 // Return value = force bit for number of parameter bytes to send (0 = error)
-static int calc_arg_size(int force_bit, struct result *argument, int addressing_modes)
+static int calc_arg_size(int force_bit, struct number *argument, int addressing_modes)
 {
 	// if there are no possible addressing modes, complain
 	if (addressing_modes == MAYBE______) {
@@ -622,16 +617,16 @@ static int calc_arg_size(int force_bit, struct result *argument, int addressing_
 
 	// Command has no force bit. Check whether value has one
 	// if value has force bit, act upon it
-	if (argument->flags & MVALUE_FORCEBITS) {
+	if (argument->flags & NUMBER_FORCEBITS) {
 		// Value has force bit set, so return this or bigger size
-		if (MVALUE_FORCE08 & addressing_modes & argument->flags)
-			return MVALUE_FORCE08;
+		if (NUMBER_FORCES_8 & addressing_modes & argument->flags)
+			return NUMBER_FORCES_8;
 
-		if (MVALUE_FORCE16 & addressing_modes & argument->flags)
-			return MVALUE_FORCE16;
+		if (NUMBER_FORCES_16 & addressing_modes & argument->flags)
+			return NUMBER_FORCES_16;
 
-		if (MVALUE_FORCE24 & addressing_modes)
-			return MVALUE_FORCE24;
+		if (NUMBER_FORCES_24 & addressing_modes)
+			return NUMBER_FORCES_24;
 
 		Throw_error(exception_number_out_of_range);	// else error
 		return 0;
@@ -639,32 +634,32 @@ static int calc_arg_size(int force_bit, struct result *argument, int addressing_
 
 	// Value has no force bit. Check whether there's only one addr mode
 	// if only one addressing mode, use that
-	if ((addressing_modes == MVALUE_FORCE08)
-	|| (addressing_modes == MVALUE_FORCE16)
-	|| (addressing_modes == MVALUE_FORCE24))
+	if ((addressing_modes == NUMBER_FORCES_8)
+	|| (addressing_modes == NUMBER_FORCES_16)
+	|| (addressing_modes == NUMBER_FORCES_24))
 		return addressing_modes;	// There's only one, so use it
 
 	// There's more than one addressing mode. Check whether value is sure
 	// if value is unsure, use default size
-	if (argument->flags & MVALUE_UNSURE) {
+	if (argument->flags & NUMBER_EVER_UNDEFINED) {
 		// if there is an 8-bit addressing mode *and* the value
 		// is sure to fit into 8 bits, use the 8-bit mode
-		if ((addressing_modes & MVALUE_FORCE08) && (argument->flags & MVALUE_ISBYTE))
-			return MVALUE_FORCE08;
+		if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE))
+			return NUMBER_FORCES_8;
 
 		// if there is a 16-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
-		if (MVALUE_FORCE16 & addressing_modes)
-			return check_oversize(MVALUE_FORCE16, argument);
+		if (NUMBER_FORCES_16 & addressing_modes)
+			return check_oversize(NUMBER_FORCES_16, argument);
 
 		// if there is a 24-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
-		if (MVALUE_FORCE24 & addressing_modes)
-			return check_oversize(MVALUE_FORCE24, argument);
+		if (NUMBER_FORCES_24 & addressing_modes)
+			return check_oversize(NUMBER_FORCES_24, argument);
 
 		// otherwise, use 8-bit-addressing, which will raise an
 		// error later on if the value won't fit
-		return MVALUE_FORCE08;
+		return NUMBER_FORCES_8;
 	}
 
 	// Value is sure, so use its own size
@@ -676,17 +671,17 @@ static int calc_arg_size(int force_bit, struct result *argument, int addressing_
 
 	// Value is positive or zero. Check size ranges
 	// if there is an 8-bit addressing mode and value fits, use 8 bits
-	if ((addressing_modes & MVALUE_FORCE08) && (argument->val.intval < 256))
-		return MVALUE_FORCE08;
+	if ((addressing_modes & NUMBER_FORCES_8) && (argument->val.intval < 256))
+		return NUMBER_FORCES_8;
 
 	// if there is a 16-bit addressing mode and value fits, use 16 bits
-	if ((addressing_modes & MVALUE_FORCE16) && (argument->val.intval < 65536))
-		return MVALUE_FORCE16;
+	if ((addressing_modes & NUMBER_FORCES_16) && (argument->val.intval < 65536))
+		return NUMBER_FORCES_16;
 
 	// if there is a 24-bit addressing mode, use that. In case the
 	// value doesn't fit, the output function will do the complaining.
-	if (addressing_modes & MVALUE_FORCE24)
-		return MVALUE_FORCE24;
+	if (addressing_modes & NUMBER_FORCES_24)
+		return NUMBER_FORCES_24;
 
 	// Value is too big for all possible addressing modes
 	Throw_error(exception_number_out_of_range);
@@ -715,13 +710,13 @@ static void not_in_bank(intval_t target)
 // helper function for branches with 8-bit offset (including bbr0..7/bbs0..7)
 static void near_branch(int preoffset)
 {
-	struct result	target;
+	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
 	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
-	if (CPU_state.pc.flags & target.flags & MVALUE_DEFINED) {
+	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
@@ -749,13 +744,13 @@ static void near_branch(int preoffset)
 // helper function for relative addressing with 16-bit offset
 static void far_branch(int preoffset)
 {
-	struct result	target;
+	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
 	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
-	if (CPU_state.pc.flags & target.flags & MVALUE_DEFINED) {
+	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
@@ -769,7 +764,7 @@ static void far_branch(int preoffset)
 
 // set addressing mode bits depending on which opcodes exist, then calculate
 // argument size and output both opcode and argument
-static void make_command(int force_bit, struct result *result, unsigned long opcodes)
+static void make_command(int force_bit, struct number *result, unsigned long opcodes)
 {
 	int	addressing_modes	= MAYBE______;
 
@@ -780,15 +775,15 @@ static void make_command(int force_bit, struct result *result, unsigned long opc
 	if (opcodes & 0xff0000)
 		addressing_modes |= MAYBE_____3;
 	switch (calc_arg_size(force_bit, result, addressing_modes)) {
-	case MVALUE_FORCE08:
+	case NUMBER_FORCES_8:
 		Output_byte(opcodes & 255);
 		output_8(result->val.intval);
 		break;
-	case MVALUE_FORCE16:
+	case NUMBER_FORCES_16:
 		Output_byte((opcodes >> 8) & 255);
 		output_le16(result->val.intval);
 		break;
-	case MVALUE_FORCE24:
+	case NUMBER_FORCES_24:
 		Output_byte((opcodes >> 16) & 255);
 		output_le24(result->val.intval);
 	}
@@ -823,16 +818,16 @@ static unsigned int imm_ops(int *force_bit, unsigned char opcode, int immediate_
 
 	// check force bits - if no force bits given, use cpu state and convert to force bit
 	if (*force_bit == 0)
-		*force_bit = long_register ? MVALUE_FORCE16 : MVALUE_FORCE08;
+		*force_bit = long_register ? NUMBER_FORCES_16 : NUMBER_FORCES_8;
 	// return identical opcodes for single-byte and two-byte arguments:
 	return (((unsigned int) opcode) << 8) | opcode;
 }
 
 // helper function to warn if zp pointer wraps around
-static void check_zp_wraparound(struct result *result)
+static void check_zp_wraparound(struct number *result)
 {
 	if ((result->val.intval == 0xff)
-	&& (result->flags & MVALUE_DEFINED))
+	&& (result->flags & NUMBER_IS_DEFINED))
 		Throw_warning("Zeropage pointer wraps around from $ff to $00");
 }
 
@@ -841,7 +836,7 @@ static void check_zp_wraparound(struct result *result)
 static void group_main(int index, int immediate_mode)
 {
 	unsigned long	immediate_opcodes;
-	struct result	result;
+	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_argument(&result)) {
@@ -896,7 +891,7 @@ static void group_main(int index, int immediate_mode)
 static void group_misc(int index, int immediate_mode)
 {
 	unsigned long	immediate_opcodes;
-	struct result	result;
+	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_argument(&result)) {
@@ -914,7 +909,7 @@ static void group_misc(int index, int immediate_mode)
 		// check whether to warn about 6510's unstable ANE/LXA
 		if ((CPU_state.type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
 		&& ((result.val.intval & 0xff) != 0x00)
-		&& (result.flags & MVALUE_DEFINED)) {
+		&& (result.flags & NUMBER_IS_DEFINED)) {
 			if (immediate_opcodes == 0x8b)
 				Throw_warning("Assembling unstable ANE #NONZERO instruction");
 			else if (immediate_opcodes == 0xab)
@@ -945,7 +940,7 @@ static void group_std_branches(int opcode)
 // "bbr0..7" and "bbs0..7"
 static void group_bbr_bbs(int opcode)
 {
-	struct result	zpmem;
+	struct number	zpmem;
 
 	ALU_int_result(&zpmem);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&zpmem);
@@ -968,7 +963,7 @@ static void group_relative16(int opcode, int preoffset)
 // "mvn" and "mvp"
 static void group_mvn_mvp(int opcode)
 {
-	struct result	source,
+	struct number	source,
 			target;
 
 	// assembler syntax: "mnemonic source, target"
@@ -990,7 +985,7 @@ static void group_mvn_mvp(int opcode)
 // "rmb0..7" and "smb0..7"
 static void group_only_zp(int opcode)
 {
-	struct result	target;
+	struct number	target;
 
 	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
 	typesystem_want_addr(&target);
@@ -1002,7 +997,7 @@ static void group_only_zp(int opcode)
 // The jump instructions.
 static void group_jump(int index)
 {
-	struct result	result;
+	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_argument(&result)) {
@@ -1013,7 +1008,7 @@ static void group_jump(int index)
 		make_command(force_bit, &result, jump_ind[index]);
 		// check whether to warn about 6502's JMP() bug
 		if (((result.val.intval & 0xff) == 0xff)
-		&& (result.flags & MVALUE_DEFINED)
+		&& (result.flags & NUMBER_IS_DEFINED)
 		&& (CPU_state.type->flags & CPUFLAG_INDIRECTJMPBUGGY))
 			Throw_warning("Assembling buggy JMP($xxff) instruction");
 		break;
