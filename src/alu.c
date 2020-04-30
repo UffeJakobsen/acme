@@ -1672,3 +1672,63 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 	else if ((result->flags & NUMBER_IS_DEFINED) == 0)
 		result_is_undefined();
 }
+
+/* TODO
+
+// stores int value and flags, allowing for one '(' too many (x-indirect addr).
+void ALU_liberal_int(struct expression *expression)
+	mnemo.c
+		when parsing addressing mode (except after '#' and '[')
+
+// stores int value and flags (floats are transformed to int)
+void ALU_int_result(struct number *intresult)
+	mnemo.c
+		when parsing address arg after '#'
+		when parsing address arg after '['
+		when parsing address after near branch	(needs () check)
+		when parsing address after far branch	(needs () check)
+		when parsing address after bbrX/bbsX	(needs () check)
+		when parsing address after rmbX/smbX	(needs () check)
+		twice when parsing MVN/MVP		(needs () check)
+
+// stores value and flags (result may be either int or float)
+void ALU_any_result(struct number *result)
+	macro.c
+		macro call, when parsing call-by-value arg
+	pseudoopcodes.c
+		!set
+		when throwing user-specified errors
+	symbol.c
+		explicit symbol definition
+
+// stores int value and flags (floats are transformed to int)
+// if result was undefined, serious error is thrown
+void ALU_defined_int(struct number *intresult)
+	flow.c
+		when parsing loop conditions		(should be rather bool?)
+	pseudoopcodes.c
+		*=					(FIXME, allow undefined)
+		!initmem
+		!fill (1st arg)				(maybe allow undefined?)
+		!skip					(maybe allow undefined?)
+		!align (1st + 2nd arg)			(maybe allow undefined?)
+		!pseudopc				(FIXME, allow undefined)
+		!if					(should be rather bool?)
+		twice in !for
+
+// stores int value if given. Returns whether stored. Throws error if undefined.
+int ALU_optional_defined_int(intval_t *target)
+	pseudoopcodes.c
+		twice for !binary			(maybe allow undefined?)
+		//!enum
+
+// returns int value (0 if result was undefined)
+intval_t ALU_any_int(void)
+	pseudoopcodes.c
+		!xor
+		iterator for !by, !wo, etc.
+		byte values in !raw, !tx, etc.
+		!scrxor
+		!fill (2nd arg)
+		!align (3rd arg)
+*/
