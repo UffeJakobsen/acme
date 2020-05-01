@@ -609,7 +609,7 @@ static int expect_operand_or_monadic_operator(void)
 {
 	struct operator	*operator;
 	int		ugly_length_kluge;
-	int		perform_negation;	// actually bool
+	boolean		perform_negation;
 
 	SKIPSPACE();
 	switch (GotByte) {

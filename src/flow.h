@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // flow control stuff (loops, conditional assembly etc.)
@@ -19,7 +19,7 @@ struct block {
 // struct to pass "!for" loop stuff from pseudoopcodes.c to flow.c
 struct for_loop {
 	struct symbol	*symbol;
-	int		old_algo;	// actually bool
+	boolean		use_old_algo;
 	struct {
 		intval_t	first,
 				last,
@@ -32,7 +32,7 @@ struct for_loop {
 // structs to pass "!do" loop stuff from pseudoopcodes.c to flow.c
 struct loop_condition {
 	int	line;	// original line number
-	int	is_until;	// actually bool (0 for WHILE, 1 for UNTIL)
+	boolean	is_until;	// so FALSE means WHILE, TRUE means UNTIL)
 	char	*body;	// pointer to actual expression
 };
 struct do_loop {

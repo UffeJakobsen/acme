@@ -59,7 +59,7 @@ void flow_forloop(struct for_loop *loop)
 	loop_counter.val.intval = loop->counter.first;
 	loop_counter.addr_refs = loop->counter.addr_refs;
 	symbol_set_value(loop->symbol, &loop_counter, TRUE);
-	if (loop->old_algo) {
+	if (loop->use_old_algo) {
 		// old algo for old syntax:
 		// if count == 0, skip loop
 		if (loop->counter.last) {

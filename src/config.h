@@ -7,7 +7,15 @@
 #define config_H
 
 
+// make sure the enum below works with strange compilers, too:
+#ifdef FALSE
+#undef FALSE
+#endif
+#ifdef TRUE
+#undef TRUE
+#endif
 // types
+typedef enum { FALSE = 0, TRUE }	boolean;	// yes, I could include <stdbool.h>, but this source should work with ancient compilers as well...
 typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
@@ -36,11 +44,6 @@ struct number {	// either int or float
 // Nullpointer definition
 #ifndef NULL
 #define NULL	((void *) 0)
-#endif
-// Boolean values
-#ifndef FALSE
-#define FALSE	0
-#define TRUE	(!FALSE)
 #endif
 
 

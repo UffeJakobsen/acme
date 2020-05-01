@@ -43,7 +43,7 @@ struct output {
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
 	intval_t	highest_written;	// largest address used
-	int		initvalue_set;	// actually bool
+	boolean		initvalue_set;
 	struct {
 		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
 		intval_t	max;	// highest address segment may use

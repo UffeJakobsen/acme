@@ -23,9 +23,9 @@ enum expression_type {
 struct expression {
 	//enum expression_type	type;
 	struct number		number;
-	int			is_empty;		// actually bool: nothing parsed (first character was a delimiter)	FIXME - make into its own result type!
+	boolean			is_empty;		// nothing parsed (first character was a delimiter)	FIXME - make into its own result type!
 	int			open_parentheses;	// number of parentheses still open
-	int			is_parenthesized;	// actually bool: whole expression was in parentheses (indicating indirect addressing)
+	boolean			is_parenthesized;	// whole expression was in parentheses (indicating indirect addressing)
 };
 
 

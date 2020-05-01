@@ -66,7 +66,7 @@ void notreallypo_setpc(void)
 			read memory limit
 		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
 			skip '='
-			read segment name	*/
+			read segment name (quoted string!)	*/
 		} else {
 			Throw_error("Unknown \"* =\" segment modifier.");
 			return;
@@ -893,7 +893,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	ALU_defined_int(&intresult);	// read first argument
 	loop.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
-		loop.old_algo = FALSE;	// new format - yay!
+		loop.use_old_algo = FALSE;	// new format - yay!
 		if (!config.warn_on_old_for)
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
 		loop.counter.first = intresult.val.intval;	// use first argument
@@ -906,7 +906,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		}
 		loop.counter.increment = (loop.counter.last < loop.counter.first) ? -1 : 1;
 	} else {
-		loop.old_algo = TRUE;	// old format - booo!
+		loop.use_old_algo = TRUE;	// old format - booo!
 		if (config.warn_on_old_for)
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)

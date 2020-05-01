@@ -65,6 +65,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_FULLSTOP		"fullstop"
 #define OPTION_IGNORE_ZEROES	"ignore-zeroes"
 #define OPTION_STRICT_SEGMENTS	"strict-segments"
+#define OPTION_TEST		"test"
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
 #define OPTIONWNO_OLD_FOR	"no-old-for"
@@ -146,6 +147,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_MSVC "             output errors in MS VS format\n"
 "      --" OPTION_COLOR "            uses ANSI color codes for error output\n"
 "      --" OPTION_FULLSTOP "         use '.' as pseudo opcode prefix\n"
+"      --" OPTION_TEST "             enable experimental features\n"
 PLATFORM_OPTION_HELP
 "  -V, --" OPTION_VERSION "          show version and exit\n");
 	exit(EXIT_SUCCESS);
@@ -480,6 +482,8 @@ static const char *long_option(const char *string)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
 		config.segment_warning_is_error = TRUE;
+	else if (strcmp(string, OPTION_TEST) == 0)
+		config.test_new_features = TRUE;
 	PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
 		config.format_color = TRUE;

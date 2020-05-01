@@ -67,15 +67,16 @@ extern int	pass_real_errors;	// Errors yet
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
 	int		process_verbosity;	// level of additional output
-	int		warn_on_indented_labels;	// actually bool: warn if indented label is encountered
-	int		warn_on_old_for;	// actually bool: warn if "!for" with old syntax is found
-	int		warn_on_type_mismatch;	// actually bool: use type-checking system
+	boolean		warn_on_indented_labels;	// warn if indented label is encountered
+	boolean		warn_on_old_for;	// warn if "!for" with old syntax is found
+	boolean		warn_on_type_mismatch;	// use type-checking system
 	signed long	max_errors;	// errors before giving up
-	int		format_msvc;		// actually bool, enabled by --msvc
-	int		format_color;		// actually bool, enabled by --color
+	boolean		format_msvc;		// enabled by --msvc
+	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
-	int		honor_leading_zeroes;	// actually bool, TRUE, disabled by --ignore-zeroes
-	int		segment_warning_is_error;	// actually bool, FALSE, enabled by --strict-segments
+	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
+	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
+	boolean		test_new_features;	// FALSE, enabled by --test
 };
 extern struct config	config;
 
