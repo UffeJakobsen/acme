@@ -559,7 +559,7 @@ static enum eos po_pseudopc(void)
 	new_offset = (new_pc_result.val.intval - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc_result.val.intval;
 	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
-	// TODO - accept ", name=SECTIONNAME"
+	// TODO - accept ', name = "section name"'
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
 		// restore old

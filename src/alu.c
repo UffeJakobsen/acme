@@ -358,6 +358,19 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 }
 
 
+// Parse program counter ('*')
+static void parse_program_counter(void)	// Now GotByte = "*"
+{
+	struct number	pc;
+
+	GetByte();
+	vcpu_read_pc(&pc);
+	// if needed, remember name for "undefined" error output
+	check_for_def(pc.flags, 0, "*", 1);
+	PUSH_INTOPERAND(pc.val.intval, pc.flags, pc.addr_refs);
+}
+
+
 // Parse quoted character.
 // The character will be converted using the current encoding.
 static void parse_quoted_character(char closing_quote)
@@ -569,20 +582,6 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 	}
 	PUSH_INTOPERAND(value, flags, 0);
 	// Now GotByte = non-octal char
-}
-
-
-// Parse program counter ('*')
-// FIXME - this function is similar to symbol lookup, so move it there
-static void parse_program_counter(void)	// Now GotByte = "*"
-{
-	struct number	pc;
-
-	GetByte();
-	vcpu_read_pc(&pc);
-	// if needed, remember name for "undefined" error output
-	check_for_def(pc.flags, 0, "*", 1);
-	PUSH_INTOPERAND(pc.val.intval, pc.flags, pc.addr_refs);
 }
 
 

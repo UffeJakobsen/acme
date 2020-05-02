@@ -18,14 +18,11 @@
 
 // Constants
 const char	FILE_READBINARY[]	= "rb";
-#define CHAR_TAB	(9)	// Tab character
 #define CHAR_LF		(10)	// line feed		(in file)
 		//	(10)	// start of line	(in high-level format)
 #define CHAR_CR		(13)	// carriage return	(in file)
 		//	(13)	// end of file		(in high-level format)
-#define CHAR_STATEMENT_DELIMITER	':'
-#define	CHAR_COMMENT_SEPARATOR		';'
-// if the characters above are changed, don't forget to adjust ByteFlags[]!
+// if the characters above are changed, don't forget to adjust byte_flags[]!
 
 // fake input structure (for error msgs before any real input is established)
 static struct input	outermost	= {
@@ -149,7 +146,7 @@ static char get_processed_from_file(void)
 
 			// check special characters ("0x00 TAB LF CR SPC / : ; }")
 			switch (from_file) {
-			case CHAR_TAB:	// TAB character
+			case '\t':
 			case ' ':
 				// remember to skip all following blanks
 				Input_now->state = INPUTSTATE_SKIPBLANKS;
@@ -181,12 +178,12 @@ static char get_processed_from_file(void)
 				}
 				// it's really "//", so act as if ';'
 				/*FALLTHROUGH*/
-			case CHAR_COMMENT_SEPARATOR:
+			case ';':
 				// remember to skip remainder of line
 				Input_now->state = INPUTSTATE_COMMENT;
 				return CHAR_EOS;	// end of statement
 
-			case CHAR_STATEMENT_DELIMITER:
+			case ':':	// statement delimiter
 				// just deliver an EOS instead
 				return CHAR_EOS;	// end of statement
 
@@ -200,7 +197,7 @@ static char get_processed_from_file(void)
 			do {
 				from_file = getc(Input_now->src.fd);
 				IF_WANTED_REPORT_SRCCHAR(from_file);
-			} while ((from_file == CHAR_TAB) || (from_file == ' '));
+			} while ((from_file == '\t') || (from_file == ' '));
 			// re-process last byte
 			Input_now->state = INPUTSTATE_AGAIN;
 			break;
