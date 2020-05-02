@@ -47,10 +47,6 @@ struct expression {
 
 // create dynamic buffer, operator/function trees and operator/operand stacks
 extern void ALU_init(void);
-// function pointer for "value undefined" error output.
-// set to NULL to suppress those errors,
-// set to Throw_error to show them.
-extern void (*ALU_optional_notdef_handler)(const char *);
 
 
 // FIXME - replace all the functions below with a single one using a "flags" arg!
@@ -66,7 +62,7 @@ extern void (*ALU_optional_notdef_handler)(const char *);
 */
 
 // stores int value if given. Returns whether stored. Throws error if undefined.
-extern int ALU_optional_defined_int(intval_t *target);
+extern boolean ALU_optional_defined_int(intval_t *target);
 // returns int value (0 if result was undefined)
 extern intval_t ALU_any_int(void);
 // stores int value and flags (floats are transformed to int)

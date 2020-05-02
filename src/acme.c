@@ -287,6 +287,7 @@ static boolean do_actual_work(void)
 	report_init(report);	// we must init struct before doing passes
 	if (config.process_verbosity > 1)
 		puts("First pass.");
+	pass.complain_about_undefined = FALSE;	// disable until error pass needed
 	pass.number = -1;	// pre-init, will be incremented by perform_pass()
 	perform_pass();	// first pass
 	// pretend there has been a previous pass, with one more undefined result
@@ -317,9 +318,7 @@ static boolean do_actual_work(void)
 	// so perform additional pass to find and show them.
 	if (config.process_verbosity > 1)
 		puts("Extra pass needed to find error.");
-	// activate error output
-	ALU_optional_notdef_handler = Throw_error;
-
+	pass.complain_about_undefined = TRUE;	// activate error output
 	perform_pass();	// perform pass, but now show "value undefined"
 	return FALSE;
 }

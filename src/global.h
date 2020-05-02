@@ -82,6 +82,7 @@ struct pass {
 	int	undefined_count;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
 	//int	needvalue_count;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
 	int	error_count;
+	boolean	complain_about_undefined;	// will be FALSE until error pass is needed
 };
 extern struct pass	pass;
 #define FIRST_PASS	(pass.number == 0)

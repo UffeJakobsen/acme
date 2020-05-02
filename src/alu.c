@@ -234,19 +234,6 @@ static char *value_not_defined(void)
 }
 
 
-// function pointer for "value undefined" error output. set to NULL to suppress those errors.
-void (*ALU_optional_notdef_handler)(const char *)	= NULL;
-
-// function to handle "result is undefined" type errors.
-// maybe split this into "_result_ is undefined" (in that case, count) and "symbol is undefined" (in that case, call handler)
-static void result_is_undefined(void)
-{
-	++pass.undefined_count;
-	if (ALU_optional_notdef_handler)
-		ALU_optional_notdef_handler(value_not_defined());
-}
-
-
 // enlarge operator stack
 static void enlarge_operator_stack(void)
 {
@@ -1474,8 +1461,18 @@ static void parse_expression(struct expression *expression)
 			result->flags &= ~NUMBER_FORCES_8;
 		// if there was nothing to parse, mark as undefined	FIXME - change this! make "nothing" its own result type; only numbers may be undefined
 		// (so ALU_defined_int() can react)
-		if (expression->is_empty)
+		if (expression->is_empty) {
 			result->flags &= ~NUMBER_IS_DEFINED;
+		} else {
+			// not empty. undefined?
+			if (!(expression->number.flags & NUMBER_IS_DEFINED)) {
+				// then count (in all passes)
+				++pass.undefined_count;
+				// and throw error (in error pass)
+				if (pass.complain_about_undefined)
+					Throw_error(value_not_defined());
+			}
+		}
 		// do some checks depending on int/float
 		if (result->flags & NUMBER_IS_FLOAT) {
 /*float*/		// if undefined, return zero
@@ -1520,7 +1517,7 @@ static void parse_expression(struct expression *expression)
 // EMPTY: allow
 // UNDEFINED: complain _seriously_
 // FLOAT: convert to int
-int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
+boolean ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 {
 	struct expression	expression;
 
@@ -1531,20 +1528,19 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 	&& (!(expression.number.flags & NUMBER_IS_DEFINED)))
 		Throw_serious_error(value_not_defined());
 	if (expression.is_empty)
-		return 0;
+		return FALSE;
 
 	// something was given, so store
 	if (expression.number.flags & NUMBER_IS_FLOAT)
 		*target = expression.number.val.fpval;
 	else
 		*target = expression.number.val.intval;
-	return 1;
+	return TRUE;
 }
 
 
 // Store int value and flags (floats are transformed to int)
 // For empty expressions, an error is thrown.
-// For undefined results, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
@@ -1564,14 +1560,11 @@ void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
 	}
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if (!(intresult->flags & NUMBER_IS_DEFINED))
-		result_is_undefined();
 }
 
 
 // return int value (if undefined, return zero)
 // For empty expressions, an error is thrown.
-// For undefined results, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
@@ -1586,8 +1579,6 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if (!(expression.number.flags & NUMBER_IS_DEFINED))
-		result_is_undefined();
 	if (expression.number.flags & NUMBER_IS_FLOAT)
 		return expression.number.val.fpval;
 	else
@@ -1644,14 +1635,11 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 	}
 	if (expression->is_empty)
 		Throw_error(exception_no_value);
-	else if (!(intresult->flags & NUMBER_IS_DEFINED))
-		result_is_undefined();
 }
 
 
 // Store value and flags (result may be either int or float)
 // For empty expressions, an error is thrown.
-// If the result's "defined" flag is clear, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
@@ -1666,68 +1654,65 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if (!(result->flags & NUMBER_IS_DEFINED))
-		result_is_undefined();
 }
 
-// FIXME - find out where pass.needvalue_count must be incremented and do that!
 
 /* TODO
 
 // stores int value and flags, allowing for one '(' too many (x-indirect addr).
 void ALU_liberal_int(struct expression *expression)
 	mnemo.c
-		when parsing addressing mode (except after '#' and '[')
+		when parsing addressing mode (except after '#' and '[')		needvalue!
 
 // stores int value and flags (floats are transformed to int)
 void ALU_int_result(struct number *intresult)
 	mnemo.c
-		when parsing address arg after '#'
-		when parsing address arg after '['
-		when parsing address after near branch	(needs () check)
-		when parsing address after far branch	(needs () check)
-		when parsing address after bbrX/bbsX	(needs () check)
-		when parsing address after rmbX/smbX	(needs () check)
-		twice when parsing MVN/MVP		(needs () check)
+		when parsing address arg after '#'		indirect?	needvalue!
+		when parsing address arg after '['		indirect?	needvalue!
+		when parsing address after near branch		indirect?	needvalue!
+		when parsing address after far branch		indirect?	needvalue!
+		when parsing address after bbrX/bbsX		indirect?	needvalue!
+		when parsing address after rmbX/smbX		indirect?	needvalue!
+		twice when parsing MVN/MVP			indirect?	needvalue!
 
 // stores value and flags (result may be either int or float)
 void ALU_any_result(struct number *result)
 	macro.c
-		macro call, when parsing call-by-value arg	(FIXME: undefined does not mean needvalue!)
+		macro call, when parsing call-by-value arg				don't care
 	pseudoopcodes.c
-		!set						(FIXME: undefined does not mean needvalue!)
-		when throwing user-specified errors		(FIXME: undefined does not mean needvalue!)
+		!set									don't care
+		when throwing user-specified errors					don't care
 	symbol.c
-		explicit symbol definition			(FIXME: undefined does not mean needvalue!)
+		explicit symbol definition						don't care
 
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
 void ALU_defined_int(struct number *intresult)
 	flow.c
-		when parsing loop conditions		(should be rather bool?)
+		when parsing loop conditions		make bool			serious
 	pseudoopcodes.c
-		*=					(FIXME, allow undefined)
-		!initmem
-		!fill (1st arg)				(maybe allow undefined?)
-		!skip					(maybe allow undefined?)
-		!align (1st + 2nd arg)			(maybe allow undefined?)
-		!pseudopc				(FIXME, allow undefined)
-		!if					(should be rather bool?)
-		twice in !for
+		*=					(FIXME, allow undefined)	needvalue!
+		!initmem								serious
+		!fill (1st arg)				(maybe allow undefined?)	needvalue!
+		!skip					(maybe allow undefined?)	needvalue!
+		!align (1st + 2nd arg)			(maybe allow undefined?)	needvalue!
+		!pseudopc				(FIXME, allow undefined)	needvalue!
+		!if					make bool			serious
+		twice in !for								serious
 
 // stores int value if given. Returns whether stored. Throws error if undefined.
 int ALU_optional_defined_int(intval_t *target)
 	pseudoopcodes.c
-		twice for !binary			(maybe allow undefined?)
+		twice for !binary			(maybe allow undefined?)	needvalue!
 		//!enum
 
 // returns int value (0 if result was undefined)
 intval_t ALU_any_int(void)
 	pseudoopcodes.c
-		!xor
-		iterator for !by, !wo, etc.
-		byte values in !raw, !tx, etc.
-		!scrxor
-		!fill (2nd arg)
-		!align (3rd arg)
+		!xor									needvalue!
+		iterator for !by, !wo, etc.						needvalue!
+		byte values in !raw, !tx, etc.						needvalue!
+		!scrxor									needvalue!
+		!fill (2nd arg)								needvalue!
+		!align (3rd arg)							needvalue!
 */
