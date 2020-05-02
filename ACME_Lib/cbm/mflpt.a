@@ -42,9 +42,10 @@ lib_cbm_mflpt_a = 1
 ; this is ugly, but it gets the job done
 ; (if it's stupid, but it works, then it's not stupid)
 !macro mflpt @value {
-	!set @float = float(@value)	; make sure to do passes until value is defined
+	!set @float = float(@value)
 	!ifndef @float {
-		!by $ff, $ff, $ff, $ff, $ff	; five place holder bytes
+		!by <@float, $ff, $ff, $ff, $ff	; five place holder bytes
+		; (first one depends on @float just to make sure more passes are done until value is defined)
 	} else {
 		; value is defined, so split up into sign and non-negative value
 		!if @float < 0 {
