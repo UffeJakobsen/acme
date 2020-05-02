@@ -49,6 +49,7 @@ extern const char	exception_no_right_brace[];
 extern const char	exception_number_out_of_range[];
 extern const char	exception_pc_undefined[];
 extern const char	exception_syntax[];
+extern const char	exception_value_not_defined[];
 // byte flags table
 extern const char	global_byte_flags[];
 #define BYTE_STARTS_KEYWORD(b)		(global_byte_flags[(unsigned char) b] & (1u << 7))	// byte is allowed at start of keyword (a-z, A-Z, _, everything>127)

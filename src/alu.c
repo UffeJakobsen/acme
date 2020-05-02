@@ -31,7 +31,6 @@
 
 #define ERRORMSG_DYNABUF_INITIALSIZE	256	// ad hoc
 #define FUNCTION_DYNABUF_INITIALSIZE	8	// enough for "arctan"
-#define UNDEFSYM_DYNABUF_INITIALSIZE	256	// ad hoc
 #define HALF_INITIAL_STACK_SIZE	8
 static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
@@ -151,7 +150,6 @@ static struct operator ops_arctan	= {OPHANDLE_ARCTAN,	32};	// function
 // variables
 static struct dynabuf	*errormsg_dyna_buf;	// dynamic buffer for "value not defined" error
 static struct dynabuf	*function_dyna_buf;	// dynamic buffer for fn names
-static struct dynabuf	*undefsym_dyna_buf;	// dynamic buffer for name of undefined symbol	TODO - get rid of this intermediate kluge and report errors immediately
 static struct operator	**operator_stack	= NULL;
 static int		operator_stk_size	= HALF_INITIAL_STACK_SIZE;
 static int		operator_sp;		// operator stack pointer
@@ -222,18 +220,6 @@ do {									\
 } while (0)
 
 
-// generate "Value not defined" error message with added symbol name
-static char *value_not_defined(void)
-{
-	DYNABUF_CLEAR(errormsg_dyna_buf);
-	DynaBuf_add_string(errormsg_dyna_buf, "Value not defined (");
-	DynaBuf_add_string(errormsg_dyna_buf, undefsym_dyna_buf->buffer);
-	DynaBuf_add_string(errormsg_dyna_buf, ").");
-	DynaBuf_append(errormsg_dyna_buf, '\0');
-	return errormsg_dyna_buf->buffer;
-}
-
-
 // enlarge operator stack
 static void enlarge_operator_stack(void)
 {
@@ -259,7 +245,6 @@ void ALU_init(void)
 {
 	errormsg_dyna_buf = DynaBuf_create(ERRORMSG_DYNABUF_INITIALSIZE);
 	function_dyna_buf = DynaBuf_create(FUNCTION_DYNABUF_INITIALSIZE);
-	undefsym_dyna_buf = DynaBuf_create(UNDEFSYM_DYNABUF_INITIALSIZE);
 	Tree_add_table(&operator_tree, operator_list);
 	Tree_add_table(&function_tree, function_list);
 	enlarge_operator_stack();
@@ -304,24 +289,45 @@ static intval_t my_asr(intval_t left, intval_t right)
 	return ~((~left) >> right);
 }
 
-// if undefined, remember name for error output
-static void check_for_def(int flags, char optional_prefix_char, char *name, size_t length)
+
+// if needed, throw "Value not defined" error
+// This function is not allowed to change DynaBuf because the symbol's name
+// might be stored there!
+static void check_for_def(struct symbol *optional_symbol, int flags, char optional_prefix_char, char *name, size_t length)
 {
-	if (!(flags & NUMBER_IS_DEFINED)) {
-		DYNABUF_CLEAR(undefsym_dyna_buf);
-		if (optional_prefix_char) {
-			DynaBuf_append(undefsym_dyna_buf, optional_prefix_char);
-			length++;
-		}
-		DynaBuf_add_string(undefsym_dyna_buf, name);
-		if (length > undefsym_dyna_buf->size) {
-			Bug_found("Illegal symbol name length", undefsym_dyna_buf->size - length);
-		} else {
-			undefsym_dyna_buf->size = length;
-		}
-		DynaBuf_append(undefsym_dyna_buf, '\0');
+	if (flags & NUMBER_IS_DEFINED)
+		return;
+
+	if (!pass.complain_about_undefined)
+		return;
+
+	// only complain once per symbol
+	if (optional_symbol) {
+		if (optional_symbol->has_been_reported)
+			return;
+
+		optional_symbol->has_been_reported = TRUE;
 	}
+
+	DYNABUF_CLEAR(errormsg_dyna_buf);
+	DynaBuf_add_string(errormsg_dyna_buf, "Value not defined (");
+	length += errormsg_dyna_buf->size;
+
+	if (optional_prefix_char) {
+		DynaBuf_append(errormsg_dyna_buf, optional_prefix_char);
+		++length;
+	}
+	DynaBuf_add_string(errormsg_dyna_buf, name);
+	if (errormsg_dyna_buf->size < length) {
+		Bug_found("Illegal symbol name length", errormsg_dyna_buf->size - length);
+	} else {
+		errormsg_dyna_buf->size = length;
+	}
+	DynaBuf_add_string(errormsg_dyna_buf, ").");
+	DynaBuf_append(errormsg_dyna_buf, '\0');
+	Throw_error(errormsg_dyna_buf->buffer);
 }
+
 
 // Lookup (and create, if necessary) symbol tree item and return its value.
 // DynaBuf holds the symbol's name and "scope" its scope.
@@ -335,8 +341,8 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 
 	// if the symbol gets created now, mark it as unsure
 	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
-	// if needed, remember name for "undefined" error output
-	check_for_def(symbol->result.flags, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
+	// if needed, output "value not defined" error
+	check_for_def(symbol, symbol->result.flags, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
@@ -352,8 +358,8 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 
 	GetByte();
 	vcpu_read_pc(&pc);
-	// if needed, remember name for "undefined" error output
-	check_for_def(pc.flags, 0, "*", 1);
+	// if needed, output "value not defined" error
+	check_for_def(NULL, pc.flags, 0, "*", 1);
 	PUSH_INTOPERAND(pc.val.intval, pc.flags, pc.addr_refs);
 }
 
@@ -1468,9 +1474,6 @@ static void parse_expression(struct expression *expression)
 			if (!(expression->number.flags & NUMBER_IS_DEFINED)) {
 				// then count (in all passes)
 				++pass.undefined_count;
-				// and throw error (in error pass)
-				if (pass.complain_about_undefined)
-					Throw_error(value_not_defined());
 			}
 		}
 		// do some checks depending on int/float
@@ -1520,13 +1523,16 @@ static void parse_expression(struct expression *expression)
 boolean ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 {
 	struct expression	expression;
+	boolean			buf	= pass.complain_about_undefined;
 
+	pass.complain_about_undefined = TRUE;
 	parse_expression(&expression);
+	pass.complain_about_undefined = buf;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if ((!expression.is_empty)
 	&& (!(expression.number.flags & NUMBER_IS_DEFINED)))
-		Throw_serious_error(value_not_defined());
+		Throw_serious_error(exception_value_not_defined);
 	if (expression.is_empty)
 		return FALSE;
 
@@ -1595,15 +1601,18 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 {
 	struct expression	expression;
+	boolean			buf	= pass.complain_about_undefined;
 
+	pass.complain_about_undefined = TRUE;
 	parse_expression(&expression);
+	pass.complain_about_undefined = buf;
 	*intresult = expression.number;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_serious_error(exception_no_value);
 	if (!(intresult->flags & NUMBER_IS_DEFINED))
-		Throw_serious_error(value_not_defined());
+		Throw_serious_error(exception_value_not_defined);
 	if (intresult->flags & NUMBER_IS_FLOAT) {
 		intresult->val.intval = intresult->val.fpval;
 		intresult->flags &= ~NUMBER_IS_FLOAT;

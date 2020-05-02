@@ -121,6 +121,7 @@ struct symbol *symbol_find(scope_t scope, int flags)
 			symbol->result.val.intval = 0;
 		symbol->usage = 0;	// usage count
 		symbol->pass = pass.number;
+		symbol->has_been_reported = FALSE;
 		node->body = symbol;
 	} else {
 		symbol = node->body;
