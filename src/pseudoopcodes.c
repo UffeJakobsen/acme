@@ -82,7 +82,7 @@ static enum eos po_initmem(void)
 	struct number	intresult;
 
 	// ignore in all passes but in first
-	if (pass_count)
+	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
 	// get value
@@ -129,7 +129,7 @@ static enum eos po_to(void)
 		return SKIP_REMAINDER;
 
 	// only act upon this pseudo opcode in first pass
-	if (pass_count)
+	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
 	if (outputfile_set_filename())
@@ -442,7 +442,8 @@ static enum eos po_binary(void)
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-	if ((size >= 0) && (pass_undefined_count || pass_real_errors)) {
+	if ((size >= 0) && (pass.undefined_count || pass.error_count)) {
+	//if ((size >= 0) && (pass.needvalue_count || pass.error_count)) {	FIXME - use!
 		output_skip(size);	// really including is useless anyway
 	} else {
 		// really insert file
@@ -466,7 +467,7 @@ static enum eos po_binary(void)
 	}
 	fclose(stream);
 	// if verbose, produce some output
-	if ((pass_count == 0) && (config.process_verbosity > 1)) {
+	if (FIRST_PASS && (config.process_verbosity > 1)) {
 		int	amount	= vcpu_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
@@ -707,7 +708,7 @@ static enum eos po_symbollist(void)
 		return SKIP_REMAINDER;
 
 	// only process this pseudo opcode in first pass
-	if (pass_count)
+	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
 	// if symbol list file name already set, complain and exit
@@ -838,7 +839,7 @@ static enum eos ifdef_ifndef(int is_ifndef)	// now GotByte = illegal char
 	if (node) {
 		symbol = (struct symbol *) node->body;
 		// in first pass, count usage
-		if (pass_count == 0)
+		if (FIRST_PASS)
 			symbol->usage++;
 		if (symbol->result.flags & NUMBER_IS_DEFINED)
 			defined = TRUE;
@@ -976,7 +977,7 @@ Throw_serious_error("Not yet");	// FIXME
 static enum eos po_macro(void)	// now GotByte = illegal char
 {
 	// in first pass, parse. In all other passes, skip.
-	if (pass_count == 0) {
+	if (FIRST_PASS) {
 		Macro_parse_definition();	// now GotByte = '}'
 	} else {
 		// skip until CHAR_SOB ('{') is found.

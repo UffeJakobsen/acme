@@ -120,7 +120,7 @@ struct symbol *symbol_find(scope_t scope, int flags)
 		else
 			symbol->result.val.intval = 0;
 		symbol->usage = 0;	// usage count
-		symbol->pass = pass_count;
+		symbol->pass = pass.number;
 		node->body = symbol;
 	} else {
 		symbol = node->body;
@@ -264,8 +264,8 @@ void symbol_fix_forward_anon_name(int increment)
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	counter_symbol = symbol_find(section_now->local_scope, 0);
 	// make sure it gets reset to zero in each new pass
-	if (counter_symbol->pass != pass_count) {
-		counter_symbol->pass = pass_count;
+	if (counter_symbol->pass != pass.number) {
+		counter_symbol->pass = pass.number;
 		counter_symbol->result.val.intval = 0;
 	}
 	number = (unsigned long) counter_symbol->result.val.intval;

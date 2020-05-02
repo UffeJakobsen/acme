@@ -59,10 +59,7 @@ extern const char	global_byte_flags[];
 // bits 2, 1 and 0 are currently unused
 
 // TODO - put in runtime struct:
-extern int	pass_count;
 extern char	GotByte;	// Last byte read (processed)
-extern int	pass_undefined_count;	// "NeedValue" type errors in current pass
-extern int	pass_real_errors;	// Errors yet
 // configuration
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
@@ -79,6 +76,15 @@ struct config {
 	boolean		test_new_features;	// FALSE, enabled by --test
 };
 extern struct config	config;
+
+struct pass {
+	int	number;	// counts up from zero
+	int	undefined_count;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
+	//int	needvalue_count;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
+	int	error_count;
+};
+extern struct pass	pass;
+#define FIRST_PASS	(pass.number == 0)
 
 // report stuff
 #define REPORT_ASCBUFSIZE	1024

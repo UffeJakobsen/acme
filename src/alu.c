@@ -241,7 +241,7 @@ void (*ALU_optional_notdef_handler)(const char *)	= NULL;
 // maybe split this into "_result_ is undefined" (in that case, count) and "symbol is undefined" (in that case, call handler)
 static void result_is_undefined(void)
 {
-	++pass_undefined_count;
+	++pass.undefined_count;
 	if (ALU_optional_notdef_handler)
 		ALU_optional_notdef_handler(value_not_defined());
 }
@@ -320,7 +320,7 @@ static intval_t my_asr(intval_t left, intval_t right)
 // if undefined, remember name for error output
 static void check_for_def(int flags, char optional_prefix_char, char *name, size_t length)
 {
-	if ((flags & NUMBER_IS_DEFINED) == 0) {
+	if (!(flags & NUMBER_IS_DEFINED)) {
 		DYNABUF_CLEAR(undefsym_dyna_buf);
 		if (optional_prefix_char) {
 			DynaBuf_append(undefsym_dyna_buf, optional_prefix_char);
@@ -351,7 +351,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	// if needed, remember name for "undefined" error output
 	check_for_def(symbol->result.flags, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// in first pass, count usage
-	if (pass_count == 0)
+	if (FIRST_PASS)
 		symbol->usage++;
 	// push operand, regardless of whether int or float
 	operand_stack[operand_sp++] = symbol->result;
@@ -573,6 +573,7 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 
 
 // Parse program counter ('*')
+// FIXME - this function is similar to symbol lookup, so move it there
 static void parse_program_counter(void)	// Now GotByte = "*"
 {
 	struct number	pc;
@@ -1472,7 +1473,7 @@ static void parse_expression(struct expression *expression)
 			result->flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
 		else if (result->flags & NUMBER_FORCES_16)
 			result->flags &= ~NUMBER_FORCES_8;
-		// if there was nothing to parse, mark as undefined
+		// if there was nothing to parse, mark as undefined	FIXME - change this! make "nothing" its own result type; only numbers may be undefined
 		// (so ALU_defined_int() can react)
 		if (expression->is_empty)
 			result->flags &= ~NUMBER_IS_DEFINED;
@@ -1499,6 +1500,7 @@ static void parse_expression(struct expression *expression)
 	} else {
 		// State is STATE_ERROR. Errors have already been reported,
 		// but we must make sure not to pass bogus data to caller.
+		// FIXME - just use the return value to indicate "there were errors, do not use result!"
 		result->flags = 0;	// maybe set DEFINED flag to suppress follow-up errors?
 		result->val.intval = 0;
 		result->addr_refs = 0;
@@ -1514,8 +1516,7 @@ static void parse_expression(struct expression *expression)
 // Store int value if given. Returns whether stored. Throws error if undefined.
 // This function needs either a defined value or no expression at all. So
 // empty expressions are accepted, but undefined ones are not.
-// If the result's "defined" flag is clear and the "exists" flag is set, it
-// throws a serious error and therefore stops assembly.
+// If the result is non-empty but undefined, a serious error is thrown, stopping assembly.
 // OPEN_PARENTHESIS: complain
 // EMPTY: allow
 // UNDEFINED: complain _seriously_
@@ -1527,8 +1528,8 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 	parse_expression(&expression);
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((expression.is_empty == FALSE)
-	&& ((expression.number.flags & NUMBER_IS_DEFINED) == 0))
+	if ((!expression.is_empty)
+	&& (!(expression.number.flags & NUMBER_IS_DEFINED)))
 		Throw_serious_error(value_not_defined());
 	if (expression.is_empty)
 		return 0;
@@ -1543,9 +1544,8 @@ int ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 
 
 // Store int value and flags (floats are transformed to int)
-// It the result's "exists" flag is clear (=empty expression), it throws an
-// error.
-// If the result's "defined" flag is clear, result_is_undefined() is called.
+// For empty expressions, an error is thrown.
+// For undefined results, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
@@ -1565,15 +1565,14 @@ void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
 	}
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((intresult->flags & NUMBER_IS_DEFINED) == 0)
+	else if (!(intresult->flags & NUMBER_IS_DEFINED))
 		result_is_undefined();
 }
 
 
-// return int value (if result is undefined, returns zero)
-// If the result's "exists" flag is clear (=empty expression), it throws an
-// error.
-// If the result's "defined" flag is clear, result_is_undefined() is called.
+// return int value (if undefined, return zero)
+// For empty expressions, an error is thrown.
+// For undefined results, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
@@ -1588,7 +1587,7 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((expression.number.flags & NUMBER_IS_DEFINED) == 0)
+	else if (!(expression.number.flags & NUMBER_IS_DEFINED))
 		result_is_undefined();
 	if (expression.number.flags & NUMBER_IS_FLOAT)
 		return expression.number.val.fpval;
@@ -1598,9 +1597,9 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 
 
 // stores int value and flags (floats are transformed to int)
-// if result was undefined, serious error is thrown
+// if result is empty or undefined, serious error is thrown
 // OPEN_PARENTHESIS: complain
-// EMPTY: treat as UNDEFINED		<= this is a problem - maybe use a wrapper fn for this use case?
+// EMPTY: complain _seriously_
 // UNDEFINED: complain _seriously_
 // FLOAT: convert to int
 void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
@@ -1611,7 +1610,9 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	*intresult = expression.number;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
-	if ((intresult->flags & NUMBER_IS_DEFINED) == 0)
+	if (expression.is_empty)
+		Throw_serious_error(exception_no_value);
+	if (!(intresult->flags & NUMBER_IS_DEFINED))
 		Throw_serious_error(value_not_defined());
 	if (intresult->flags & NUMBER_IS_FLOAT) {
 		intresult->val.intval = intresult->val.fpval;
@@ -1623,8 +1624,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 // Store int value and flags.
 // This function allows for one '(' too many. Needed when parsing indirect
 // addressing modes where internal indices have to be possible.
-// If the result's "exists" flag is clear (=empty expression), it throws an
-// error.
+// For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: allow
 // UNDEFINED: allow
 // EMPTY: complain
@@ -1645,15 +1645,13 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 	}
 	if (expression->is_empty)
 		Throw_error(exception_no_value);
-	if ((expression->is_empty == FALSE)
-	&& ((intresult->flags & NUMBER_IS_DEFINED) == 0))
+	else if (!(intresult->flags & NUMBER_IS_DEFINED))
 		result_is_undefined();
 }
 
 
 // Store value and flags (result may be either int or float)
-// It the result's "exists" flag is clear (=empty expression), it throws an
-// error.
+// For empty expressions, an error is thrown.
 // If the result's "defined" flag is clear, result_is_undefined() is called.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
@@ -1669,9 +1667,11 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	else if ((result->flags & NUMBER_IS_DEFINED) == 0)
+	else if (!(result->flags & NUMBER_IS_DEFINED))
 		result_is_undefined();
 }
+
+// FIXME - find out where pass.needvalue_count must be incremented and do that!
 
 /* TODO
 
@@ -1694,12 +1694,12 @@ void ALU_int_result(struct number *intresult)
 // stores value and flags (result may be either int or float)
 void ALU_any_result(struct number *result)
 	macro.c
-		macro call, when parsing call-by-value arg
+		macro call, when parsing call-by-value arg	(FIXME: undefined does not mean needvalue!)
 	pseudoopcodes.c
-		!set
-		when throwing user-specified errors
+		!set						(FIXME: undefined does not mean needvalue!)
+		when throwing user-specified errors		(FIXME: undefined does not mean needvalue!)
 	symbol.c
-		explicit symbol definition
+		explicit symbol definition			(FIXME: undefined does not mean needvalue!)
 
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown

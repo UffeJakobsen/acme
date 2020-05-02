@@ -237,12 +237,13 @@ static void save_output_file(void)
 }
 
 
-// perform a single pass. Returns number of "NeedValue" type errors.
-static int perform_pass(void)
+// increment pass number and perform a single pass
+static void perform_pass(void)
 {
 	FILE	*fd;
 	int	ii;
 
+	++pass.number;
 	// call modules' "pass init" functions
 	Output_passinit();	// disable output, PC undefined
 	cputype_passinit(default_cpu);	// set default cpu type
@@ -252,8 +253,9 @@ static int perform_pass(void)
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
 	// init variables
-	pass_undefined_count = 0;	// no "NeedValue" errors yet
-	pass_real_errors = 0;	// no real errors yet
+	pass.undefined_count = 0;
+	//pass.needvalue_count = 0;	FIXME - use
+	pass.error_count = 0;
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		if ((fd = fopen(toplevel_sources[ii], FILE_READBINARY))) {
@@ -262,7 +264,7 @@ static int perform_pass(void)
 			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources[ii]);
 			if (toplevel_sources[ii][0] == '-')
 				fprintf(stderr, "Options (starting with '-') must be given _before_ source files!\n");
- 			++pass_real_errors;
+ 			++pass.error_count;
 		}
 	}
 	Output_end_segment();
@@ -270,50 +272,46 @@ static int perform_pass(void)
 	if --save-start is given, parse arg string
 	if --save-limit is given, parse arg string
 */
-	if (pass_real_errors)
+	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
-	return pass_undefined_count;
 }
 
 
 static struct report	global_report;
 // do passes until done (or errors occurred). Return whether output is ready.
-static int do_actual_work(void)
+static boolean do_actual_work(void)
 {
-	int		undefined_prev,	// "NeedValue" errors of previous pass
-			undefined_curr;	// "NeedValue" errors of current pass
+	int	undefs_before;	// number of undefined results in previous pass
 
 	report = &global_report;	// let global pointer point to something
 	report_init(report);	// we must init struct before doing passes
 	if (config.process_verbosity > 1)
 		puts("First pass.");
-	pass_count = 0;
-	undefined_curr = perform_pass();	// First pass
-	// now pretend there has been a pass before the first one
-	undefined_prev = undefined_curr + 1;
-	// As long as the number of "NeedValue" errors is decreasing but
-	// non-zero, keep doing passes.
-	while (undefined_curr && (undefined_curr < undefined_prev)) {
-		++pass_count;
-		undefined_prev = undefined_curr;
+	pass.number = -1;	// pre-init, will be incremented by perform_pass()
+	perform_pass();	// first pass
+	// pretend there has been a previous pass, with one more undefined result
+	undefs_before = pass.undefined_count + 1;
+	// keep doing passes as long as the number of undefined results keeps decreasing.
+	// stop on zero (FIXME - zero-check pass.needvalue_count instead!)
+	while (pass.undefined_count && (pass.undefined_count < undefs_before)) {
+		undefs_before = pass.undefined_count;
 		if (config.process_verbosity > 1)
 			puts("Further pass.");
-		undefined_curr = perform_pass();
+		perform_pass();
 	}
 	// any errors left?
-	if (undefined_curr == 0) {
+	if (pass.undefined_count == 0) {	// FIXME - use pass.needvalue_count instead!
 		// if listing report is wanted and there were no errors,
 		// do another pass to generate listing report
 		if (report_filename) {
 			if (config.process_verbosity > 1)
 				puts("Extra pass to generate listing report.");
 			if (report_open(report, report_filename) == 0) {
-				++pass_count;
 				perform_pass();
 				report_close(report);
 			}
 		}
-		return 1;
+		return TRUE;
 	}
 	// There are still errors (unsolvable by doing further passes),
 	// so perform additional pass to find and show them.
@@ -322,9 +320,8 @@ static int do_actual_work(void)
 	// activate error output
 	ALU_optional_notdef_handler = Throw_error;
 
-	++pass_count;
 	perform_pass();	// perform pass, but now show "value undefined"
-	return 0;
+	return FALSE;
 }
 
 

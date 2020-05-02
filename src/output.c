@@ -118,7 +118,7 @@ static void border_crossed(int current_offset)
 {
 	if (current_offset >= OUTBUFFERSIZE)
 		Throw_serious_error("Produced too much code.");
-	if (pass_count == 0) {
+	if (FIRST_PASS) {
 		// TODO: make warn/err an arg for a general "Throw" function
 		if (config.segment_warning_is_error)
 			Throw_error("Segment reached another one, overwriting it.");
@@ -303,8 +303,10 @@ int output_initmem(char content)
 	// init memory
 	fill_completely(content);
 	// enforce another pass
-	if (pass_undefined_count == 0)
-		pass_undefined_count = 1;
+	if (pass.undefined_count == 0)
+		pass.undefined_count = 1;
+	//if (pass.needvalue_count == 0)	FIXME - use? instead or additionally?
+	//	pass.needvalue_count = 1;
 // FIXME - enforcing another pass is not needed if there hasn't been any
 // output yet. But that's tricky to detect without too much overhead.
 // The old solution was to add &&(out->lowest_written < out->highest_written+1) to "if" above
@@ -506,7 +508,7 @@ void Output_end_segment(void)
 	intval_t	amount;
 
 	// in later passes, ignore completely
-	if (pass_count)
+	if (!FIRST_PASS)
 		return;
 
 	// if there is no segment, there is nothing to do
@@ -546,7 +548,7 @@ void Output_start_segment(intval_t address_change, int segment_flags)
 	// allow writing to output buffer
 	Output_byte = real_output;
 	// in first pass, check for other segments and maybe issue warning
-	if (pass_count == 0) {
+	if (FIRST_PASS) {
 		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
 			check_segment(out->segment.start);
 		find_segment_max(out->segment.start);

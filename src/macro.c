@@ -323,7 +323,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 					GetByte();	// skip '~' character
 					Input_read_scope_and_keyword(&symbol_scope);
 					if ((Tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
-					&& (pass_count == 0))
+					&& (FIRST_PASS))
 						Throw_error("Macro parameter twice.");
 					symbol_node->body = arg_table[arg_count].symbol;
 				} else {

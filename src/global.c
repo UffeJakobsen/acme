@@ -109,15 +109,10 @@ const char	global_byte_flags[256]	= {
 
 
 // variables
-int		pass_count;			// number of current pass (starts 0)
 char		GotByte;			// Last byte read (processed)
-// global counters
-int		pass_undefined_count;	// "NeedValue" type errors
-int		pass_real_errors;	// Errors yet
 struct report 	*report			= NULL;
-
-// configuration
 struct config	config;
+struct pass	pass;
 
 // set configuration to default values
 void config_default(struct config *conf)
@@ -371,7 +366,7 @@ void Throw_warning(const char *message)
 // Output a warning if in first pass. See above.
 void Throw_first_pass_warning(const char *message)
 {
-	if (pass_count == 0)
+	if (FIRST_PASS)
 		Throw_warning(message);
 }
 
@@ -388,8 +383,8 @@ void Throw_error(const char *message)
 		throw_message(message, "\033[31mError\033[0m");
 	else
 		throw_message(message, "Error");
-	++pass_real_errors;
-	if (pass_real_errors >= config.max_errors)
+	++pass.error_count;
+	if (pass.error_count >= config.max_errors)
 		exit(ACME_finalize(EXIT_FAILURE));
 }
 
