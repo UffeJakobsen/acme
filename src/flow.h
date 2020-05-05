@@ -29,32 +29,37 @@ struct for_loop {
 	struct block	block;
 };
 
-// structs to pass "!do" loop stuff from pseudoopcodes.c to flow.c
-struct loop_condition {
+// structs to pass "!do"/"!while" stuff from pseudoopcodes.c to flow.c
+struct condition {
 	int	line;	// original line number
-	boolean	is_until;	// so FALSE means WHILE, TRUE means UNTIL)
+	boolean	invert;	// only set for UNTIL conditions
 	char	*body;	// pointer to actual expression
 };
-struct do_loop {
-	struct loop_condition	head_cond;
+struct do_while {
+	struct condition	head_cond;
 	struct block		block;
-	struct loop_condition	tail_cond;
+	struct condition	tail_cond;
 };
 
 
 // back end function for "!for" pseudo opcode
 extern void flow_forloop(struct for_loop *loop);
-// try to read a condition into DynaBuf and store copy pointer in
-// given loop_condition structure.
+// try to read a condition into DynaBuf and store pointer to copy in
+// given condition structure.
 // if no condition given, NULL is written to structure.
 // call with GotByte = first interesting character
-extern void flow_store_doloop_condition(struct loop_condition *condition, char terminator);
+extern void flow_store_doloop_condition(struct condition *condition, char terminator);
+// read a condition into DynaBuf and store pointer to copy in
+// given condition structure.
+// call with GotByte = first interesting character
+extern void flow_store_while_condition(struct condition *condition);
 // back end function for "!do" pseudo opcode
-extern void flow_doloop(struct do_loop *loop);
+extern void flow_do_while(struct do_while *loop);
 // parse a whole source code file
 extern void flow_parse_and_close_file(FILE *fd, const char *filename);
 // parse {block} [else {block}]
 extern void flow_parse_block_else_block(int parse_first);
+// TODO - add an "else if" possibility
 
 
 #endif

@@ -937,7 +937,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 // looping assembly ("!do"). has to be re-entrant.
 static enum eos po_do(void)	// now GotByte = illegal char
 {
-	struct do_loop	loop;
+	struct do_while	loop;
 
 	// read head condition to buffer
 	SKIPSPACE();
@@ -954,7 +954,7 @@ static enum eos po_do(void)	// now GotByte = illegal char
 	// read tail condition to buffer
 	flow_store_doloop_condition(&loop.tail_cond, CHAR_EOS);	// must be freed!
 	// now GotByte = CHAR_EOS
-	flow_doloop(&loop);
+	flow_do_while(&loop);
 	// free memory
 	free(loop.head_cond.body);
 	free(loop.block.body);
@@ -963,14 +963,31 @@ static enum eos po_do(void)	// now GotByte = illegal char
 }
 
 
-#if 0
-// looping assembly (alternative for people used to c-style loops)
+// looping assembly ("!while", alternative for people used to c-style loops). has to be re-entrant.
 static enum eos po_while(void)	// now GotByte = illegal char
 {
-Throw_serious_error("Not yet");	// FIXME
+	struct do_while	loop;
+
+	// read condition to buffer
+	SKIPSPACE();
+	flow_store_while_condition(&loop.head_cond);	// must be freed!
+	if (GotByte != CHAR_SOB)
+		Throw_serious_error(exception_no_left_brace);
+	// remember line number of loop body,
+	// then read block and get copy
+	loop.block.start = Input_now->line_number;
+	// reading block changes line number!
+	loop.block.body = Input_skip_or_store_block(TRUE);	// must be freed!
+	// clear tail condition
+	loop.tail_cond.body = NULL;
+	flow_do_while(&loop);
+	// free memory
+	free(loop.head_cond.body);
+	free(loop.block.body);
+	// GotByte of OuterInput would be '}' (if it would still exist)
+	GetByte();	// fetch next byte
 	return ENSURE_EOS;
 }
-#endif
 
 
 // macro definition ("!macro").

@@ -180,6 +180,7 @@ void symbol_set_label(scope_t scope, int stat_flags, int force_bit, int change_a
 	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
 	vcpu_read_pc(&pc);
+	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
 	result.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.val.intval = pc.val.intval;
 	result.addr_refs = pc.addr_refs;

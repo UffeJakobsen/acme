@@ -82,16 +82,26 @@ void flow_forloop(struct for_loop *loop)
 }
 
 
-// try to read a condition into DynaBuf and store copy pointer in
+// read condition, make copy, link to struct
+static void copy_condition(struct condition *condition, char terminator)
+{
+	SKIPSPACE();
+	DYNABUF_CLEAR(GlobalDynaBuf);
+	Input_until_terminator(terminator);
+	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
+	condition->body = DynaBuf_get_copy(GlobalDynaBuf);
+}
+
+// try to read a condition into DynaBuf and store pointer to copy in
 // given loop_condition structure.
 // if no condition given, NULL is written to structure.
 // call with GotByte = first interesting character
-void flow_store_doloop_condition(struct loop_condition *condition, char terminator)
+void flow_store_doloop_condition(struct condition *condition, char terminator)
 {
 	// write line number
 	condition->line = Input_now->line_number;
 	// set defaults
-	condition->is_until = FALSE;
+	condition->invert = FALSE;
 	condition->body = NULL;
 	// check for empty condition
 	if (GotByte == terminator)
@@ -100,25 +110,32 @@ void flow_store_doloop_condition(struct loop_condition *condition, char terminat
 	// seems as if there really *is* a condition, so check for until/while
 	if (Input_read_and_lower_keyword()) {
 		if (strcmp(GlobalDynaBuf->buffer, "while") == 0) {
-			//condition.is_until = FALSE;
+			//condition.invert = FALSE;
 		} else if (strcmp(GlobalDynaBuf->buffer, "until") == 0) {
-			condition->is_until = TRUE;
+			condition->invert = TRUE;
 		} else {
 			Throw_error(exception_syntax);
 			return;
 		}
 		// write given condition into buffer
-		SKIPSPACE();
-		DYNABUF_CLEAR(GlobalDynaBuf);
-		Input_until_terminator(terminator);
-		DynaBuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
-		condition->body = DynaBuf_get_copy(GlobalDynaBuf);
+		copy_condition(condition, terminator);
 	}
 }
 
 
+// read a condition into DynaBuf and store pointer to copy in
+// given loop_condition structure.
+// call with GotByte = first interesting character
+void flow_store_while_condition(struct condition *condition)
+{
+	condition->line = Input_now->line_number;
+	condition->invert = FALSE;
+	copy_condition(condition, CHAR_SOB);
+}
+
+
 // check a condition expression
-static int check_condition(struct loop_condition *condition)
+static int check_condition(struct condition *condition)
 {
 	struct number	intresult;
 
@@ -133,12 +150,12 @@ static int check_condition(struct loop_condition *condition)
 	ALU_defined_int(&intresult);
 	if (GotByte)
 		Throw_serious_error(exception_syntax);
-	return condition->is_until ? !intresult.val.intval : !!intresult.val.intval;
+	return condition->invert ? !intresult.val.intval : !!intresult.val.intval;
 }
 
 
-// back end function for "!do" pseudo opcode
-void flow_doloop(struct do_loop *loop)
+// back end function for "!do" and "!while" pseudo opcodes
+void flow_do_while(struct do_while *loop)
 {
 	struct input	loop_input;
 	struct input	*outer_input;
