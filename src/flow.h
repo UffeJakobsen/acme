@@ -58,7 +58,7 @@ extern void flow_do_while(struct do_while *loop);
 // parse a whole source code file
 extern void flow_parse_and_close_file(FILE *fd, const char *filename);
 // parse {block} [else {block}]
-extern void flow_parse_block_else_block(int parse_first);
+extern void flow_parse_block_else_block(boolean parse_first);
 // TODO - add an "else if" possibility
 
 

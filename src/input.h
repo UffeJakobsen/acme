@@ -75,7 +75,7 @@ extern void Input_ensure_EOS(void);
 // If "Store" is FALSE, NULL is returned.
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-extern char *Input_skip_or_store_block(int store);
+extern char *Input_skip_or_store_block(boolean store);
 // Read bytes and add to GlobalDynaBuf until the given terminator (or CHAR_EOS)
 // is found. Act upon single and double quotes by entering (and leaving) quote
 // mode as needed (So the terminator does not terminate when inside quotes).
@@ -125,7 +125,7 @@ extern void includepaths_add(const char *path);
 // open file for reading (trying list entries as prefixes)
 // "uses_lib" tells whether to access library or to make use of include paths
 // file name is expected in GlobalDynaBuf
-extern FILE *includepaths_open_ro(int uses_lib);
+extern FILE *includepaths_open_ro(boolean uses_lib);
 
 
 #endif

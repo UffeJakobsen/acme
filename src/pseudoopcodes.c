@@ -74,6 +74,7 @@ void notreallypo_setpc(void)
 		}
 	}
 	vcpu_set_pc(intresult.val.intval, segment_flags);
+	// TODO - allow block syntax, so it is possible to put data "somewhere else" and then return to old position
 }
 
 

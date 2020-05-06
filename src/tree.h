@@ -7,8 +7,8 @@
 #define tree_H
 
 
-#include "config.h"
 #include <stdio.h>	// for FILE
+#include "config.h"
 
 
 // macros for pre-defining tree node tables

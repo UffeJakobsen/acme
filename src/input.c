@@ -340,7 +340,7 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
 // FIXME - use a struct block *ptr argument!
-char *Input_skip_or_store_block(int store)
+char *Input_skip_or_store_block(boolean store)
 {
 	char	byte;
 	int	depth	= 1;	// to find matching block end
@@ -622,7 +622,7 @@ void includepaths_add(const char *path)
 // open file for reading (trying list entries as prefixes)
 // "uses_lib" tells whether to access library or to make use of include paths
 // file name is expected in GlobalDynaBuf
-FILE *includepaths_open_ro(int uses_lib)
+FILE *includepaths_open_ro(boolean uses_lib)
 {
 	FILE		*stream;
 	struct ipi	*ipi;

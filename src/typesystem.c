@@ -9,30 +9,34 @@
 #include "global.h"
 
 
-static int	in_address_block	= FALSE;
-static int	in_address_statement	= FALSE;
+static boolean	in_address_block	= FALSE;
+static boolean	in_address_statement	= FALSE;
 
 // Functions
 
-int typesystem_says_address(void)
+// return whether explicit symbol definitions should force "address" mode
+boolean typesystem_says_address(void)
 {
-	return in_address_block | in_address_statement;
+	return in_address_block || in_address_statement;
 }
 
+// parse a block while forcing address mode
 void typesystem_force_address_block(void)
 {
-	int	buffer	= in_address_block;
+	boolean	buffer	= in_address_block;
 
 	in_address_block = TRUE;
 	Parse_optional_block();
 	in_address_block = buffer;
 }
 
-void typesystem_force_address_statement(int value)
+// force address mode on or off for the next statement
+void typesystem_force_address_statement(boolean value)
 {
 	in_address_statement = value;
 }
 
+// warn if result is not integer
 void typesystem_want_imm(struct number *result)
 {
 	if (!config.warn_on_type_mismatch)
@@ -46,6 +50,7 @@ void typesystem_want_imm(struct number *result)
 		//printf("refcount should be 0, but is %d\n", result->addr_refs);
 	}
 }
+// warn if result is not address
 void typesystem_want_addr(struct number *result)
 {
 	if (!config.warn_on_type_mismatch)

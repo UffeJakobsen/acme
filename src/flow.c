@@ -191,7 +191,7 @@ void flow_do_while(struct do_while *loop)
 
 // parse or skip a block. Returns whether block's '}' terminator was missing.
 // afterwards: GotByte = '}'
-static int skip_or_parse_block(int parse)
+static int skip_or_parse_block(boolean parse)
 {
 	if (!parse) {
 		Input_skip_or_store_block(FALSE);
@@ -207,7 +207,7 @@ static int skip_or_parse_block(int parse)
 
 
 // parse {block} [else {block}]
-void flow_parse_block_else_block(int parse_first)
+void flow_parse_block_else_block(boolean parse_first)
 {
 	// Parse first block.
 	// If it's not correctly terminated, return immediately (because

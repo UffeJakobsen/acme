@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2017 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // section stuff (move to symbol.h?)
@@ -32,7 +32,7 @@ static scope_t		cheap_scope_max;	// highest scope number yet
 
 
 // write given info into given structure and activate it
-void section_new(struct section *section, const char *type, char *title, int allocated)
+void section_new(struct section *section, const char *type, char *title, boolean allocated)
 {
 	// new scope for locals
 	local_scope_max += SCOPE_INCREMENT;
