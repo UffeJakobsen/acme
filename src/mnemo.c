@@ -1074,7 +1074,7 @@ static int check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 6502 cpu.
-int keyword_is_6502_mnemo(int length)
+boolean keyword_is_6502_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;
@@ -1085,7 +1085,7 @@ int keyword_is_6502_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 6510 cpu.
-int keyword_is_6510_mnemo(int length)
+boolean keyword_is_6510_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;
@@ -1105,7 +1105,7 @@ int keyword_is_6510_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by C64DTV2 cpu.
-int keyword_is_c64dtv2_mnemo(int length)
+boolean keyword_is_c64dtv2_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;
@@ -1125,7 +1125,7 @@ int keyword_is_c64dtv2_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 65c02 cpu.
-int keyword_is_65c02_mnemo(int length)
+boolean keyword_is_65c02_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;
@@ -1141,7 +1141,7 @@ int keyword_is_65c02_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by Rockwell 65c02 cpu.
-int keyword_is_r65c02_mnemo(int length)
+boolean keyword_is_r65c02_mnemo(int length)
 {
 	if ((length != 3) && (length != 4))
 		return FALSE;
@@ -1161,7 +1161,7 @@ int keyword_is_r65c02_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by WDC w65c02 cpu.
-int keyword_is_w65c02_mnemo(int length)
+boolean keyword_is_w65c02_mnemo(int length)
 {
 	if ((length != 3) && (length != 4))
 		return FALSE;
@@ -1185,7 +1185,7 @@ int keyword_is_w65c02_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by CSG 65CE02 cpu.
-int keyword_is_65ce02_mnemo(int length)
+boolean keyword_is_65ce02_mnemo(int length)
 {
 	if ((length != 3) && (length != 4))
 		return FALSE;
@@ -1213,7 +1213,7 @@ int keyword_is_65ce02_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by CSG 4502 cpu.
-int keyword_is_4502_mnemo(int length)
+boolean keyword_is_4502_mnemo(int length)
 {
 	if ((length != 3) && (length != 4))
 		return FALSE;
@@ -1241,7 +1241,7 @@ int keyword_is_4502_mnemo(int length)
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 65816 cpu.
-int keyword_is_65816_mnemo(int length)
+boolean keyword_is_65816_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;

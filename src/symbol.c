@@ -104,8 +104,8 @@ struct symbol *symbol_find(scope_t scope, int flags)
 {
 	struct rwnode	*node;
 	struct symbol	*symbol;
-	int		node_created,
-			force_bits	= flags & NUMBER_FORCEBITS;
+	boolean		node_created;
+	int		force_bits	= flags & NUMBER_FORCEBITS;
 
 	node_created = Tree_hard_scan(&node, symbols_forest, scope, TRUE);
 	// if node has just been created, create symbol as well
@@ -127,7 +127,7 @@ struct symbol *symbol_find(scope_t scope, int flags)
 		symbol = node->body;
 	}
 	// make sure the force bits don't clash
-	if ((node_created == FALSE) && force_bits)
+	if ((!node_created) && force_bits)
 		if ((symbol->result.flags & NUMBER_FORCEBITS) != force_bits)
 			Throw_error("Too late for postfix.");
 	return symbol;
@@ -136,12 +136,12 @@ struct symbol *symbol_find(scope_t scope, int flags)
 
 // assign value to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
-void symbol_set_value(struct symbol *symbol, struct number *new_value, int change_allowed)
+void symbol_set_value(struct symbol *symbol, struct number *new_value, boolean change_allowed)
 {
 	int	oldflags	= symbol->result.flags;
 
 	// value stuff
-	if ((oldflags & NUMBER_IS_DEFINED) && (change_allowed == FALSE)) {
+	if ((oldflags & NUMBER_IS_DEFINED) && !change_allowed) {
 		// symbol is already defined, so compare new and old values
 		// if different type OR same type but different value, complain
 		if (((oldflags ^ new_value->flags) & NUMBER_IS_FLOAT)
@@ -169,7 +169,7 @@ void symbol_set_value(struct symbol *symbol, struct number *new_value, int chang
 
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
-void symbol_set_label(scope_t scope, int stat_flags, int force_bit, int change_allowed)
+void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
 {
 	struct number	pc,
 			result;

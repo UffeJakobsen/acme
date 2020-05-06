@@ -27,8 +27,8 @@ enum inputstate {
 };
 struct input {
 	const char	*original_filename;	// during RAM reads, too
-	int		line_number,	// in file (on RAM reads, too)
-			source_is_ram;	// TRUE if RAM, FALSE if file
+	int		line_number;	// in file (on RAM reads, too)
+	boolean		source_is_ram;	// TRUE if RAM, FALSE if file	(TODO - change to enum)
 	enum inputstate	state;	// state of input
 	union {
 		FILE	*fd;		// file descriptor
@@ -108,7 +108,7 @@ extern int Input_read_and_lower_keyword(void);
 // Returns whether error occurred (TRUE on error). Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // Input_skip_remainder() then.
-extern int Input_read_filename(int library_allowed, int *uses_lib);
+extern int Input_read_filename(boolean library_allowed, boolean *uses_lib);
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.
 extern int Input_accept_comma(void);

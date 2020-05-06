@@ -490,7 +490,7 @@ int Input_read_and_lower_keyword(void)
 // Returns whether error occurred (TRUE on error). Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // Input_skip_remainder() then.
-int Input_read_filename(int allow_library, int *uses_lib)
+int Input_read_filename(boolean allow_library, boolean *uses_lib)
 {
 	char	*lib_prefix,
 		end_quote;
@@ -500,9 +500,9 @@ int Input_read_filename(int allow_library, int *uses_lib)
 	// check for library access
 	if (GotByte == '<') {
 		if (uses_lib)
-			*uses_lib = 1;
+			*uses_lib = TRUE;
 		// if library access forbidden, complain
-		if (allow_library == FALSE) {
+		if (!allow_library) {
 			Throw_error("Writing to library not supported.");
 			return TRUE;
 		}
@@ -521,7 +521,7 @@ int Input_read_filename(int allow_library, int *uses_lib)
 		end_quote = '>';
 	} else {
 		if (uses_lib)
-			*uses_lib = 0;
+			*uses_lib = FALSE;
 		if (GotByte == '"') {
 			end_quote = '"';
 		} else {

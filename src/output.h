@@ -24,8 +24,8 @@ struct vcpu {
 	const struct cpu_type	*type;		// current CPU type (default 6502)	(FIXME - move out of struct again?)
 	struct number		pc;		// current program counter (pseudo value)
 	int			add_to_pc;	// add to PC after statement
-	int			a_is_long;
-	int			xy_are_long;
+	boolean			a_is_long;
+	boolean			xy_are_long;
 };
 
 

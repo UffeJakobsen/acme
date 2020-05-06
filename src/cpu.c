@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // CPU type stuff
@@ -102,7 +102,7 @@ const struct cpu_type *cputype_find(void)
 // if cpu type and value don't match, complain instead.
 // FIXME - error message might be confusing if it is thrown not because of
 // initial change, but because of reverting back to old cpu type after "{}" block!
-void vcpu_check_and_set_reg_length(int *var, int make_long)
+void vcpu_check_and_set_reg_length(boolean *var, boolean make_long)
 {
 	if (((CPU_state.type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0) && make_long)
 		Throw_error("Chosen CPU does not support long registers.");

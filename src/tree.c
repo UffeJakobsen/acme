@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // tree stuff
@@ -110,7 +110,7 @@ int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf *dyna_b
 // a new tree item, link to tree, fill with data and store its pointer. If the
 // "create" flag is zero, store NULL as result.
 // Returns whether item was created.
-int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number, int create)
+int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number, boolean create)
 {
 	struct ronode	wanted;	// temporary storage
 	struct rwnode	**current_node;
@@ -158,7 +158,7 @@ int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number
 		current_node = &((*current_node)->less_than_or_equal);
 	}
 	// node wasn't found. Check whether to create it
-	if (create == FALSE) {
+	if (!create) {
 		*result = NULL;	// indicate failure
 		return FALSE;	// return FALSE because node was not created
 	}

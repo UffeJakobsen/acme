@@ -36,6 +36,7 @@ static const char	s_08[]	= "08";
 #define s_8	(s_08 + 1)	// Yes, I know I'm sick
 #define s_sl	(s_asl + 1)	// Yes, I know I'm sick
 #define s_rl	(s_brl + 1)	// Yes, I know I'm sick
+static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
 
 
 // variables
@@ -335,7 +336,7 @@ static enum eos predefined_encoding(void)
 // set current encoding ("!convtab" pseudo opcode)
 static enum eos po_convtab(void)
 {
-	int	uses_lib;
+	boolean	uses_lib;
 	FILE	*stream;
 
 	if ((GotByte == '<') || (GotByte == '"')) {
@@ -416,7 +417,7 @@ static enum eos po_scrxor(void)
 // FIXME - split this into "parser" and "worker" fn and move worker fn somewhere else.
 static enum eos po_binary(void)
 {
-	int		uses_lib;
+	boolean		uses_lib;
 	FILE		*stream;
 	int		byte;
 	intval_t	size	= -1,	// means "not given" => "until EOF"
@@ -501,7 +502,7 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 
 	ALU_defined_int(&amount);	// FIXME - forbid addresses!
 	if (amount.val.intval < 0)
-		Throw_serious_error(exception_negative_size);
+		Throw_serious_error(exception_negative_size);	// TODO - allow this?
 	else
 		output_skip(amount.val.intval);
 	return ENSURE_EOS;
@@ -602,7 +603,7 @@ static enum eos po_cpu(void)
 
 
 // set register length, block-wise if needed.
-static enum eos set_register_length(int *var, int make_long)
+static enum eos set_register_length(boolean *var, boolean make_long)
 {
 	int	old_size	= *var;
 
@@ -771,7 +772,7 @@ static enum eos obsolete_po_subzone(void)
 // include source file ("!source" or "!src"). has to be re-entrant.
 static enum eos po_source(void)	// now GotByte = illegal char
 {
-	int		uses_lib;
+	boolean		uses_lib;
 	FILE		*stream;
 	char		local_gotbyte;
 	struct input	new_input,
@@ -825,7 +826,7 @@ static enum eos po_if(void)	// now GotByte = illegal char
 
 
 // conditional assembly ("!ifdef" and "!ifndef"). has to be re-entrant.
-static enum eos ifdef_ifndef(int is_ifndef)	// now GotByte = illegal char
+static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
 {
 	struct rwnode	*node;
 	struct symbol	*symbol;
@@ -846,7 +847,7 @@ static enum eos ifdef_ifndef(int is_ifndef)	// now GotByte = illegal char
 	}
 	SKIPSPACE();
 	// if "ifndef", invert condition
-	if (is_ifndef)
+	if (invert)
 		defined = !defined;
 	if (GotByte != CHAR_SOB)
 		return defined ? PARSE_REMAINDER : SKIP_REMAINDER;
@@ -969,7 +970,7 @@ static enum eos po_while(void)	// now GotByte = illegal char
 	struct do_while	loop;
 
 	if (!config.test_new_features) {
-		Throw_error("Unknown pseudo opcode.");
+		Throw_error(exception_unknown_pseudo_opcode);
 		return SKIP_REMAINDER;
 	}
 	// read condition to buffer
@@ -1223,7 +1224,7 @@ void pseudoopcode_parse(void)	// now GotByte = "!"
 			// call function
 			then = fn();
 		} else {
-			Throw_error("Unknown pseudo opcode.");
+			Throw_error(exception_unknown_pseudo_opcode);
 		}
 	}
 	if (then == SKIP_REMAINDER)
