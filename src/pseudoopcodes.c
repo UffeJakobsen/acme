@@ -968,6 +968,10 @@ static enum eos po_while(void)	// now GotByte = illegal char
 {
 	struct do_while	loop;
 
+	if (!config.test_new_features) {
+		Throw_error("Unknown pseudo opcode.");
+		return SKIP_REMAINDER;
+	}
 	// read condition to buffer
 	SKIPSPACE();
 	flow_store_while_condition(&loop.head_cond);	// must be freed!
@@ -1180,7 +1184,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("ifndef",		po_ifndef),
 	PREDEFNODE("for",		po_for),
 	PREDEFNODE("do",		po_do),
-//	PREDEFNODE("while",		po_while),
+	PREDEFNODE("while",		po_while),
 	PREDEFNODE("macro",		po_macro),
 //	PREDEFNODE("debug",		po_debug),
 //	PREDEFNODE("info",		po_info),
