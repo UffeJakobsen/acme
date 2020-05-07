@@ -1566,6 +1566,7 @@ void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
 	}
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
+	// FIXME - add warning for unneeded "()"
 }
 
 
@@ -1621,14 +1622,14 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 
 
 // Store int value and flags.
-// This function allows for one '(' too many. Needed when parsing indirect
+// This function allows for "paren" '(' too many. Needed when parsing indirect
 // addressing modes where internal indices have to be possible.
 // For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: allow
 // UNDEFINED: allow
 // EMPTY: complain
 // FLOAT: convert to int
-void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
+void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
 	struct number	*intresult	= &expression->number;
 
@@ -1638,7 +1639,7 @@ void ALU_liberal_int(struct expression *expression)	// ACCEPT_UNDEFINED | ACCEPT
 		intresult->val.intval = intresult->val.fpval;
 		intresult->flags &= ~NUMBER_IS_FLOAT;
 	}
-	if (expression->open_parentheses > 1) {
+	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);
 	}
@@ -1669,7 +1670,7 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 /* TODO
 
 // stores int value and flags, allowing for one '(' too many (x-indirect addr).
-void ALU_liberal_int(struct expression *expression)
+void ALU_addrmode_int(struct expression *expression, int paren)
 	mnemo.c
 		when parsing addressing mode (except after '#' and '[')		needvalue!
 

@@ -543,7 +543,7 @@ static int get_argument(struct number *result)
 		break;
 	default:
 		// liberal, to allow for "(...,"
-		ALU_liberal_int(&expression);
+		ALU_addrmode_int(&expression, 1);
 		*result = expression.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing

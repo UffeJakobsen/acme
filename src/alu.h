@@ -70,8 +70,8 @@ extern void ALU_int_result(struct number *intresult);
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
 extern void ALU_defined_int(struct number *intresult);
-// stores int value and flags, allowing for one '(' too many (x-indirect addr).
-extern void ALU_liberal_int(struct expression *expression);
+// stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
+extern void ALU_addrmode_int(struct expression *expression, int paren);
 // stores value and flags (result may be either int or float)
 extern void ALU_any_result(struct number *result);
 
