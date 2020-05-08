@@ -43,13 +43,26 @@ static const char	s_arccos[]	= "arccos";
 #define s_cos	(s_arccos + 3)	// Yes, I know I'm sick
 static const char	s_arctan[]	= "arctan";
 #define s_tan	(s_arctan + 3)	// Yes, I know I'm sick
-
-// operator handles (FIXME - use function pointers instead? or too slow?)
+/*
+// FIXME - use these definitions to tell operators apart into special/monadic/dyadic groups!
+#define OPGROUP_SPECIAL	0x00
+#define OPGROUP_MONADIC	0x20
+#define OPGROUP_DYADIC	0x40
+//#define OPGROUP_	0x60	// unused atm
+#define OPGROUPMASK	0x60	// 32 operators per group should be enough for anybody
+*/
 enum operator_handle {
 //	special values (pseudo operators)
 	OPHANDLE_EXPRSTART,	//		"start of expression"
 	OPHANDLE_EXPREND,	//		"end of expression"
-//	functions
+	OPHANDLE_OPENING,	//	(v	'(', starts subexpression (handled like monadic)
+	OPHANDLE_CLOSING,	//	v)	')', ends subexpression (handled like dyadic)
+//	monadic operators (including functions)
+	OPHANDLE_NOT,		//	!v	NOT v	bit-wise NOT
+	OPHANDLE_NEGATE,	//	-v		Negate
+	OPHANDLE_LOWBYTEOF,	//	<v		Lowbyte of
+	OPHANDLE_HIGHBYTEOF,	//	>v		Highbyte of
+	OPHANDLE_BANKBYTEOF,	//	^v		Bankbyte of
 	OPHANDLE_ADDR,		//	addr(v)
 	OPHANDLE_INT,		//	int(v)
 	OPHANDLE_FLOAT,		//	float(v)
@@ -59,15 +72,7 @@ enum operator_handle {
 	OPHANDLE_ARCSIN,	//	arcsin(v)
 	OPHANDLE_ARCCOS,	//	arccos(v)
 	OPHANDLE_ARCTAN,	//	arctan(v)
-//	monadic operators
-	OPHANDLE_OPENING,	//	(v	'(', starts subexpression
-	OPHANDLE_NOT,		//	!v	NOT v	bit-wise NOT
-	OPHANDLE_NEGATE,	//	-v		Negate
-	OPHANDLE_LOWBYTEOF,	//	<v		Lowbyte of
-	OPHANDLE_HIGHBYTEOF,	//	>v		Highbyte of
-	OPHANDLE_BANKBYTEOF,	//	^v		Bankbyte of
 //	dyadic operators
-	OPHANDLE_CLOSING,	//	v)	')', ends subexpression
 	OPHANDLE_POWEROF,	//	v^w
 	OPHANDLE_MULTIPLY,	//	v*w
 	OPHANDLE_DIVIDE,	//	v/w		(Integer) Division
@@ -1037,8 +1042,11 @@ static void try_to_reduce_stacks(struct expression *expression)
 	}
 
 	// process previous operator
+// FIXME - check type of operator (special/monadic/dyadic) and move handling of
+// monadics and dyadics to two extra functions. those two functions can then be
+// made type-specific, so strings and lists get their own handler functions.
 	switch (operator_stack[operator_sp - 2]->handle) {
-// special (pseudo) operators
+// start of special (pseudo) operators
 	case OPHANDLE_EXPRSTART:
 		// the only operator with a lower priority than this
 		// "start-of-expression" operator is "end-of-expression",
@@ -1067,7 +1075,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 		alu_state = STATE_ERROR;
 		return;	// FIXME - why not break?
 
-// functions
+// end of special (pseudo) operators
+// start of monadic operators (including functions)
 	case OPHANDLE_ADDR:
 		RIGHT_ADDRREFS = 1;	// result now is an address
 		goto remove_next_to_last_operator;
@@ -1111,7 +1120,6 @@ static void try_to_reduce_stacks(struct expression *expression)
 		perform_fp(atan);	// also zeroes addr_refs
 		goto remove_next_to_last_operator;
 
-// monadic operators
 	case OPHANDLE_NOT:
 		// fp becomes int
 		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
@@ -1160,7 +1168,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 		RIGHT_ADDRREFS = 0;	// result now is a non-address
 		goto remove_next_to_last_operator;
 
-// dyadic operators
+// end of monadic operators (including functions)
+// start of dyadic operators
 	case OPHANDLE_POWEROF:
 		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
 			both_ensure_fp();
@@ -1382,6 +1391,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
 		goto handle_flags_and_dec_stacks;
 
+// end of dyadic operators
 	default:
 		Bug_found("IllegalOperatorHandle", operator_stack[operator_sp - 2]->handle);
 	}
