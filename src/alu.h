@@ -66,8 +66,6 @@ extern boolean ALU_optional_defined_int(intval_t *target);
 // returns int value (0 if result was undefined)
 extern intval_t ALU_any_int(void);
 // stores int value and flags (floats are transformed to int)
-extern void ALU_int_result(struct number *intresult);
-// stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
 extern void ALU_defined_int(struct number *intresult);
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).

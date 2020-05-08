@@ -1545,31 +1545,6 @@ boolean ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
 }
 
 
-// Store int value and flags (floats are transformed to int)
-// For empty expressions, an error is thrown.
-// OPEN_PARENTHESIS: complain
-// EMPTY: complain
-// UNDEFINED: allow
-// FLOAT: convert to int
-void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
-{
-	struct expression	expression;
-
-	parse_expression(&expression);
-	*intresult = expression.number;
-	if (expression.open_parentheses)
-		Throw_error(exception_paren_open);
-	// make sure result is not float
-	if (intresult->flags & NUMBER_IS_FLOAT) {
-		intresult->val.intval = intresult->val.fpval;
-		intresult->flags &= ~NUMBER_IS_FLOAT;
-	}
-	if (expression.is_empty)
-		Throw_error(exception_no_value);
-	// FIXME - add warning for unneeded "()"
-}
-
-
 // return int value (if undefined, return zero)
 // For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: complain
@@ -1578,7 +1553,6 @@ void ALU_int_result(struct number *intresult)	// ACCEPT_UNDEFINED
 // FLOAT: convert to int
 intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 {
-	// FIXME - replace this fn with a call to ALU_int_result() above!
 	struct expression	expression;
 
 	parse_expression(&expression);
@@ -1631,13 +1605,11 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 // FLOAT: convert to int
 void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
-	struct number	*intresult	= &expression->number;
-
 	parse_expression(expression);
-	// make sure result is not float
-	if (intresult->flags & NUMBER_IS_FLOAT) {
-		intresult->val.intval = intresult->val.fpval;
-		intresult->flags &= ~NUMBER_IS_FLOAT;
+	// convert float to int
+	if (expression->number.flags & NUMBER_IS_FLOAT) {
+		expression->number.val.intval = expression->number.val.fpval;
+		expression->number.flags &= ~NUMBER_IS_FLOAT;
 	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
@@ -1669,21 +1641,10 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 
 /* TODO
 
-// stores int value and flags, allowing for one '(' too many (x-indirect addr).
+// stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 void ALU_addrmode_int(struct expression *expression, int paren)
 	mnemo.c
-		when parsing addressing mode (except after '#' and '[')		needvalue!
-
-// stores int value and flags (floats are transformed to int)
-void ALU_int_result(struct number *intresult)
-	mnemo.c
-		when parsing address arg after '#'		indirect?	needvalue!
-		when parsing address arg after '['		indirect?	needvalue!
-		when parsing address after near branch		indirect?	needvalue!
-		when parsing address after far branch		indirect?	needvalue!
-		when parsing address after bbrX/bbsX		indirect?	needvalue!
-		when parsing address after rmbX/smbX		indirect?	needvalue!
-		twice when parsing MVN/MVP			indirect?	needvalue!
+		when parsing addressing modes					needvalue!
 
 // stores value and flags (result may be either int or float)
 void ALU_any_result(struct number *result)

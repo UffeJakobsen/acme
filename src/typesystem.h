@@ -17,7 +17,7 @@ extern void typesystem_force_address_block(void);
 // force address mode on or off for the next statement
 extern void typesystem_force_address_statement(boolean value);
 // warn if result is not integer
-extern void typesystem_want_imm(struct number *result);
+extern void typesystem_want_nonaddr(struct number *result);
 // warn if result is not address
 extern void typesystem_want_addr(struct number *result);
 

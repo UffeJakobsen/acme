@@ -514,9 +514,24 @@ static int get_index(int next)
 	return INDEX_NONE;
 }
 
-// This function stores the command's argument in the given result
-// structure (using the valueparser). The addressing mode is returned.
-static int get_argument(struct number *result)
+
+// wrapper function to read integer argument
+static void get_int_arg(struct number *result, boolean complain_about_indirect)
+{
+	struct expression	expression;
+
+	ALU_addrmode_int(&expression, 0);	// accept 0 parentheses still open (-> complain!)
+	if (expression.is_parenthesized && complain_about_indirect) {
+		// FIXME - add warning for "there are useless (), you know this mnemonic does not have indirect addressing, right?"
+		// or rather raise error and be done with it?
+	}
+	*result = expression.number;
+}
+
+
+// wrapper function to detect addressing mode, and, if not IMPLIED, read arg.
+// argument is stored in given result structure, addressing mode is returned.
+static int get_addr_mode(struct number *result)
 {
 	struct expression	expression;
 	int			address_mode_bits	= 0;
@@ -529,12 +544,12 @@ static int get_argument(struct number *result)
 	case '#':
 		GetByte();	// proceed with next char
 		address_mode_bits = AMB_IMMEDIATE;
-		ALU_int_result(result);
-		typesystem_want_imm(result);	// FIXME - this is wrong for 65ce02's PHW#
+		get_int_arg(result, FALSE);
+		typesystem_want_nonaddr(result);	// FIXME - this is wrong for 65ce02's PHW#
 		break;
 	case '[':
 		GetByte();	// proceed with next char
-		ALU_int_result(result);
+		get_int_arg(result, FALSE);
 		typesystem_want_addr(result);
 		if (GotByte == ']')
 			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
@@ -542,8 +557,7 @@ static int get_argument(struct number *result)
 			Throw_error(exception_syntax);
 		break;
 	default:
-		// liberal, to allow for "(...,"
-		ALU_addrmode_int(&expression, 1);
+		ALU_addrmode_int(&expression, 1);	// direct call instead of wrapper, to allow for "(...,"
 		*result = expression.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing
@@ -713,7 +727,7 @@ static void near_branch(int preoffset)
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
+	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
 	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
@@ -747,7 +761,7 @@ static void far_branch(int preoffset)
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
+	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
 	// FIXME - read pc via function call instead!
 	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
@@ -839,7 +853,7 @@ static void group_main(int index, int immediate_mode)
 	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
-	switch (get_argument(&result)) {
+	switch (get_addr_mode(&result)) {
 	case IMMEDIATE_ADDRESSING:	// #$ff or #$ffff (depending on accu length)
 		immediate_opcodes = imm_ops(&force_bit, accu_imm[index], immediate_mode);
 		// CAUTION - do not incorporate the line above into the line
@@ -894,7 +908,7 @@ static void group_misc(int index, int immediate_mode)
 	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
-	switch (get_argument(&result)) {
+	switch (get_addr_mode(&result)) {
 	case IMPLIED_ADDRESSING:	// implied addressing
 		if (misc_impl[index])
 			Output_byte(misc_impl[index]);
@@ -942,7 +956,7 @@ static void group_bbr_bbs(int opcode)
 {
 	struct number	zpmem;
 
-	ALU_int_result(&zpmem);	// FIXME - check for outermost parentheses and raise error!
+	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
 	if (Input_accept_comma()) {
 		Output_byte(opcode);
@@ -961,17 +975,18 @@ static void group_relative16(int opcode, int preoffset)
 }
 
 // "mvn" and "mvp"
+// TODO - allow alternative syntax with '#' and 24-bit addresses (select via CLI switch)
 static void group_mvn_mvp(int opcode)
 {
 	struct number	source,
 			target;
 
 	// assembler syntax: "mnemonic source, target"
-	ALU_int_result(&source);	// FIXME - check for outermost parentheses and raise error!
-	typesystem_want_imm(&source);
+	get_int_arg(&source, TRUE);
+	typesystem_want_nonaddr(&source);
 	if (Input_accept_comma()) {
-		ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
-		typesystem_want_imm(&target);
+		get_int_arg(&target, TRUE);
+		typesystem_want_nonaddr(&target);
 		// machine language order: "opcode target source"
 		Output_byte(opcode);
 		output_8(target.val.intval);
@@ -987,7 +1002,7 @@ static void group_only_zp(int opcode)
 {
 	struct number	target;
 
-	ALU_int_result(&target);	// FIXME - check for outermost parentheses and raise error!
+	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
 	Output_byte(opcode);
 	output_8(target.val.intval);
@@ -1000,7 +1015,7 @@ static void group_jump(int index)
 	struct number	result;
 	int		force_bit	= Input_get_force_bit();	// skips spaces after
 
-	switch (get_argument(&result)) {
+	switch (get_addr_mode(&result)) {
 	case ABSOLUTE_ADDRESSING:	// absolute16 or absolute24
 		make_command(force_bit, &result, jump_abs[index]);
 		break;

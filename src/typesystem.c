@@ -37,7 +37,7 @@ void typesystem_force_address_statement(boolean value)
 }
 
 // warn if result is not integer
-void typesystem_want_imm(struct number *result)
+void typesystem_want_nonaddr(struct number *result)
 {
 	if (!config.warn_on_type_mismatch)
 		return;
