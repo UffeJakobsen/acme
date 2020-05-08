@@ -433,8 +433,11 @@ static enum eos po_binary(void)
 	boolean		uses_lib;
 	FILE		*stream;
 	int		byte;
-	intval_t	size	= -1,	// means "not given" => "until EOF"
-			skip	= 0;
+	struct number	size,
+			skip;
+
+	size.val.intval = -1;	// means "not given" => "until EOF"
+	skip.val.intval	= 0;
 
 	// if file name is missing, don't bother continuing
 	if (Input_read_filename(TRUE, &uses_lib))
@@ -447,36 +450,46 @@ static enum eos po_binary(void)
 
 	// read optional arguments
 	if (Input_accept_comma()) {
-		if (ALU_optional_defined_int(&size)
-		&& (size < 0))
-			Throw_serious_error(exception_negative_size);
-		if (Input_accept_comma())
-			ALU_optional_defined_int(&skip);	// read skip
+		// any size given?
+		if ((GotByte != ',') && (GotByte != CHAR_EOS)) {
+			// then parse it
+			ALU_defined_int(&size);
+			if (size.val.intval < 0)
+				Throw_serious_error(exception_negative_size);
+		}
+		// more?
+		if (Input_accept_comma()) {
+			// any skip given?
+			if (GotByte != CHAR_EOS) {
+				// then parse it
+				ALU_defined_int(&skip);
+			}
+		}
 	}
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-	if ((size >= 0) && (pass.undefined_count || pass.error_count)) {
-	//if ((size >= 0) && (pass.needvalue_count || pass.error_count)) {	FIXME - use!
-		output_skip(size);	// really including is useless anyway
+	if ((size.val.intval >= 0) && (pass.undefined_count || pass.error_count)) {
+	//if ((size.val.intval >= 0) && (pass.needvalue_count || pass.error_count)) {	FIXME - use!
+		output_skip(size.val.intval);	// really including is useless anyway
 	} else {
 		// really insert file
-		fseek(stream, skip, SEEK_SET);	// set read pointer
+		fseek(stream, skip.val.intval, SEEK_SET);	// set read pointer
 		// if "size" non-negative, read "size" bytes.
 		// otherwise, read until EOF.
-		while (size != 0) {
+		while (size.val.intval != 0) {
 			byte = getc(stream);
 			if (byte == EOF)
 				break;
 			Output_byte(byte);
-			--size;
+			--size.val.intval;
 		}
 		// if more should have been read, warn and add padding
-		if (size > 0) {
+		if (size.val.intval > 0) {
 			Throw_warning("Padding with zeroes.");
 			do
 				Output_byte(0);
-			while (--size);
+			while (--size.val.intval);
 		}
 	}
 	fclose(stream);
@@ -485,7 +498,7 @@ static enum eos po_binary(void)
 		int	amount	= vcpu_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
-			amount, amount, skip, skip);
+			amount, amount, skip.val.intval, skip.val.intval);
 	}
 	return ENSURE_EOS;
 }
@@ -663,12 +676,13 @@ static enum eos po_address(void)	// now GotByte = illegal char
 
 
 #if 0
-// enumerate constants
+// enumerate constants ("!enum")
 static enum eos po_enum(void)	// now GotByte = illegal char
 {
-	intval_t	step	= 1;
+	struct number	step;
 
-	ALU_optional_defined_int(&step);
+	step.val.intval = 1;
+	ALU_defined_int(&step);
 Throw_serious_error("Not yet");	// FIXME
 	return ENSURE_EOS;
 }

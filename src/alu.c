@@ -1512,39 +1512,6 @@ static void parse_expression(struct expression *expression)
 }
 
 
-// Store int value if given. Returns whether stored. Throws error if undefined.
-// This function needs either a defined value or no expression at all. So
-// empty expressions are accepted, but undefined ones are not.
-// If the result is non-empty but undefined, a serious error is thrown, stopping assembly.
-// OPEN_PARENTHESIS: complain
-// EMPTY: allow
-// UNDEFINED: complain _seriously_
-// FLOAT: convert to int
-boolean ALU_optional_defined_int(intval_t *target)	// ACCEPT_EMPTY
-{
-	struct expression	expression;
-	boolean			buf	= pass.complain_about_undefined;
-
-	pass.complain_about_undefined = TRUE;
-	parse_expression(&expression);
-	pass.complain_about_undefined = buf;
-	if (expression.open_parentheses)
-		Throw_error(exception_paren_open);
-	if ((!expression.is_empty)
-	&& (!(expression.number.flags & NUMBER_IS_DEFINED)))
-		Throw_serious_error(exception_value_not_defined);
-	if (expression.is_empty)
-		return FALSE;
-
-	// something was given, so store
-	if (expression.number.flags & NUMBER_IS_FLOAT)
-		*target = expression.number.val.fpval;
-	else
-		*target = expression.number.val.intval;
-	return TRUE;
-}
-
-
 // return int value (if undefined, return zero)
 // For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: complain
@@ -1641,6 +1608,13 @@ void ALU_any_result(struct number *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 
 /* TODO
 
+change parse_expression() to return error/ok.
+after that, move
+	if (expression.is_empty)
+		Throw_error(exception_no_value);
+to end of parse_expression()
+
+
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 void ALU_addrmode_int(struct expression *expression, int paren)
 	mnemo.c
@@ -1670,10 +1644,6 @@ void ALU_defined_int(struct number *intresult)
 		!pseudopc				(FIXME, allow undefined)	needvalue!
 		!if					make bool			serious
 		twice in !for								serious
-
-// stores int value if given. Returns whether stored. Throws error if undefined.
-int ALU_optional_defined_int(intval_t *target)
-	pseudoopcodes.c
 		twice for !binary			(maybe allow undefined?)	needvalue!
 		//!enum
 
