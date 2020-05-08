@@ -135,7 +135,7 @@ void flow_store_while_condition(struct condition *condition)
 
 
 // check a condition expression
-static int check_condition(struct condition *condition)
+static boolean check_condition(struct condition *condition)
 {
 	struct number	intresult;
 
@@ -189,20 +189,17 @@ void flow_do_while(struct do_while *loop)
 
 // helper functions for "!if", "!ifdef" and "!ifndef"
 
-// parse or skip a block. Returns whether block's '}' terminator was missing.
-// afterwards: GotByte = '}'
-static int skip_or_parse_block(boolean parse)
+// parse or skip a block. returns with GotByte as '}'.
+static void skip_or_parse_block(boolean parse)
 {
-	if (!parse) {
+	if (parse) {
+		Parse_until_eob_or_eof();
+		// if block isn't correctly terminated, complain and exit
+		if (GotByte != CHAR_EOB)
+			Throw_serious_error(exception_no_right_brace);
+	} else {
 		Input_skip_or_store_block(FALSE);
-		return 0;
 	}
-	// if block was correctly terminated, return FALSE
-	Parse_until_eob_or_eof();
-	// if block isn't correctly terminated, complain and exit
-	if (GotByte != CHAR_EOB)
-		Throw_serious_error(exception_no_right_brace);
-	return 0;
 }
 
 
@@ -210,11 +207,7 @@ static int skip_or_parse_block(boolean parse)
 void flow_parse_block_else_block(boolean parse_first)
 {
 	// Parse first block.
-	// If it's not correctly terminated, return immediately (because
-	// in that case, there's no use in checking for an "else" part).
-	if (skip_or_parse_block(parse_first))
-		return;
-
+	skip_or_parse_block(parse_first);
 	// now GotByte = '}'. Check for "else" part.
 	// If end of statement, return immediately.
 	NEXTANDSKIPSPACE();
