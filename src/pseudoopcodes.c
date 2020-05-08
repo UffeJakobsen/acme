@@ -43,20 +43,27 @@ static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
 static struct ronode	*pseudo_opcode_tree	= NULL;	// tree to hold pseudo opcodes
 
 
-// not really a pseudo opcode, but close enough to be put here:
-// called when "* = EXPRESSION" is parsed
-// setting program counter via "* = VALUE"
-void notreallypo_setpc(void)
+// this is not really a pseudo opcode, but similar enough to be put here:
+// called when "* = EXPRESSION" is parsed, to set the program counter
+void notreallypo_setpc(void)	// GotByte is '*'
 {
 	int		segment_flags	= 0;
 	struct number	intresult;
 
+	// next non-space must be '='
+	NEXTANDSKIPSPACE();
+	if (GotByte != '=') {
+		Throw_error(exception_syntax);
+		goto fail;
+	}
+
+	GetByte();
 	ALU_defined_int(&intresult);	// read new address
 	// check for modifiers
 	while (Input_accept_comma()) {
 		// parse modifier. if no keyword given, give up
 		if (Input_read_and_lower_keyword() == 0)
-			return;
+			goto fail;
 
 		if (strcmp(GlobalDynaBuf->buffer, "overlay") == 0) {
 			segment_flags |= SEGMENT_FLAG_OVERLAY;
@@ -70,11 +77,16 @@ void notreallypo_setpc(void)
 			read segment name (quoted string!)	*/
 		} else {
 			Throw_error("Unknown \"* =\" segment modifier.");
-			return;
+			goto fail;
 		}
 	}
 	vcpu_set_pc(intresult.val.intval, segment_flags);
 	// TODO - allow block syntax, so it is possible to put data "somewhere else" and then return to old position
+	Input_ensure_EOS();
+	return;
+
+fail:
+	Input_skip_remainder();
 }
 
 

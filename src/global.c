@@ -147,21 +147,6 @@ void *safe_malloc(size_t size)
 
 // Parser stuff
 
-// Parse (re-)definitions of program counter
-static void parse_pc_def(void)	// Now GotByte = "*"
-{
-	NEXTANDSKIPSPACE();	// proceed with next char
-	// re-definitions of program counter change segment
-	if (GotByte == '=') {
-		GetByte();	// proceed with next char
-		notreallypo_setpc();
-		Input_ensure_EOS();
-	} else {
-		Throw_error(exception_syntax);
-		Input_skip_remainder();
-	}
-}
-
 
 // Check and return whether first label of statement. Complain if not.
 static int first_label_of_statement(int *statement_flags)
@@ -284,7 +269,7 @@ void Parse_until_eob_or_eof(void)
 						parse_forward_anon_def(&statement_flags);
 					break;
 				case '*':
-					parse_pc_def();
+					notreallypo_setpc();	// define program counter (fn is in pseudoopcodes.c)
 					break;
 				case LOCAL_PREFIX:
 					parse_local_symbol_def(&statement_flags, section_now->local_scope);
