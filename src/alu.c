@@ -996,13 +996,13 @@ static void ensure_int_from_fp(struct number *self, struct number *other)
 
 // prototype needed because int and float handlers reference each other.
 // remove when handlers are put as pointers into proper "object" structures.
-static void float_do_monadic_operator(struct number *self, enum op_handle op);
+static void float_handle_monadic_operator(struct number *self, enum op_handle op);
 
 
 // int type:
 
 // handle monadic operator (includes functions)
-static void int_do_monadic_operator(struct number *self, enum op_handle op)
+static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 {
 	switch (op) {
 	case OPHANDLE_ADDR:
@@ -1023,7 +1023,7 @@ static void int_do_monadic_operator(struct number *self, enum op_handle op)
 	case OPHANDLE_ARCTAN:
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
-		float_do_monadic_operator(self, op);	// maybe put recursion check around this :)
+		float_handle_monadic_operator(self, op);	// maybe put recursion check around this :)
 		break;
 	case OPHANDLE_NOT:
 		self->val.intval = ~(self->val.intval);
@@ -1078,7 +1078,7 @@ static void float_ranged_fn(double (*fn)(double), struct number *self)
 }
 
 // handle monadic operator (includes functions)
-static void float_do_monadic_operator(struct number *self, enum op_handle op)
+static void float_handle_monadic_operator(struct number *self, enum op_handle op)
 {
 	switch (op) {
 	case OPHANDLE_ADDR:
@@ -1126,7 +1126,7 @@ static void float_do_monadic_operator(struct number *self, enum op_handle op)
 	case OPHANDLE_BANKBYTEOF:
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
-		int_do_monadic_operator(self, op);	// maybe put recursion check around this :)
+		int_handle_monadic_operator(self, op);	// maybe put recursion check around this :)
 		break;
 // add new monadic operators here
 //	case OPHANDLE_:
@@ -1140,7 +1140,7 @@ static void float_do_monadic_operator(struct number *self, enum op_handle op)
 
 // dyadic operators
 // FIXME - split into separate functions for ints and floats
-static void number_do_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
+static void number_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
 {
 	switch (op) {
 	case OPHANDLE_POWEROF:
@@ -1387,7 +1387,7 @@ static void number_do_dyadic_operator(struct number *self, enum op_handle op, st
 
 // handler for special operators like parentheses and start/end of expression:
 // returns whether caller should just return without fixing stack (because this fn has fixed it)
-static boolean do_special_operator(struct expression *expression, enum op_handle previous, enum op_handle current)
+static boolean handle_special_operator(struct expression *expression, enum op_handle previous, enum op_handle current)
 {
 	switch (previous) {
 	case OPHANDLE_START_OF_EXPR:
@@ -1465,16 +1465,16 @@ static void try_to_reduce_stacks(struct expression *expression)
 	switch (previous_op->group) {
 	case OPGROUP_MONADIC:	// monadic operators
 		if (ARG_NOW.flags & NUMBER_IS_FLOAT) {
-			float_do_monadic_operator(&ARG_NOW, previous_op->handle);
+			float_handle_monadic_operator(&ARG_NOW, previous_op->handle);
 		} else {
-			int_do_monadic_operator(&ARG_NOW, previous_op->handle);
+			int_handle_monadic_operator(&ARG_NOW, previous_op->handle);
 		}
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
 		// TODO - call different functions for ints and floats!
-		number_do_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
+		number_handle_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
 // TODO - move this into fn above {
 		// Handle flags and decrement value stack pointer
 		// "OR" EVER_UNDEFINED and FORCEBIT flags
@@ -1488,7 +1488,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_SPECIAL:	// special (pseudo) operators
-		if (do_special_operator(expression, previous_op->handle, current_op->handle))
+		if (handle_special_operator(expression, previous_op->handle, current_op->handle))
 			return;	// called fn has fixed the stack, so we return and don't touch it
 
 		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
