@@ -1,4 +1,5 @@
 CFLAGS		= -O3 -Wall -Wstrict-prototypes
+#CFLAGS		= -O3 -Wall -Wextra -Wstrict-prototypes
 LIBS		= -lm
 CC		= gcc
 RM		= rm

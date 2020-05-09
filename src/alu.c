@@ -13,6 +13,9 @@
 // 31 May 2014	Added "0b" binary number prefix as alternative to "%".
 // 28 Apr 2015	Added symbol name output to "value not defined" error.
 //  1 Feb 2019	Prepared to make "honor leading zeroes" optionally (now done)
+// FIXME - the words "operand"/"operator"/"operation" are too similar, so:
+//	use "argument" instead of "operand"
+//	use <TODO> instead of operator/operation
 #include "alu.h"
 #include <stdlib.h>
 #include <math.h>	// only for fp support
@@ -43,21 +46,19 @@ static const char	s_arccos[]	= "arccos";
 #define s_cos	(s_arccos + 3)	// Yes, I know I'm sick
 static const char	s_arctan[]	= "arctan";
 #define s_tan	(s_arctan + 3)	// Yes, I know I'm sick
-/*
-// FIXME - use these definitions to tell operators apart into special/monadic/dyadic groups!
-#define OPGROUP_SPECIAL	0x00
-#define OPGROUP_MONADIC	0x20
-#define OPGROUP_DYADIC	0x40
-//#define OPGROUP_	0x60	// unused atm
-#define OPGROUPMASK	0x60	// 32 operators per group should be enough for anybody
-*/
-enum operator_handle {
-//	special values (pseudo operators)
+
+enum op_group {
+	OPGROUP_SPECIAL,	// start/end of expression, and parentheses
+	OPGROUP_MONADIC,	// {result} = {op} {arg}
+	OPGROUP_DYADIC		// {result} = {arg1} {op} {arg2}
+};
+enum op_handle {
+	// special (pseudo) operators:
 	OPHANDLE_EXPRSTART,	//		"start of expression"
 	OPHANDLE_EXPREND,	//		"end of expression"
 	OPHANDLE_OPENING,	//	(v	'(', starts subexpression (handled like monadic)
 	OPHANDLE_CLOSING,	//	v)	')', ends subexpression (handled like dyadic)
-//	monadic operators (including functions)
+	// monadic operators (including functions):
 	OPHANDLE_NOT,		//	!v	NOT v	bit-wise NOT
 	OPHANDLE_NEGATE,	//	-v		Negate
 	OPHANDLE_LOWBYTEOF,	//	<v		Lowbyte of
@@ -72,7 +73,7 @@ enum operator_handle {
 	OPHANDLE_ARCSIN,	//	arcsin(v)
 	OPHANDLE_ARCCOS,	//	arccos(v)
 	OPHANDLE_ARCTAN,	//	arctan(v)
-//	dyadic operators
+	// dyadic operators:
 	OPHANDLE_POWEROF,	//	v^w
 	OPHANDLE_MULTIPLY,	//	v*w
 	OPHANDLE_DIVIDE,	//	v/w		(Integer) Division
@@ -95,61 +96,60 @@ enum operator_handle {
 	OPHANDLE_XOR,		//	v XOR w
 };
 struct operator {
-	enum operator_handle	handle;
-	char			priority_and_associativity;
+	int		priority;	// lsb holds "is_right_associative" info!
+#define IS_RIGHT_ASSOCIATIVE(prio)	((prio) & 1)
+	enum op_group	group;
+	enum op_handle	handle;
 };
-#define IS_RIGHT_ASSOCIATIVE(p)	((p) & 1)	// lsb of priority value signals right-associtivity
-
-// operator structs (only hold handle and priority/associativity value)
-static struct operator ops_exprend	= {OPHANDLE_EXPREND,	0};	// special
-static struct operator ops_exprstart	= {OPHANDLE_EXPRSTART,	2};	// special
-static struct operator ops_closing	= {OPHANDLE_CLOSING,	4};	// dyadic
-static struct operator ops_opening	= {OPHANDLE_OPENING,	6};	// monadic
-static struct operator ops_or		= {OPHANDLE_OR,		8};	// dyadic
-static struct operator ops_eor		= {OPHANDLE_EOR,	10};	//	(FIXME:remove)
-static struct operator ops_xor		= {OPHANDLE_XOR,	10};	// dyadic
-static struct operator ops_and		= {OPHANDLE_AND,	12};	// dyadic
-static struct operator ops_equals	= {OPHANDLE_EQUALS,	14};	// dyadic
-static struct operator ops_notequal	= {OPHANDLE_NOTEQUAL,	16};	// dyadic
-	// same priority for all comparison operators (left-associative)
-static struct operator ops_le		= {OPHANDLE_LE,		18};	// dyadic
-static struct operator ops_lessthan	= {OPHANDLE_LESSTHAN,	18};	// dyadic
-static struct operator ops_ge		= {OPHANDLE_GE,		18};	// dyadic
-static struct operator ops_greaterthan	= {OPHANDLE_GREATERTHAN,18};	// dyadic
+static struct operator ops_exprend	= {0, OPGROUP_SPECIAL, OPHANDLE_EXPREND	};
+static struct operator ops_exprstart	= {2, OPGROUP_SPECIAL, OPHANDLE_EXPRSTART	};
+static struct operator ops_closing	= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
+static struct operator ops_opening	= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
+static struct operator ops_or		= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
+static struct operator ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME:remove
+static struct operator ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
+static struct operator ops_and		= {12, OPGROUP_DYADIC, OPHANDLE_AND	};
+static struct operator ops_equals	= {14, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
+static struct operator ops_notequal	= {16, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
+	// same priority for all comparison operators
+static struct operator ops_le		= {18, OPGROUP_DYADIC, OPHANDLE_LE	};
+static struct operator ops_lessthan	= {18, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
+static struct operator ops_ge		= {18, OPGROUP_DYADIC, OPHANDLE_GE	};
+static struct operator ops_greaterthan	= {18, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
 	// same priority for all byte extraction operators
-static struct operator ops_lowbyteof	= {OPHANDLE_LOWBYTEOF,	20};	// monadic
-static struct operator ops_highbyteof	= {OPHANDLE_HIGHBYTEOF,	20};	// monadic
-static struct operator ops_bankbyteof	= {OPHANDLE_BANKBYTEOF,	20};	// monadic
+static struct operator ops_lowbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
+static struct operator ops_highbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
+static struct operator ops_bankbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
 	// same priority for all shift operators (left-associative, though they could be argued to be made right-associative :))
-static struct operator ops_sl		= {OPHANDLE_SL,		22};	// dyadic
-static struct operator ops_asr		= {OPHANDLE_ASR,	22};	// dyadic
-static struct operator ops_lsr		= {OPHANDLE_LSR,	22};	// dyadic
-	// same priority for "+" and "-" (left-associative)
-static struct operator ops_add		= {OPHANDLE_ADD,	24};	// dyadic
-static struct operator ops_subtract	= {OPHANDLE_SUBTRACT,	24};	// dyadic
-	// same priority for "*", "/" and "%" (left-associative)
-static struct operator ops_multiply	= {OPHANDLE_MULTIPLY,	26};	// dyadic
-static struct operator ops_divide	= {OPHANDLE_DIVIDE,	26};	// dyadic
-static struct operator ops_intdiv	= {OPHANDLE_INTDIV,	26};	// dyadic
-static struct operator ops_modulo	= {OPHANDLE_MODULO,	26};	// dyadic
+static struct operator ops_sl		= {22, OPGROUP_DYADIC, OPHANDLE_SL	};
+static struct operator ops_asr		= {22, OPGROUP_DYADIC, OPHANDLE_ASR	};
+static struct operator ops_lsr		= {22, OPGROUP_DYADIC, OPHANDLE_LSR	};
+	// same priority for "+" and "-"
+static struct operator ops_add		= {24, OPGROUP_DYADIC, OPHANDLE_ADD	};
+static struct operator ops_subtract	= {24, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
+	// same priority for "*", "/" and "%"
+static struct operator ops_multiply	= {26, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
+static struct operator ops_divide	= {26, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
+static struct operator ops_intdiv	= {26, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
+static struct operator ops_modulo	= {26, OPGROUP_DYADIC, OPHANDLE_MODULO	};
 	// highest "real" priorities
-static struct operator ops_negate	= {OPHANDLE_NEGATE,	28};	// monadic
-static struct operator ops_powerof	= {OPHANDLE_POWEROF,	29};	// dyadic, right-associative
-static struct operator ops_not		= {OPHANDLE_NOT,	30};	// monadic
+static struct operator ops_negate	= {28, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
+static struct operator ops_powerof	= {29, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
+static struct operator ops_not		= {30, OPGROUP_MONADIC, OPHANDLE_NOT	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
 	// "sin(3 + 4) DYADIC_OPERATOR 5" becomes "sin 7 DYADIC_OPERATOR 5",
 	// so function calls' priority must be higher than all dyadic operators.
-static struct operator ops_addr		= {OPHANDLE_ADDR,	32};	// function
-static struct operator ops_int		= {OPHANDLE_INT,	32};	// function
-static struct operator ops_float	= {OPHANDLE_FLOAT,	32};	// function
-static struct operator ops_sin		= {OPHANDLE_SIN,	32};	// function
-static struct operator ops_cos		= {OPHANDLE_COS,	32};	// function
-static struct operator ops_tan		= {OPHANDLE_TAN,	32};	// function
-static struct operator ops_arcsin	= {OPHANDLE_ARCSIN,	32};	// function
-static struct operator ops_arccos	= {OPHANDLE_ARCCOS,	32};	// function
-static struct operator ops_arctan	= {OPHANDLE_ARCTAN,	32};	// function
+static struct operator ops_addr		= {32, OPGROUP_MONADIC, OPHANDLE_ADDR	};
+static struct operator ops_int		= {32, OPGROUP_MONADIC, OPHANDLE_INT	};
+static struct operator ops_float	= {32, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
+static struct operator ops_sin		= {32, OPGROUP_MONADIC, OPHANDLE_SIN	};
+static struct operator ops_cos		= {32, OPGROUP_MONADIC, OPHANDLE_COS	};
+static struct operator ops_tan		= {32, OPGROUP_MONADIC, OPHANDLE_TAN	};
+static struct operator ops_arcsin	= {32, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
+static struct operator ops_arccos	= {32, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
+static struct operator ops_arctan	= {32, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
 
 
 // variables
@@ -199,15 +199,6 @@ static struct ronode	function_list[]	= {
 	PREDEFLAST(s_tan,	&ops_tan),
 	//    ^^^^ this marks the last element
 };
-
-#define LEFT_FLAGS	(operand_stack[operand_sp - 2].flags)
-#define RIGHT_FLAGS	(operand_stack[operand_sp - 1].flags)
-#define LEFT_INTVAL	(operand_stack[operand_sp - 2].val.intval)
-#define RIGHT_INTVAL	(operand_stack[operand_sp - 1].val.intval)
-#define LEFT_FPVAL	(operand_stack[operand_sp - 2].val.fpval)
-#define RIGHT_FPVAL	(operand_stack[operand_sp - 1].val.fpval)
-#define LEFT_ADDRREFS	(operand_stack[operand_sp - 2].addr_refs)
-#define RIGHT_ADDRREFS	(operand_stack[operand_sp - 1].addr_refs)
 
 #define PUSH_OPERATOR(x)	operator_stack[operator_sp++] = (x)
 
@@ -943,79 +934,458 @@ push_dyadic:
 
 
 // call C's sin/cos/tan function
-static void perform_fp(double (*fn)(double))
+static void perform_fp(double (*fn)(double), struct number *self)
 {
-	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
-		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
+	if (!(self->flags & NUMBER_IS_FLOAT)) {
+		self->val.fpval = self->val.intval;
+		self->flags |= NUMBER_IS_FLOAT;
 	}
-	RIGHT_FPVAL = fn(RIGHT_FPVAL);
-	RIGHT_ADDRREFS = 0;	// result now is a non-address
+	self->val.fpval = fn(self->val.fpval);
+	self->addr_refs = 0;	// result now is a non-address
 }
 
 
 // make sure arg is in [-1, 1] range before calling function
-static void perform_ranged_fp(double (*fn)(double))
+static void perform_ranged_fp(double (*fn)(double), struct number *self)
 {
-	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
-		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
+	if (!(self->flags & NUMBER_IS_FLOAT)) {
+		self->val.fpval = self->val.intval;
+		self->flags |= NUMBER_IS_FLOAT;
 	}
-	if ((RIGHT_FPVAL >= -1) && (RIGHT_FPVAL <= 1)) {
-		RIGHT_FPVAL = fn(RIGHT_FPVAL);
+	if ((self->val.fpval >= -1) && (self->val.fpval <= 1)) {
+		self->val.fpval = fn(self->val.fpval);
 	} else {
-		if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
+		if (self->flags & NUMBER_IS_DEFINED)
 			Throw_error("Argument out of range.");
-		RIGHT_FPVAL = 0;
+		self->val.fpval = 0;
 	}
-	RIGHT_ADDRREFS = 0;	// result now is a non-address
+	self->addr_refs = 0;	// result now is a non-address
 }
 
 
-// convert right-hand value from fp to int
-static void right_fp_to_int(void)
+// convert value from fp to int
+static void fp_to_int(struct number *self)
 {
-	RIGHT_INTVAL = RIGHT_FPVAL;
-	RIGHT_FLAGS &= ~NUMBER_IS_FLOAT;
+	self->val.intval = self->val.fpval;
+	self->flags &= ~NUMBER_IS_FLOAT;
 }
 
 
 // check both left-hand and right-hand values. if float, convert to int.
 // in first pass, throw warning
-static void both_ensure_int(int warn)
+static void both_ensure_int(struct number *self, struct number *other, boolean warn)
 {
-	if (LEFT_FLAGS & NUMBER_IS_FLOAT) {
-		LEFT_INTVAL = LEFT_FPVAL;
-		LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
+	if (self->flags & NUMBER_IS_FLOAT) {
+		self->val.intval = self->val.fpval;
+		self->flags &= ~NUMBER_IS_FLOAT;
 	}
-	if (RIGHT_FLAGS & NUMBER_IS_FLOAT) {
-		RIGHT_INTVAL = RIGHT_FPVAL;
-		RIGHT_FLAGS &= ~NUMBER_IS_FLOAT;
+	if (other->flags & NUMBER_IS_FLOAT) {
+		other->val.intval = other->val.fpval;
+		other->flags &= ~NUMBER_IS_FLOAT;
 	}
-	// FIXME - warning is never seen if both operands are undefined in first pass!
-	Throw_first_pass_warning("Converted to integer for binary logic operator.");
+	if (warn) {
+		// FIXME - warning is never seen if both operands are undefined in first pass!
+		Throw_first_pass_warning("Converted to integer for binary logic operator.");
+	}
 }
 
 
 // check both left-hand and right-hand values. if int, convert to float.
-static void both_ensure_fp(void)
+static void both_ensure_fp(struct number *self, struct number *other)
 {
-	if ((LEFT_FLAGS & NUMBER_IS_FLOAT) == 0) {
-		LEFT_FPVAL = LEFT_INTVAL;
-		LEFT_FLAGS |= NUMBER_IS_FLOAT;
+	if (!(self->flags & NUMBER_IS_FLOAT)) {
+		self->val.fpval = self->val.intval;
+		self->flags |= NUMBER_IS_FLOAT;
 	}
-	if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
-		RIGHT_FPVAL = RIGHT_INTVAL;
-		RIGHT_FLAGS |= NUMBER_IS_FLOAT;
+	if (!(other->flags & NUMBER_IS_FLOAT)) {
+		other->val.fpval = other->val.intval;
+		other->flags |= NUMBER_IS_FLOAT;
 	}
 }
 
 
 // make sure both values are float, but mark left one as int (will become one)
-static void ensure_int_from_fp(void)
+static void ensure_int_from_fp(struct number *self, struct number *other)
 {
-	both_ensure_fp();
-	LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
+	both_ensure_fp(self, other);
+	self->flags &= ~NUMBER_IS_FLOAT;
+}
+
+
+// monadic operators (including functions)
+static void number_do_monadic_op(struct number *self, enum op_handle operation)
+{
+	switch (operation) {
+	case OPHANDLE_ADDR:
+		self->addr_refs = 1;	// result now is an address
+		break;
+	case OPHANDLE_INT:
+		if (self->flags & NUMBER_IS_FLOAT)
+			fp_to_int(self);
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_FLOAT:
+		// convert value from int to fp
+		if (!(self->flags & NUMBER_IS_FLOAT)) {
+			self->val.fpval = self->val.intval;
+			self->flags |= NUMBER_IS_FLOAT;
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_SIN:
+		perform_fp(sin, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_COS:
+		perform_fp(cos, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_TAN:
+		perform_fp(tan, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_ARCSIN:
+		perform_ranged_fp(asin, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_ARCCOS:
+		perform_ranged_fp(acos, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_ARCTAN:
+		perform_fp(atan, self);	// also zeroes addr_refs
+		break;
+	case OPHANDLE_NOT:
+		// fp becomes int
+		if (self->flags & NUMBER_IS_FLOAT)
+			fp_to_int(self);
+		self->val.intval = ~(self->val.intval);
+		self->flags &= ~NUMBER_FITS_BYTE;
+		break;
+	case OPHANDLE_NEGATE:
+		// different operations for fp and int
+		if (self->flags & NUMBER_IS_FLOAT)
+			self->val.fpval = -(self->val.fpval);
+		else
+			self->val.intval = -(self->val.intval);
+		self->flags &= ~NUMBER_FITS_BYTE;
+		self->addr_refs = -(self->addr_refs);	// negate address ref count as well
+		break;
+	case OPHANDLE_LOWBYTEOF:
+		// fp becomes int
+		if (self->flags & NUMBER_IS_FLOAT)
+			fp_to_int(self);
+		self->val.intval = (self->val.intval) & 255;
+		self->flags |= NUMBER_FITS_BYTE;
+		self->flags &= ~NUMBER_FORCEBITS;
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_HIGHBYTEOF:
+		// fp becomes int
+		if (self->flags & NUMBER_IS_FLOAT)
+			fp_to_int(self);
+		self->val.intval = ((self->val.intval) >> 8) & 255;
+		self->flags |= NUMBER_FITS_BYTE;
+		self->flags &= ~NUMBER_FORCEBITS;
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_BANKBYTEOF:
+		// fp becomes int
+		if (self->flags & NUMBER_IS_FLOAT)
+			fp_to_int(self);
+		self->val.intval = ((self->val.intval) >> 16) & 255;
+		self->flags |= NUMBER_FITS_BYTE;
+		self->flags &= ~NUMBER_FORCEBITS;
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+// add new monadic operators here
+//	case OPHANDLE_:
+//		Throw_error("var type does not support this operation");
+//		break;
+	default:
+		Bug_found("IllegalOperatorHandleNM", operation);
+	}
+}
+
+
+// dyadic operators
+static void number_do_dyadic_op(struct number *self, enum op_handle operation, struct number *other)
+{
+	switch (operation) {
+	case OPHANDLE_POWEROF:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			self->val.fpval = pow(self->val.fpval, other->val.fpval);
+		} else {
+			// two ints
+			if (other->val.intval >= 0) {
+				self->val.intval = my_pow(self->val.intval, other->val.intval);
+			} else {
+				if (other->flags & NUMBER_IS_DEFINED)
+					Throw_error("Exponent is negative.");
+				self->val.intval = 0;
+			}
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_MULTIPLY:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			self->val.fpval *= other->val.fpval;
+		} else {
+			// two ints
+			self->val.intval *= other->val.intval;
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_DIVIDE:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			if (other->val.fpval) {
+				self->val.fpval /= other->val.fpval;
+			} else {
+				if (other->flags & NUMBER_IS_DEFINED)
+					Throw_error(exception_div_by_zero);
+				self->val.fpval = 0;
+			}
+		} else {
+			// two ints
+			if (other->val.intval) {
+				self->val.intval /= other->val.intval;
+			} else {
+				if (other->flags & NUMBER_IS_DEFINED)
+					Throw_error(exception_div_by_zero);
+				self->val.intval = 0;
+			}
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_INTDIV:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			if (other->val.fpval) {
+				self->val.intval = self->val.fpval / other->val.fpval;
+			} else {
+				if (other->flags & NUMBER_IS_DEFINED)
+					Throw_error(exception_div_by_zero);
+				self->val.intval = 0;
+			}
+			self->flags &= ~NUMBER_IS_FLOAT;	// result is int
+		} else {
+			// two ints
+			if (other->val.intval) {
+				self->val.intval /= other->val.intval;
+			} else {
+				if (other->flags & NUMBER_IS_DEFINED)
+					Throw_error(exception_div_by_zero);
+				self->val.intval = 0;
+			}
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_MODULO:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT)
+			// at least one float
+			both_ensure_int(self, other, FALSE);
+		if (other->val.intval) {
+			self->val.intval %= other->val.intval;
+		} else {
+			if (other->flags & NUMBER_IS_DEFINED)
+				Throw_error(exception_div_by_zero);
+			self->val.intval = 0;
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_ADD:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			self->val.fpval += other->val.fpval;
+		} else {
+			// two ints
+			self->val.intval += other->val.intval;
+		}
+		self->addr_refs += other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_SUBTRACT:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_fp(self, other);
+			self->val.fpval -= other->val.fpval;
+		} else {
+			// two ints
+			self->val.intval -= other->val.intval;
+		}
+		self->addr_refs -= other->addr_refs;	// subtract address references
+		break;
+	case OPHANDLE_SL:
+		if (other->flags & NUMBER_IS_FLOAT)
+			fp_to_int(other);
+		if (self->flags & NUMBER_IS_FLOAT)
+			self->val.fpval *= pow(2.0, other->val.intval);
+		else
+			self->val.intval <<= other->val.intval;
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_ASR:
+		if (other->flags & NUMBER_IS_FLOAT)
+			fp_to_int(other);
+		if (self->flags & NUMBER_IS_FLOAT)
+			self->val.fpval /= (1 << other->val.intval);	// FIXME - why not use pow() as in SL above?
+		else
+			self->val.intval = my_asr(self->val.intval, other->val.intval);
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_LSR:
+		// fp become int
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT)
+			// at least one float
+			both_ensure_int(self, other, TRUE);
+		self->val.intval = ((uintval_t) (self->val.intval)) >> other->val.intval;
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_LE:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval <= other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval <= other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_LESSTHAN:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval < other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval < other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_GE:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval >= other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval >= other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_GREATERTHAN:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval > other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval > other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_NOTEQUAL:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval != other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval != other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_EQUALS:
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			ensure_int_from_fp(self, other);
+			self->val.intval = (self->val.fpval == other->val.fpval);
+		} else {
+			// two ints
+			self->val.intval = (self->val.intval == other->val.intval);
+		}
+		self->addr_refs = 0;	// result now is a non-address
+		break;
+	case OPHANDLE_AND:
+		// fp become int
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_int(self, other, TRUE);
+		}
+		self->val.intval &= other->val.intval;
+		self->addr_refs += other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_EOR:
+		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		/*FALLTHROUGH*/
+	case OPHANDLE_XOR:
+		// fp become int
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_int(self, other, TRUE);
+		}
+		self->val.intval ^= other->val.intval;
+		self->addr_refs += other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_OR:
+		// fp become int
+		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
+			// at least one float
+			both_ensure_int(self, other, TRUE);
+		}
+		self->val.intval |= other->val.intval;
+		self->addr_refs += other->addr_refs;	// add address references
+		break;
+// add new dyadic operators here
+//	case OPHANDLE_:
+//		Throw_error("var type does not support this operation");
+//		break;
+	default:
+		Bug_found("IllegalOperatorHandleND", operation);
+	}
+}
+
+
+// handler for special operators like parentheses and start/end of expression:
+// returns whether caller should just return without cleaning stack
+static boolean do_special_op(struct expression *expression, enum op_handle previous, enum op_handle current)
+{
+	switch (previous) {
+	case OPHANDLE_EXPRSTART:
+		// the only operator with a lower priority than this
+		// "start-of-expression" operator is "end-of-expression",
+		// therefore we know we are done.
+		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
+		--operator_sp;	// decrement operator stack pointer
+		alu_state = STATE_END;	// done
+		break;
+	case OPHANDLE_OPENING:
+		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this.
+		// check current operator
+		switch (current) {
+		case OPHANDLE_CLOSING:	// matching parentheses
+			operator_sp -= 2;	// remove both of them
+			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
+			break;
+		case OPHANDLE_EXPREND:	// unmatched parenthesis
+			++(expression->open_parentheses);	// count
+			return FALSE;
+	
+		default:
+			Bug_found("StrangeParenthesis", current);
+		}
+		break;
+	case OPHANDLE_CLOSING:
+		Throw_error("Too many ')'.");
+		alu_state = STATE_ERROR;
+		break;
+	default:
+		Bug_found("IllegalOperatorHandleS", previous);
+	}
+	return TRUE;
 }
 
 
@@ -1023,398 +1393,69 @@ static void ensure_int_from_fp(void)
 // (if the previous operator has a higher priority than the current one, do it)
 static void try_to_reduce_stacks(struct expression *expression)
 {
+	struct operator		*previous;
+	struct operator		*current;
+
 	if (operator_sp < 2) {
+		// we only have one operator, which must be "start of expression"
 		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
 		return;
 	}
 
+	previous = operator_stack[operator_sp - 2];
+	current = operator_stack[operator_sp - 1];
+
 	// previous operator has lower piority than current one? then do nothing.
-	if (operator_stack[operator_sp - 2]->priority_and_associativity < operator_stack[operator_sp - 1]->priority_and_associativity) {
+	if (previous->priority < current->priority) {
 		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
 		return;
 	}
 
 	// previous operator has same priority as current one? then check associativity
-	if ((operator_stack[operator_sp - 2]->priority_and_associativity == operator_stack[operator_sp - 1]->priority_and_associativity)
-	&& IS_RIGHT_ASSOCIATIVE(operator_stack[operator_sp - 1]->priority_and_associativity)) {
+	if ((previous->priority == current->priority)
+	&& IS_RIGHT_ASSOCIATIVE(current->priority)) {
 		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
 		return;
 	}
 
-	// process previous operator
-// FIXME - check type of operator (special/monadic/dyadic) and move handling of
-// monadics and dyadics to two extra functions. those two functions can then be
-// made type-specific, so strings and lists get their own handler functions.
-	switch (operator_stack[operator_sp - 2]->handle) {
-// start of special (pseudo) operators
-	case OPHANDLE_EXPRSTART:
-		// the only operator with a lower priority than this
-		// "start-of-expression" operator is "end-of-expression",
-		// therefore we know we are done.
-		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
-		--operator_sp;	// decrement operator stack pointer
-		alu_state = STATE_END;
-		break;	// FIXME - why not return?
-	case OPHANDLE_OPENING:
-		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this.
-		switch (operator_stack[operator_sp - 1]->handle) {
-		case OPHANDLE_CLOSING:	// matching parentheses
-			operator_sp -= 2;	// remove both of them
-			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
-			break;
-		case OPHANDLE_EXPREND:	// unmatched parenthesis
-			++(expression->open_parentheses);	// count
-			goto RNTLObutDontTouchIndirectFlag;
+	// we now know that either
+	// - the previous operator has higher priority, or
+	// - it has the same priority and is left-associative,
+	// so perform that operation!
+#define ARG_PREV	(operand_stack[operand_sp - 2])
+#define ARG_NOW		(operand_stack[operand_sp - 1])
+	// TODO - make handler functions for monadic and dyadic operators type-
+	// specific, so strings and lists can get their own handler functions.
+	switch (previous->group) {
+	case OPGROUP_MONADIC:	// monadic operators
+		// TODO - maybe call different functions for ints and floats?
+		number_do_monadic_op(&ARG_NOW, previous->handle);
+		// operation was something other than parentheses
+		expression->is_parenthesized = FALSE;
+		break;
+	case OPGROUP_DYADIC:	// dyadic operators
+		number_do_dyadic_op(&ARG_PREV, previous->handle, &ARG_NOW);
+		// Handle flags and decrement value stack pointer
+		// "OR" EVER_UNDEFINED and FORCEBIT flags
+		ARG_PREV.flags |= ARG_NOW.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
+		// "AND" DEFINED flag
+		ARG_PREV.flags &= (ARG_NOW.flags | ~NUMBER_IS_DEFINED);
+		ARG_PREV.flags &= ~NUMBER_FITS_BYTE;	// clear FITS BYTE flag
+		--operand_sp;
+		// operation was something other than parentheses
+		expression->is_parenthesized = FALSE;
+		break;
+	case OPGROUP_SPECIAL:	// special (pseudo) operators
+		if (do_special_op(expression, previous->handle, current->handle))
+			return;
 
-		default:
-			Bug_found("StrangeParenthesis", operator_stack[operator_sp - 1]->handle);
-		}
-		break;	// FIXME - why not return?
-	case OPHANDLE_CLOSING:
-		Throw_error("Too many ')'.");
-		alu_state = STATE_ERROR;
-		return;	// FIXME - why not break?
-
-// end of special (pseudo) operators
-// start of monadic operators (including functions)
-	case OPHANDLE_ADDR:
-		RIGHT_ADDRREFS = 1;	// result now is an address
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_INT:
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		RIGHT_ADDRREFS = 0;	// result now is a non-address
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_FLOAT:
-		// convert right-hand value from int to fp
-		if ((RIGHT_FLAGS & NUMBER_IS_FLOAT) == 0) {
-			RIGHT_FPVAL = RIGHT_INTVAL;
-			RIGHT_FLAGS |= NUMBER_IS_FLOAT;
-		}
-		RIGHT_ADDRREFS = 0;	// result now is a non-address
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_SIN:
-		perform_fp(sin);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_COS:
-		perform_fp(cos);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_TAN:
-		perform_fp(tan);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_ARCSIN:
-		perform_ranged_fp(asin);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_ARCCOS:
-		perform_ranged_fp(acos);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_ARCTAN:
-		perform_fp(atan);	// also zeroes addr_refs
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_NOT:
-		// fp becomes int
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		RIGHT_INTVAL = ~(RIGHT_INTVAL);
-		RIGHT_FLAGS &= ~NUMBER_FITS_BYTE;
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_NEGATE:
-		// different operations for fp and int
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			RIGHT_FPVAL = -(RIGHT_FPVAL);
-		else
-			RIGHT_INTVAL = -(RIGHT_INTVAL);
-		RIGHT_FLAGS &= ~NUMBER_FITS_BYTE;
-		RIGHT_ADDRREFS = -RIGHT_ADDRREFS;	// negate address ref count as well
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_LOWBYTEOF:
-		// fp becomes int
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		RIGHT_INTVAL = (RIGHT_INTVAL) & 255;
-		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
-		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
-		RIGHT_ADDRREFS = 0;	// result now is a non-address
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_HIGHBYTEOF:
-		// fp becomes int
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		RIGHT_INTVAL = ((RIGHT_INTVAL) >> 8) & 255;
-		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
-		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
-		RIGHT_ADDRREFS = 0;	// result now is a non-address
-		goto remove_next_to_last_operator;
-
-	case OPHANDLE_BANKBYTEOF:
-		// fp becomes int
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		RIGHT_INTVAL = ((RIGHT_INTVAL) >> 16) & 255;
-		RIGHT_FLAGS |= NUMBER_FITS_BYTE;
-		RIGHT_FLAGS &= ~NUMBER_FORCEBITS;
-		RIGHT_ADDRREFS = 0;	// result now is a non-address
-		goto remove_next_to_last_operator;
-
-// end of monadic operators (including functions)
-// start of dyadic operators
-	case OPHANDLE_POWEROF:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			LEFT_FPVAL = pow(LEFT_FPVAL, RIGHT_FPVAL);
-			LEFT_ADDRREFS = 0;	// result now is a non-address
-			goto handle_flags_and_dec_stacks;
-		}
-
-		if (RIGHT_INTVAL >= 0) {
-			LEFT_INTVAL = my_pow(LEFT_INTVAL, RIGHT_INTVAL);
-		} else {
-			if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-				Throw_error("Exponent is negative.");
-			LEFT_INTVAL = 0;
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_MULTIPLY:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			LEFT_FPVAL *= RIGHT_FPVAL;
-		} else {
-			LEFT_INTVAL *= RIGHT_INTVAL;
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_DIVIDE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			if (RIGHT_FPVAL) {
-				LEFT_FPVAL /= RIGHT_FPVAL;
-			} else {
-				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				LEFT_FPVAL = 0;
-			}
-		} else {
-			if (RIGHT_INTVAL) {
-				LEFT_INTVAL /= RIGHT_INTVAL;
-			} else {
-				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				LEFT_INTVAL = 0;
-			}
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_INTDIV:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			if (RIGHT_FPVAL) {
-				LEFT_INTVAL = LEFT_FPVAL / RIGHT_FPVAL;
-			} else {
-				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				LEFT_INTVAL = 0;
-			}
-			LEFT_FLAGS &= ~NUMBER_IS_FLOAT;
-		} else {
-			if (RIGHT_INTVAL) {
-				LEFT_INTVAL /= RIGHT_INTVAL;
-			} else {
-				if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				LEFT_INTVAL = 0;
-			}
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_MODULO:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
-			both_ensure_int(FALSE);
-		if (RIGHT_INTVAL) {
-			LEFT_INTVAL %= RIGHT_INTVAL;
-		} else {
-			if (RIGHT_FLAGS & NUMBER_IS_DEFINED)
-				Throw_error(exception_div_by_zero);
-			LEFT_INTVAL = 0;
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_ADD:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			LEFT_FPVAL += RIGHT_FPVAL;
-		} else {
-			LEFT_INTVAL += RIGHT_INTVAL;
-		}
-		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_SUBTRACT:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			both_ensure_fp();
-			LEFT_FPVAL -= RIGHT_FPVAL;
-		} else {
-			LEFT_INTVAL -= RIGHT_INTVAL;
-		}
-		LEFT_ADDRREFS -= RIGHT_ADDRREFS;	// subtract address references
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_SL:
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		if (LEFT_FLAGS & NUMBER_IS_FLOAT)
-			LEFT_FPVAL *= pow(2.0, RIGHT_INTVAL);
-		else
-			LEFT_INTVAL <<= RIGHT_INTVAL;
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_ASR:
-		if (RIGHT_FLAGS & NUMBER_IS_FLOAT)
-			right_fp_to_int();
-		if (LEFT_FLAGS & NUMBER_IS_FLOAT)
-			LEFT_FPVAL /= (1 << RIGHT_INTVAL);
-		else
-			LEFT_INTVAL = my_asr(LEFT_INTVAL, RIGHT_INTVAL);
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_LSR:
-		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
-			both_ensure_int(TRUE);
-		LEFT_INTVAL = ((uintval_t) LEFT_INTVAL) >> RIGHT_INTVAL;
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_LE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL <= RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL <= RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_LESSTHAN:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL < RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL < RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_GE:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL >= RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL >= RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_GREATERTHAN:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL > RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL > RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_NOTEQUAL:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL != RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL != RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_EQUALS:
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT) {
-			ensure_int_from_fp();
-			LEFT_INTVAL = (LEFT_FPVAL == RIGHT_FPVAL);
-		} else {
-			LEFT_INTVAL = (LEFT_INTVAL == RIGHT_INTVAL);
-		}
-		LEFT_ADDRREFS = 0;	// result now is a non-address
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_AND:
-		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
-			both_ensure_int(TRUE);
-		LEFT_INTVAL &= RIGHT_INTVAL;
-		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_EOR:
-		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
-		/*FALLTHROUGH*/
-	case OPHANDLE_XOR:
-		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
-			both_ensure_int(TRUE);
-		LEFT_INTVAL ^= RIGHT_INTVAL;
-		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
-		goto handle_flags_and_dec_stacks;
-
-	case OPHANDLE_OR:
-		// fp become int
-		if ((RIGHT_FLAGS | LEFT_FLAGS) & NUMBER_IS_FLOAT)
-			both_ensure_int(TRUE);
-		LEFT_INTVAL |= RIGHT_INTVAL;
-		LEFT_ADDRREFS += RIGHT_ADDRREFS;	// add address references
-		goto handle_flags_and_dec_stacks;
-
-// end of dyadic operators
+		// monadics and dyadics clear is_parenthesized, but here we don't touch it!
+		break;
 	default:
-		Bug_found("IllegalOperatorHandle", operator_stack[operator_sp - 2]->handle);
+		Bug_found("IllegalOperatorHandle", previous->group);	// FIXME - change to IllegalOperatorGroup!
 	}
-	return;
-
-// shared endings:
-
-// entry point for dyadic operators
-handle_flags_and_dec_stacks:
-	// Handle flags and decrement value stack pointer
-	// "OR" EVER_UNDEFINED and FORCEBIT flags
-	LEFT_FLAGS |= RIGHT_FLAGS & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
-	// "AND" DEFINED flag
-	LEFT_FLAGS &= (RIGHT_FLAGS | ~NUMBER_IS_DEFINED);
-	LEFT_FLAGS &= ~NUMBER_FITS_BYTE;	// clear FITS BYTE flag
-	--operand_sp;
-// entry point for monadic operators
-remove_next_to_last_operator:
-	// operation was something other than parentheses
-	expression->is_parenthesized = FALSE;
-// entry point for when '(' operator meets "end of expression": keep is_parenthesized set!
-RNTLObutDontTouchIndirectFlag:
-	// Remove operator and shift down next one
+// shared endings for "we did the operation indicated by previous operator":
+	// remove previous operator and shift down current one
 	operator_stack[operator_sp - 2] = operator_stack[operator_sp - 1];
 	--operator_sp;	// decrement operator stack pointer
 }
