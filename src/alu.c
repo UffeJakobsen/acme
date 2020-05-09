@@ -3,7 +3,7 @@
 // Have a look at "acme.c" for further info
 //
 // Arithmetic/logic unit
-// 11 Oct 2006	Improved float reading in parse_decimal_value()
+// 11 Oct 2006	Improved float reading in parse_number_literal()
 // 24 Nov 2007	Now accepts floats starting with decimal point
 // 31 Jul 2009	Changed ASR again, just to be on the safe side.
 // 14 Jan 2014	Changed associativity of "power-of" operator,
@@ -13,9 +13,11 @@
 // 31 May 2014	Added "0b" binary number prefix as alternative to "%".
 // 28 Apr 2015	Added symbol name output to "value not defined" error.
 //  1 Feb 2019	Prepared to make "honor leading zeroes" optionally (now done)
-// FIXME - the words "operand"/"operator"/"operation" are too similar, so:
-//	use "argument" instead of "operand"
-//	use <TODO> instead of operator/operation
+
+// the words "operand"/"operator"/"operation" are too similar, so:
+//	"op" means operator/operation
+//	"arg" means argument (used instead of "operand")
+
 #include "alu.h"
 #include <stdlib.h>
 #include <math.h>	// only for fp support
@@ -54,8 +56,8 @@ enum op_group {
 };
 enum op_handle {
 	// special (pseudo) operators:
-	OPHANDLE_EXPRSTART,	//		"start of expression"
-	OPHANDLE_EXPREND,	//		"end of expression"
+	OPHANDLE_START_OF_EXPR,	//		"start of expression"
+	OPHANDLE_END_OF_EXPR,	//		"end of expression"
 	OPHANDLE_OPENING,	//	(v	'(', starts subexpression (handled like monadic)
 	OPHANDLE_CLOSING,	//	v)	')', ends subexpression (handled like dyadic)
 	// monadic operators (including functions):
@@ -95,84 +97,86 @@ enum op_handle {
 	OPHANDLE_EOR,		//	v EOR w		v XOR w		(FIXME:remove)
 	OPHANDLE_XOR,		//	v XOR w
 };
-struct operator {
-	int		priority;	// lsb holds "is_right_associative" info!
+struct op {
 #define IS_RIGHT_ASSOCIATIVE(prio)	((prio) & 1)
+	int		priority;	// lsb holds "is_right_associative" info!
 	enum op_group	group;
 	enum op_handle	handle;
 };
-static struct operator ops_exprend	= {0, OPGROUP_SPECIAL, OPHANDLE_EXPREND	};
-static struct operator ops_exprstart	= {2, OPGROUP_SPECIAL, OPHANDLE_EXPRSTART	};
-static struct operator ops_closing	= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
-static struct operator ops_opening	= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
-static struct operator ops_or		= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
-static struct operator ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME:remove
-static struct operator ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
-static struct operator ops_and		= {12, OPGROUP_DYADIC, OPHANDLE_AND	};
-static struct operator ops_equals	= {14, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
-static struct operator ops_notequal	= {16, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
+static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPHANDLE_END_OF_EXPR	};
+static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPHANDLE_START_OF_EXPR	};
+static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
+static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
+static struct op ops_or			= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
+static struct op ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME:remove
+static struct op ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
+static struct op ops_and		= {12, OPGROUP_DYADIC, OPHANDLE_AND	};
+static struct op ops_equals		= {14, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
+static struct op ops_notequal		= {16, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
 	// same priority for all comparison operators
-static struct operator ops_le		= {18, OPGROUP_DYADIC, OPHANDLE_LE	};
-static struct operator ops_lessthan	= {18, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
-static struct operator ops_ge		= {18, OPGROUP_DYADIC, OPHANDLE_GE	};
-static struct operator ops_greaterthan	= {18, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
+static struct op ops_le			= {18, OPGROUP_DYADIC, OPHANDLE_LE	};
+static struct op ops_lessthan		= {18, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
+static struct op ops_ge			= {18, OPGROUP_DYADIC, OPHANDLE_GE	};
+static struct op ops_greaterthan	= {18, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
 	// same priority for all byte extraction operators
-static struct operator ops_lowbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
-static struct operator ops_highbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
-static struct operator ops_bankbyteof	= {20, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
+static struct op ops_lowbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
+static struct op ops_highbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
+static struct op ops_bankbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
 	// same priority for all shift operators (left-associative, though they could be argued to be made right-associative :))
-static struct operator ops_sl		= {22, OPGROUP_DYADIC, OPHANDLE_SL	};
-static struct operator ops_asr		= {22, OPGROUP_DYADIC, OPHANDLE_ASR	};
-static struct operator ops_lsr		= {22, OPGROUP_DYADIC, OPHANDLE_LSR	};
+static struct op ops_sl			= {22, OPGROUP_DYADIC, OPHANDLE_SL	};
+static struct op ops_asr		= {22, OPGROUP_DYADIC, OPHANDLE_ASR	};
+static struct op ops_lsr		= {22, OPGROUP_DYADIC, OPHANDLE_LSR	};
 	// same priority for "+" and "-"
-static struct operator ops_add		= {24, OPGROUP_DYADIC, OPHANDLE_ADD	};
-static struct operator ops_subtract	= {24, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
+static struct op ops_add		= {24, OPGROUP_DYADIC, OPHANDLE_ADD	};
+static struct op ops_subtract		= {24, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
 	// same priority for "*", "/" and "%"
-static struct operator ops_multiply	= {26, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
-static struct operator ops_divide	= {26, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
-static struct operator ops_intdiv	= {26, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
-static struct operator ops_modulo	= {26, OPGROUP_DYADIC, OPHANDLE_MODULO	};
+static struct op ops_multiply		= {26, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
+static struct op ops_divide		= {26, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
+static struct op ops_intdiv		= {26, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
+static struct op ops_modulo		= {26, OPGROUP_DYADIC, OPHANDLE_MODULO	};
 	// highest "real" priorities
-static struct operator ops_negate	= {28, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
-static struct operator ops_powerof	= {29, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
-static struct operator ops_not		= {30, OPGROUP_MONADIC, OPHANDLE_NOT	};
+static struct op ops_negate		= {28, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
+static struct op ops_powerof		= {29, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
+static struct op ops_not		= {30, OPGROUP_MONADIC, OPHANDLE_NOT	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
 	// "sin(3 + 4) DYADIC_OPERATOR 5" becomes "sin 7 DYADIC_OPERATOR 5",
 	// so function calls' priority must be higher than all dyadic operators.
-static struct operator ops_addr		= {32, OPGROUP_MONADIC, OPHANDLE_ADDR	};
-static struct operator ops_int		= {32, OPGROUP_MONADIC, OPHANDLE_INT	};
-static struct operator ops_float	= {32, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
-static struct operator ops_sin		= {32, OPGROUP_MONADIC, OPHANDLE_SIN	};
-static struct operator ops_cos		= {32, OPGROUP_MONADIC, OPHANDLE_COS	};
-static struct operator ops_tan		= {32, OPGROUP_MONADIC, OPHANDLE_TAN	};
-static struct operator ops_arcsin	= {32, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
-static struct operator ops_arccos	= {32, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
-static struct operator ops_arctan	= {32, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
+static struct op ops_addr		= {32, OPGROUP_MONADIC, OPHANDLE_ADDR	};
+static struct op ops_int		= {32, OPGROUP_MONADIC, OPHANDLE_INT	};
+static struct op ops_float		= {32, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
+static struct op ops_sin		= {32, OPGROUP_MONADIC, OPHANDLE_SIN	};
+static struct op ops_cos		= {32, OPGROUP_MONADIC, OPHANDLE_COS	};
+static struct op ops_tan		= {32, OPGROUP_MONADIC, OPHANDLE_TAN	};
+static struct op ops_arcsin		= {32, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
+static struct op ops_arccos		= {32, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
+static struct op ops_arctan		= {32, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
 
 
 // variables
 static struct dynabuf	*errormsg_dyna_buf;	// dynamic buffer for "value not defined" error
 static struct dynabuf	*function_dyna_buf;	// dynamic buffer for fn names
-static struct operator	**operator_stack	= NULL;
-static int		operator_stk_size	= HALF_INITIAL_STACK_SIZE;
-static int		operator_sp;		// operator stack pointer
-static struct number	*operand_stack		= NULL;	// flags and value
-static int		operand_stk_size	= HALF_INITIAL_STACK_SIZE;
-static int		operand_sp;		// value stack pointer
+// operator stack, current size and stack pointer:
+static struct op	**op_stack	= NULL;
+static int		opstack_size	= HALF_INITIAL_STACK_SIZE;
+static int		op_sp;
+// argument stack, current size and stack pointer:
+static struct number	*arg_stack	= NULL;
+static int		argstack_size	= HALF_INITIAL_STACK_SIZE;
+static int		arg_sp;
 enum alu_state {
-	STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR,
-	STATE_EXPECT_DYADIC_OPERATOR,
+	STATE_EXPECT_ARG_OR_MONADIC_OP,
+	STATE_EXPECT_DYADIC_OP,
 	STATE_TRY_TO_REDUCE_STACKS,
 	STATE_MAX_GO_ON,	// "border value" to find the stoppers:
-	STATE_ERROR,		// error has occured
+	STATE_ERROR,		// error has occurred
 	STATE_END		// standard end
 };
 static enum alu_state	alu_state;	// deterministic finite automaton
 // predefined stuff
-static struct ronode	*operator_tree	= NULL;	// tree to hold operators
-static struct ronode	operator_list[]	= {
+static struct ronode	*op_tree	= NULL;	// tree to hold operators
+static struct ronode	op_list[]	= {
 	PREDEFNODE(s_asr,	&ops_asr),
 	PREDEFNODE(s_lsr,	&ops_lsr),
 	PREDEFNODE(s_asl,	&ops_sl),
@@ -200,56 +204,56 @@ static struct ronode	function_list[]	= {
 	//    ^^^^ this marks the last element
 };
 
-#define PUSH_OPERATOR(x)	operator_stack[operator_sp++] = (x)
+#define PUSH_OP(x)	op_stack[op_sp++] = (x)
 
-#define PUSH_INTOPERAND(i, f, r)			\
-do {							\
-	operand_stack[operand_sp].flags = (f);		\
-	operand_stack[operand_sp].val.intval = (i);	\
-	operand_stack[operand_sp++].addr_refs = (r);	\
+#define PUSH_INT_ARG(i, f, r)			\
+do {						\
+	arg_stack[arg_sp].flags = (f);		\
+	arg_stack[arg_sp].val.intval = (i);	\
+	arg_stack[arg_sp++].addr_refs = (r);	\
 } while (0)
-#define PUSH_FPOPERAND(fp, f)						\
-do {									\
-	operand_stack[operand_sp].flags = (f) | NUMBER_IS_FLOAT;	\
-	operand_stack[operand_sp].val.fpval = (fp);			\
-	operand_stack[operand_sp++].addr_refs = 0;			\
+#define PUSH_FP_ARG(fp, f)					\
+do {								\
+	arg_stack[arg_sp].flags = (f) | NUMBER_IS_FLOAT;	\
+	arg_stack[arg_sp].val.fpval = (fp);			\
+	arg_stack[arg_sp++].addr_refs = 0;			\
 } while (0)
 
 
-// enlarge operator stack
+// double the size of the operator stack
 static void enlarge_operator_stack(void)
 {
-	operator_stk_size *= 2;
-	operator_stack = realloc(operator_stack, operator_stk_size * sizeof(*operator_stack));
-	if (operator_stack == NULL)
+	opstack_size *= 2;
+	op_stack = realloc(op_stack, opstack_size * sizeof(*op_stack));
+	if (op_stack == NULL)
 		Throw_serious_error(exception_no_memory_left);
 }
 
 
-// enlarge operand stack
-static void enlarge_operand_stack(void)
+// double the size of the argument stack
+static void enlarge_argument_stack(void)
 {
-	operand_stk_size *= 2;
-	operand_stack = realloc(operand_stack, operand_stk_size * sizeof(*operand_stack));
-	if (operand_stack == NULL)
+	argstack_size *= 2;
+	arg_stack = realloc(arg_stack, argstack_size * sizeof(*arg_stack));
+	if (arg_stack == NULL)
 		Throw_serious_error(exception_no_memory_left);
 }
 
 
-// create dynamic buffer, operator/function trees and operator/operand stacks
+// create dynamic buffer, operator/function trees and operator/argument stacks
 void ALU_init(void)
 {
 	errormsg_dyna_buf = DynaBuf_create(ERRORMSG_DYNABUF_INITIALSIZE);
 	function_dyna_buf = DynaBuf_create(FUNCTION_DYNABUF_INITIALSIZE);
-	Tree_add_table(&operator_tree, operator_list);
+	Tree_add_table(&op_tree, op_list);
 	Tree_add_table(&function_tree, function_list);
 	enlarge_operator_stack();
-	enlarge_operand_stack();
+	enlarge_argument_stack();
 }
 
 
 // not-so-braindead algorithm for calculating "to the power of" function for
-// integer operands.
+// integer arguments.
 // my_pow(whatever, 0) returns 1. my_pow(0, whatever_but_zero) returns 0.
 static intval_t my_pow(intval_t mantissa, intval_t exponent)
 {
@@ -270,17 +274,17 @@ static intval_t my_pow(intval_t mantissa, intval_t exponent)
 // arithmetic shift right (works even if C compiler does not support it)
 static intval_t my_asr(intval_t left, intval_t right)
 {
-	// if first operand is positive or zero, ASR and LSR are equivalent,
+	// if first argument is positive or zero, ASR and LSR are equivalent,
 	// so just do it and return the result:
 	if (left >= 0)
 		return left >> right;
 
-	// However, if the first operand is negative, the result is
+	// However, if the first argument is negative, the result is
 	// implementation-defined: While most compilers will do ASR, some others
 	// might do LSR instead, and *theoretically*, it is even possible for a
 	// compiler to define silly stuff like "shifting a negative value to the
 	// right will always return -1".
-	// Therefore, in case of a negative operand, we'll use this quick and
+	// Therefore, in case of a negative argument, we'll use this quick and
 	// simple workaround:
 	return ~((~left) >> right);
 }
@@ -342,8 +346,8 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
-	// push operand, regardless of whether int or float
-	operand_stack[operand_sp++] = symbol->result;
+	// push argument, regardless of whether int or float
+	arg_stack[arg_sp++] = symbol->result;
 }
 
 
@@ -356,7 +360,7 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 	vcpu_read_pc(&pc);
 	// if needed, output "value not defined" error
 	check_for_def(NULL, pc.flags, 0, "*", 1);
-	PUSH_INTOPERAND(pc.val.intval, pc.flags, pc.addr_refs);
+	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);
 }
 
 
@@ -389,7 +393,7 @@ static void parse_quoted_character(char closing_quote)
 			alu_state = STATE_ERROR;
 		}
 	}
-	PUSH_INTOPERAND(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
+	PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 }
 
@@ -397,7 +401,7 @@ static void parse_quoted_character(char closing_quote)
 // Parse binary value. Apart from '0' and '1', it also accepts the characters
 // '.' and '#', this is much more readable. The current value is stored as soon
 // as a character is read that is none of those given above.
-static void parse_binary_value(void)	// Now GotByte = "%" or "b"
+static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
 	int		flags	= NUMBER_IS_DEFINED,
@@ -429,7 +433,7 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 			}
 		}
 	}
-	PUSH_INTOPERAND(value, flags, 0);
+	PUSH_INT_ARG(value, flags, 0);
 	// Now GotByte = non-binary char
 }
 
@@ -437,7 +441,7 @@ static void parse_binary_value(void)	// Now GotByte = "%" or "b"
 // Parse hexadecimal value. It accepts "0" to "9", "a" to "f" and "A" to "F".
 // The current value is stored as soon as a character is read that is none of
 // those given above.
-static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
+static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 {
 	char		byte;
 	int		digits	= -1,	// digit counter
@@ -474,7 +478,7 @@ static void parse_hexadecimal_value(void)	// Now GotByte = "$" or "x"
 			}
 		}
 	}
-	PUSH_INTOPERAND(value, flags, 0);
+	PUSH_INT_ARG(value, flags, 0);
 	// Now GotByte = non-hexadecimal char
 }
 
@@ -492,7 +496,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 		GetByte();
 	}
 	// FIXME - add possibility to read 'e' and exponent!
-	PUSH_FPOPERAND(fpval / denominator, NUMBER_IS_DEFINED);
+	PUSH_FP_ARG(fpval / denominator, NUMBER_IS_DEFINED);
 }
 
 
@@ -510,7 +514,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 // point has been found, so don't expect "100000000000000000000" to work.
 // CAUTION: "100000000000000000000.0" won't work either, because when the
 // decimal point gets parsed, the integer value will have overflown already.
-static void parse_decimal_value(void)	// Now GotByte = first digit
+static void parse_number_literal(void)	// Now GotByte = first digit
 {
 	intval_t	intval	= (GotByte & 15);	// this works. it's ASCII.
 
@@ -518,11 +522,11 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 	// check for "0b" (binary) and "0x" (hexadecimal) prefixes
 	if (intval == 0) {
 		if (GotByte == 'b') {
-			parse_binary_value();
+			parse_binary_literal();
 			return;
 		}
 		if (GotByte == 'x') {
-			parse_hexadecimal_value();
+			parse_hex_literal();
 			return;
 		}
 	}
@@ -537,7 +541,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 		GetByte();
 		parse_frac_part(intval);
 	} else {
-		PUSH_INTOPERAND(intval, NUMBER_IS_DEFINED, 0);
+		PUSH_INT_ARG(intval, NUMBER_IS_DEFINED, 0);
 	}
 	// Now GotByte = non-decimal char
 }
@@ -545,7 +549,7 @@ static void parse_decimal_value(void)	// Now GotByte = first digit
 
 // Parse octal value. It accepts "0" to "7". The current value is stored as
 // soon as a character is read that is none of those given above.
-static void parse_octal_value(void)	// Now GotByte = "&"
+static void parse_octal_literal(void)	// Now GotByte = "&"
 {
 	intval_t	value	= 0;
 	int		flags	= NUMBER_IS_DEFINED,
@@ -569,7 +573,7 @@ static void parse_octal_value(void)	// Now GotByte = "&"
 			}
 		}
 	}
-	PUSH_INTOPERAND(value, flags, 0);
+	PUSH_INT_ARG(value, flags, 0);
 	// Now GotByte = non-octal char
 }
 
@@ -583,7 +587,7 @@ static void parse_function_call(void)
 	DynaBuf_to_lower(function_dyna_buf, GlobalDynaBuf);
 	// search for tree item
 	if (Tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
-		PUSH_OPERATOR((struct operator *) node_body);
+		PUSH_OP((struct op *) node_body);
 	} else {
 		Throw_error("Unknown function.");
 		alu_state = STATE_ERROR;
@@ -591,12 +595,12 @@ static void parse_function_call(void)
 }
 
 
-// Expect operand or monadic operator (hopefully inlined)
+// Expect argument or monadic operator (hopefully inlined)
 // returns TRUE if it ate any non-space (-> so expression isn't empty)
 // returns FALSE if first non-space is delimiter (-> end of expression)
-static int expect_operand_or_monadic_operator(void)
+static boolean expect_argument_or_monadic_operator(void)
 {
-	struct operator	*operator;
+	struct op	*op;
 	int		ugly_length_kluge;
 	boolean		perform_negation;
 
@@ -611,7 +615,7 @@ static int expect_operand_or_monadic_operator(void)
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
 		get_symbol_value(section_now->local_scope, 0, ugly_length_kluge);
-		goto now_expect_dyadic;
+		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
 		// count minus signs in case it's an anonymous backward label
@@ -625,33 +629,33 @@ static int expect_operand_or_monadic_operator(void)
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
 			get_symbol_value(section_now->local_scope, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
-			goto now_expect_dyadic;
+			goto now_expect_dyadic_op;
 		}
 
 		if (perform_negation)
-			PUSH_OPERATOR(&ops_negate);
+			PUSH_OP(&ops_negate);
 		// State doesn't change
 		break;
 // Real monadic operators (state doesn't change, still ExpectMonadic)
 	case '!':	// NOT operator
-		operator = &ops_not;
+		op = &ops_not;
 		goto get_byte_and_push_monadic;
 
 	case '<':	// LOWBYTE operator
-		operator = &ops_lowbyteof;
+		op = &ops_lowbyteof;
 		goto get_byte_and_push_monadic;
 
 	case '>':	// HIGHBYTE operator
-		operator = &ops_highbyteof;
+		op = &ops_highbyteof;
 		goto get_byte_and_push_monadic;
 
 	case '^':	// BANKBYTE operator
-		operator = &ops_bankbyteof;
+		op = &ops_bankbyteof;
 		goto get_byte_and_push_monadic;
 
 // Faked monadic operators
 	case '(':	// left parenthesis
-		operator = &ops_opening;
+		op = &ops_opening;
 		goto get_byte_and_push_monadic;
 
 	case ')':	// right parenthesis
@@ -659,31 +663,31 @@ static int expect_operand_or_monadic_operator(void)
 		Throw_error(exception_syntax);
 		alu_state = STATE_ERROR;
 		break;
-// Operands (values, state changes to ExpectDyadic)
+// arguments (state changes to ExpectDyadic)
 	case '"':	// Quoted character
 	case '\'':	// Quoted character
 		// Character will be converted using current encoding
 		parse_quoted_character(GotByte);
 		// Now GotByte = char following closing quote
-		goto now_expect_dyadic;
+		goto now_expect_dyadic_op;
 
 	case '%':	// Binary value
-		parse_binary_value();	// Now GotByte = non-binary char
-		goto now_expect_dyadic;
+		parse_binary_literal();	// Now GotByte = non-binary char
+		goto now_expect_dyadic_op;
 
 	case '&':	// Octal value
-		parse_octal_value();	// Now GotByte = non-octal char
-		goto now_expect_dyadic;
+		parse_octal_literal();	// Now GotByte = non-octal char
+		goto now_expect_dyadic_op;
 
 	case '$':	// Hexadecimal value
-		parse_hexadecimal_value();
+		parse_hex_literal();
 		// Now GotByte = non-hexadecimal char
-		goto now_expect_dyadic;
+		goto now_expect_dyadic_op;
 
 	case '*':	// Program counter
 		parse_program_counter();
 		// Now GotByte = char after closing quote
-		goto now_expect_dyadic;
+		goto now_expect_dyadic_op;
 
 // FIXME - find a way to tell decimal point and LOCAL_PREFIX apart!
 	case '.':	// local symbol or fractional part of float value
@@ -692,13 +696,13 @@ static int expect_operand_or_monadic_operator(void)
 		if ((GotByte >= '0') && (GotByte <= '9')) {
 			parse_frac_part(0);
 			// Now GotByte = non-decimal char
-			goto now_expect_dyadic;
+			goto now_expect_dyadic_op;
 		}
 
 		if (Input_read_keyword()) {
 			// Now GotByte = illegal char
 			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
-			goto now_expect_dyadic;
+			goto now_expect_dyadic_op;
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
@@ -710,7 +714,7 @@ static int expect_operand_or_monadic_operator(void)
 		if (Input_read_keyword()) {
 			// Now GotByte = illegal char
 			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
-			goto now_expect_dyadic;
+			goto now_expect_dyadic_op;
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
@@ -719,9 +723,9 @@ static int expect_operand_or_monadic_operator(void)
 	// decimal values and global symbols
 	default:	// all other characters
 		if ((GotByte >= '0') && (GotByte <= '9')) {
-			parse_decimal_value();
+			parse_number_literal();
 			// Now GotByte = non-decimal char
-			goto now_expect_dyadic;
+			goto now_expect_dyadic_op;
 		}
 
 		if (BYTE_STARTS_KEYWORD(GotByte)) {
@@ -736,7 +740,7 @@ static int expect_operand_or_monadic_operator(void)
 			&& ((GlobalDynaBuf->buffer[0] | 32) == 'n')
 			&& ((GlobalDynaBuf->buffer[1] | 32) == 'o')
 			&& ((GlobalDynaBuf->buffer[2] | 32) == 't')) {
-				PUSH_OPERATOR(&ops_not);
+				PUSH_OP(&ops_not);
 				// state doesn't change
 			} else {
 				if (GotByte == '(') {
@@ -750,16 +754,16 @@ static int expect_operand_or_monadic_operator(void)
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
 					get_symbol_value(SCOPE_GLOBAL, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
-					goto now_expect_dyadic;
+					goto now_expect_dyadic_op;
 				}
 			}
 		} else {
 			// illegal character read - so don't go on
-			// we found end-of-expression instead of an operand,
+			// we found end-of-expression instead of an argument,
 			// that's either an empty expression or an erroneous one!
-			PUSH_INTOPERAND(0, 0, 0);	// push dummy operand so stack is ok
-			if (operator_stack[operator_sp - 1] == &ops_exprstart) {
-				PUSH_OPERATOR(&ops_exprend);
+			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack is ok
+			if (op_stack[op_sp - 1] == &ops_start_of_expr) {
+				PUSH_OP(&ops_end_of_expr);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
 			} else {
 				Throw_error(exception_syntax);
@@ -773,14 +777,14 @@ static int expect_operand_or_monadic_operator(void)
 
 get_byte_and_push_monadic:
 		GetByte();
-		PUSH_OPERATOR(operator);
+		PUSH_OP(op);
 		// State doesn't change
 		break;
 
-now_expect_dyadic:
+now_expect_dyadic_op:
 		// bugfix: if in error state, do not change state back to valid one
 		if (alu_state < STATE_MAX_GO_ON)
-			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
+			alu_state = STATE_EXPECT_DYADIC_OP;
 		break;
 	}
 	return TRUE;	// parsed something
@@ -791,65 +795,65 @@ now_expect_dyadic:
 static void expect_dyadic_operator(void)
 {
 	void		*node_body;
-	struct operator	*operator;
+	struct op	*op;
 
 	SKIPSPACE();
 	switch (GotByte) {
 // Single-character dyadic operators
 	case '^':	// "to the power of"
-		operator = &ops_powerof;
+		op = &ops_powerof;
 		goto get_byte_and_push_dyadic;
 
 	case '+':	// add
-		operator = &ops_add;
+		op = &ops_add;
 		goto get_byte_and_push_dyadic;
 
 	case '-':	// subtract
-		operator = &ops_subtract;
+		op = &ops_subtract;
 		goto get_byte_and_push_dyadic;
 
 	case '*':	// multiply
-		operator = &ops_multiply;
+		op = &ops_multiply;
 		goto get_byte_and_push_dyadic;
 
 	case '/':	// divide
-		operator = &ops_divide;
+		op = &ops_divide;
 		goto get_byte_and_push_dyadic;
 
 	case '%':	// modulo
-		operator = &ops_modulo;
+		op = &ops_modulo;
 		goto get_byte_and_push_dyadic;
 
 	case '&':	// bitwise AND
-		operator = &ops_and;
+		op = &ops_and;
 		goto get_byte_and_push_dyadic;
 
 	case '|':	// bitwise OR
-		operator = &ops_or;
+		op = &ops_or;
 		goto get_byte_and_push_dyadic;
 
 // This part is commented out because there is no XOR character defined
 //	case ???:	// bitwise exclusive OR
-//		operator = &ops_xor;
+//		op = &ops_xor;
 //		goto get_byte_and_push_dyadic;
 
 	case '=':	// is equal
-		operator = &ops_equals;
+		op = &ops_equals;
 		// if it's "==", accept but warn
 		if (GetByte() == '=') {
 			Throw_first_pass_warning("C-style \"==\" comparison detected.");
 			goto get_byte_and_push_dyadic;
 		}
-		goto push_dyadic;
+		goto push_dyadic_op;
 
 	case ')':	// closing parenthesis
-		operator = &ops_closing;
+		op = &ops_closing;
 		goto get_byte_and_push_dyadic;
 
 // Multi-character dyadic operators
 	case '!':	// "!="
 		if (GetByte() == '=') {
-			operator = &ops_notequal;
+			op = &ops_notequal;
 			goto get_byte_and_push_dyadic;
 		}
 
@@ -859,44 +863,44 @@ static void expect_dyadic_operator(void)
 	case '<':	// "<", "<=", "<<" and "<>"
 		switch (GetByte()) {
 		case '=':	// "<=", less or equal
-			operator = &ops_le;
+			op = &ops_le;
 			goto get_byte_and_push_dyadic;
 
 		case '<':	// "<<", shift left
-			operator = &ops_sl;
+			op = &ops_sl;
 			goto get_byte_and_push_dyadic;
 
 		case '>':	// "<>", not equal
-			operator = &ops_notequal;
+			op = &ops_notequal;
 			goto get_byte_and_push_dyadic;
 
 		default:	// "<", less than
-			operator = &ops_lessthan;
-			goto push_dyadic;
+			op = &ops_lessthan;
+			goto push_dyadic_op;
 
 		}
 		//break; unreachable
 	case '>':	// ">", ">=", ">>", ">>>" and "><"
 		switch (GetByte()) {
 		case '=':	// ">=", greater or equal
-			operator = &ops_ge;
+			op = &ops_ge;
 			goto get_byte_and_push_dyadic;
 
 		case '<':	// "><", not equal
-			operator = &ops_notequal;
+			op = &ops_notequal;
 			goto get_byte_and_push_dyadic;
 
 		case '>':	// ">>" or ">>>", shift right
-			operator = &ops_asr;	// arithmetic shift right
+			op = &ops_asr;	// arithmetic shift right
 			if (GetByte() != '>')
-				goto push_dyadic;
+				goto push_dyadic_op;
 
-			operator = &ops_lsr;	// logical shift right
+			op = &ops_lsr;	// logical shift right
 			goto get_byte_and_push_dyadic;
 
 		default:	// ">", greater than
-			operator = &ops_greaterthan;
-			goto push_dyadic;
+			op = &ops_greaterthan;
+			goto push_dyadic_op;
 
 		}
 		//break; unreachable
@@ -907,9 +911,9 @@ static void expect_dyadic_operator(void)
 			Input_read_and_lower_keyword();
 			// Now GotByte = illegal char
 			// search for tree item
-			if (Tree_easy_scan(operator_tree, &node_body, GlobalDynaBuf)) {
-				operator = node_body;
-				goto push_dyadic;
+			if (Tree_easy_scan(op_tree, &node_body, GlobalDynaBuf)) {
+				op = node_body;
+				goto push_dyadic_op;
 			}
 
 			// goto means we don't need an "else {" here
@@ -917,8 +921,8 @@ static void expect_dyadic_operator(void)
 			alu_state = STATE_ERROR;
 		} else {
 			// we found end-of-expression when expecting an operator, that's ok.
-			operator = &ops_exprend;
-			goto push_dyadic;
+			op = &ops_end_of_expr;
+			goto push_dyadic_op;
 		}
 
 	}
@@ -927,13 +931,14 @@ static void expect_dyadic_operator(void)
 // shared endings
 get_byte_and_push_dyadic:
 	GetByte();
-push_dyadic:
-	PUSH_OPERATOR(operator);
+push_dyadic_op:
+	PUSH_OP(op);
 	alu_state = STATE_TRY_TO_REDUCE_STACKS;
 }
 
 
 // call C's sin/cos/tan function
+// FIXME - get rid of this
 static void perform_fp(double (*fn)(double), struct number *self)
 {
 	if (!(self->flags & NUMBER_IS_FLOAT)) {
@@ -946,6 +951,7 @@ static void perform_fp(double (*fn)(double), struct number *self)
 
 
 // make sure arg is in [-1, 1] range before calling function
+// FIXME - get rid of this
 static void perform_ranged_fp(double (*fn)(double), struct number *self)
 {
 	if (!(self->flags & NUMBER_IS_FLOAT)) {
@@ -964,6 +970,7 @@ static void perform_ranged_fp(double (*fn)(double), struct number *self)
 
 
 // convert value from fp to int
+// FIXME - get rid of this
 static void fp_to_int(struct number *self)
 {
 	self->val.intval = self->val.fpval;
@@ -973,6 +980,7 @@ static void fp_to_int(struct number *self)
 
 // check both left-hand and right-hand values. if float, convert to int.
 // in first pass, throw warning
+// FIXME - get rid of this
 static void both_ensure_int(struct number *self, struct number *other, boolean warn)
 {
 	if (self->flags & NUMBER_IS_FLOAT) {
@@ -984,13 +992,14 @@ static void both_ensure_int(struct number *self, struct number *other, boolean w
 		other->flags &= ~NUMBER_IS_FLOAT;
 	}
 	if (warn) {
-		// FIXME - warning is never seen if both operands are undefined in first pass!
+		// FIXME - warning is never seen if both arguments are undefined in first pass!
 		Throw_first_pass_warning("Converted to integer for binary logic operator.");
 	}
 }
 
 
 // check both left-hand and right-hand values. if int, convert to float.
+// FIXME - get rid of this
 static void both_ensure_fp(struct number *self, struct number *other)
 {
 	if (!(self->flags & NUMBER_IS_FLOAT)) {
@@ -1005,6 +1014,7 @@ static void both_ensure_fp(struct number *self, struct number *other)
 
 
 // make sure both values are float, but mark left one as int (will become one)
+// FIXME - get rid of this
 static void ensure_int_from_fp(struct number *self, struct number *other)
 {
 	both_ensure_fp(self, other);
@@ -1013,9 +1023,10 @@ static void ensure_int_from_fp(struct number *self, struct number *other)
 
 
 // monadic operators (including functions)
-static void number_do_monadic_op(struct number *self, enum op_handle operation)
+// FIXME - split into separate functions for ints and floats
+static void number_do_monadic_operator(struct number *self, enum op_handle op)
 {
-	switch (operation) {
+	switch (op) {
 	case OPHANDLE_ADDR:
 		self->addr_refs = 1;	// result now is an address
 		break;
@@ -1098,15 +1109,16 @@ static void number_do_monadic_op(struct number *self, enum op_handle operation)
 //		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleNM", operation);
+		Bug_found("IllegalOperatorHandleNM", op);
 	}
 }
 
 
 // dyadic operators
-static void number_do_dyadic_op(struct number *self, enum op_handle operation, struct number *other)
+// FIXME - split into separate functions for ints and floats
+static void number_do_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
 {
-	switch (operation) {
+	switch (op) {
 	case OPHANDLE_POWEROF:
 		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
 			// at least one float
@@ -1344,22 +1356,22 @@ static void number_do_dyadic_op(struct number *self, enum op_handle operation, s
 //		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleND", operation);
+		Bug_found("IllegalOperatorHandleND", op);
 	}
 }
 
 
 // handler for special operators like parentheses and start/end of expression:
-// returns whether caller should just return without cleaning stack
-static boolean do_special_op(struct expression *expression, enum op_handle previous, enum op_handle current)
+// returns whether caller should just return without fixing stack (because this fn has fixed it)
+static boolean do_special_operator(struct expression *expression, enum op_handle previous, enum op_handle current)
 {
 	switch (previous) {
-	case OPHANDLE_EXPRSTART:
+	case OPHANDLE_START_OF_EXPR:
 		// the only operator with a lower priority than this
 		// "start-of-expression" operator is "end-of-expression",
 		// therefore we know we are done.
 		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
-		--operator_sp;	// decrement operator stack pointer
+		--op_sp;	// decrement operator stack pointer
 		alu_state = STATE_END;	// done
 		break;
 	case OPHANDLE_OPENING:
@@ -1367,10 +1379,10 @@ static boolean do_special_op(struct expression *expression, enum op_handle previ
 		// check current operator
 		switch (current) {
 		case OPHANDLE_CLOSING:	// matching parentheses
-			operator_sp -= 2;	// remove both of them
-			alu_state = STATE_EXPECT_DYADIC_OPERATOR;
+			op_sp -= 2;	// remove both of them
+			alu_state = STATE_EXPECT_DYADIC_OP;
 			break;
-		case OPHANDLE_EXPREND:	// unmatched parenthesis
+		case OPHANDLE_END_OF_EXPR:	// unmatched parenthesis
 			++(expression->open_parentheses);	// count
 			return FALSE;
 	
@@ -1393,28 +1405,28 @@ static boolean do_special_op(struct expression *expression, enum op_handle previ
 // (if the previous operator has a higher priority than the current one, do it)
 static void try_to_reduce_stacks(struct expression *expression)
 {
-	struct operator		*previous;
-	struct operator		*current;
+	struct op	*previous_op;
+	struct op	*current_op;
 
-	if (operator_sp < 2) {
+	if (op_sp < 2) {
 		// we only have one operator, which must be "start of expression"
-		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
+		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}
 
-	previous = operator_stack[operator_sp - 2];
-	current = operator_stack[operator_sp - 1];
+	previous_op = op_stack[op_sp - 2];
+	current_op = op_stack[op_sp - 1];
 
 	// previous operator has lower piority than current one? then do nothing.
-	if (previous->priority < current->priority) {
-		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
+	if (previous_op->priority < current_op->priority) {
+		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}
 
 	// previous operator has same priority as current one? then check associativity
-	if ((previous->priority == current->priority)
-	&& IS_RIGHT_ASSOCIATIVE(current->priority)) {
-		alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
+	if ((previous_op->priority == current_op->priority)
+	&& IS_RIGHT_ASSOCIATIVE(current_op->priority)) {
+		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}
 
@@ -1422,47 +1434,49 @@ static void try_to_reduce_stacks(struct expression *expression)
 	// - the previous operator has higher priority, or
 	// - it has the same priority and is left-associative,
 	// so perform that operation!
-#define ARG_PREV	(operand_stack[operand_sp - 2])
-#define ARG_NOW		(operand_stack[operand_sp - 1])
+#define ARG_PREV	(arg_stack[arg_sp - 2])
+#define ARG_NOW		(arg_stack[arg_sp - 1])
 	// TODO - make handler functions for monadic and dyadic operators type-
 	// specific, so strings and lists can get their own handler functions.
-	switch (previous->group) {
+	switch (previous_op->group) {
 	case OPGROUP_MONADIC:	// monadic operators
-		// TODO - maybe call different functions for ints and floats?
-		number_do_monadic_op(&ARG_NOW, previous->handle);
+		// TODO - call different functions for ints and floats!
+		number_do_monadic_operator(&ARG_NOW, previous_op->handle);
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
-		number_do_dyadic_op(&ARG_PREV, previous->handle, &ARG_NOW);
+		// TODO - call different functions for ints and floats!
+		number_do_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
 		// Handle flags and decrement value stack pointer
 		// "OR" EVER_UNDEFINED and FORCEBIT flags
 		ARG_PREV.flags |= ARG_NOW.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
 		// "AND" DEFINED flag
 		ARG_PREV.flags &= (ARG_NOW.flags | ~NUMBER_IS_DEFINED);
 		ARG_PREV.flags &= ~NUMBER_FITS_BYTE;	// clear FITS BYTE flag
-		--operand_sp;
+		--arg_sp;
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_SPECIAL:	// special (pseudo) operators
-		if (do_special_op(expression, previous->handle, current->handle))
-			return;
+		if (do_special_operator(expression, previous_op->handle, current_op->handle))
+			return;	// called fn has fixed the stack, so we return and don't touch it
 
-		// monadics and dyadics clear is_parenthesized, but here we don't touch it!
+		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
 		break;
 	default:
-		Bug_found("IllegalOperatorHandle", previous->group);	// FIXME - change to IllegalOperatorGroup!
+		Bug_found("IllegalOperatorHandle", previous_op->group);	// FIXME - change to IllegalOperatorGroup!
 	}
 // shared endings for "we did the operation indicated by previous operator":
+	// fix stack:
 	// remove previous operator and shift down current one
-	operator_stack[operator_sp - 2] = operator_stack[operator_sp - 1];
-	--operator_sp;	// decrement operator stack pointer
+	// CAUTION - fiddling with our local copies like "previous_op = current_op" is not enough... ;)
+	op_stack[op_sp - 2] = op_stack[op_sp - 1];
+	--op_sp;	// decrement operator stack pointer
 }
 
 
 // The core of it.
-// FIXME - make state machine using function pointers? or too slow?
 static void parse_expression(struct expression *expression)
 {
 	struct number	*result	= &expression->number;
@@ -1473,23 +1487,23 @@ static void parse_expression(struct expression *expression)
 	expression->is_parenthesized = FALSE;	// toplevel operator will set this: '(' to TRUE, all others to FALSE
 	//expression->number will be overwritten later, so no need to init
 
-	operator_sp = 0;	// operator stack pointer
-	operand_sp = 0;	// value stack pointer
-	// begin by reading value (or monadic operator)
-	alu_state = STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR;
-	PUSH_OPERATOR(&ops_exprstart);
+	op_sp = 0;	// operator stack pointer
+	arg_sp = 0;	// argument stack pointer
+	// begin by reading an argument (or a monadic operator)
+	alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+	PUSH_OP(&ops_start_of_expr);
 	do {
 		// check stack sizes. enlarge if needed
-		if (operator_sp >= operator_stk_size)
+		if (op_sp >= opstack_size)
 			enlarge_operator_stack();
-		if (operand_sp >= operand_stk_size)
-			enlarge_operand_stack();
+		if (arg_sp >= argstack_size)
+			enlarge_argument_stack();
 		switch (alu_state) {
-		case STATE_EXPECT_OPERAND_OR_MONADIC_OPERATOR:
-			if (expect_operand_or_monadic_operator())
+		case STATE_EXPECT_ARG_OR_MONADIC_OP:
+			if (expect_argument_or_monadic_operator())
 				expression->is_empty = FALSE;
 			break;
-		case STATE_EXPECT_DYADIC_OPERATOR:
+		case STATE_EXPECT_DYADIC_OP:
 			expect_dyadic_operator();
 			break;	// no fallthrough; state might
 			// have been changed to END or ERROR
@@ -1505,12 +1519,12 @@ static void parse_expression(struct expression *expression)
 	// done. check state.
 	if (alu_state == STATE_END) {
 		// check for bugs
-		if (operand_sp != 1)
-			Bug_found("OperandStackNotEmpty", operand_sp);
-		if (operator_sp != 1)
-			Bug_found("OperatorStackNotEmpty", operator_sp);
+		if (arg_sp != 1)
+			Bug_found("OperandStackNotEmpty", arg_sp);
+		if (op_sp != 1)
+			Bug_found("OperatorStackNotEmpty", op_sp);
 		// copy result
-		*result = operand_stack[0];
+		*result = arg_stack[0];
 		// only allow *one* force bit
 		if (result->flags & NUMBER_FORCES_24)
 			result->flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
@@ -1617,7 +1631,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 // This function allows for "paren" '(' too many. Needed when parsing indirect
 // addressing modes where internal indices have to be possible.
 // For empty expressions, an error is thrown.
-// OPEN_PARENTHESIS: allow
+// OPEN_PARENTHESIS: depends on arg
 // UNDEFINED: allow
 // EMPTY: complain
 // FLOAT: convert to int
@@ -1669,7 +1683,7 @@ to end of parse_expression()
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 void ALU_addrmode_int(struct expression *expression, int paren)
 	mnemo.c
-		when parsing addressing modes					needvalue!
+		when parsing addressing modes						needvalue!
 
 // stores value and flags (result may be either int or float)
 void ALU_any_result(struct number *result)
