@@ -952,6 +952,12 @@ inline static void int_to_float(struct number *self)
 	self->flags |= NUMBER_IS_FLOAT;
 }
 
+// FIXME - are there any callers left?
+static void warn_float_to_int(void)
+{
+	// FIXME - warning is never seen if both arguments are undefined in first pass!
+	Throw_first_pass_warning("Converted to integer for binary logic operator.");
+}
 
 // check both left-hand and right-hand values. if float, convert to int.
 // in first pass, throw warning
@@ -965,8 +971,7 @@ static void both_ensure_int(struct number *self, struct number *other, boolean w
 		float_to_int(other);
 	}
 	if (warn) {
-		// FIXME - warning is never seen if both arguments are undefined in first pass!
-		Throw_first_pass_warning("Converted to integer for binary logic operator.");
+		warn_float_to_int();
 	}
 }
 
@@ -994,9 +999,10 @@ static void ensure_int_from_fp(struct number *self, struct number *other)
 }
 
 
-// prototype needed because int and float handlers reference each other.
+// prototypes needed because int and float handlers reference each other.
 // remove when handlers are put as pointers into proper "object" structures.
 static void float_handle_monadic_operator(struct number *self, enum op_handle op);
+static void float_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other);
 
 
 // int type:
@@ -1023,7 +1029,7 @@ static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 	case OPHANDLE_ARCTAN:
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
-		float_handle_monadic_operator(self, op);	// maybe put recursion check around this :)
+		float_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		break;
 	case OPHANDLE_NOT:
 		self->val.intval = ~(self->val.intval);
@@ -1126,7 +1132,7 @@ static void float_handle_monadic_operator(struct number *self, enum op_handle op
 	case OPHANDLE_BANKBYTEOF:
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
-		int_handle_monadic_operator(self, op);	// maybe put recursion check around this :)
+		int_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		break;
 // add new monadic operators here
 //	case OPHANDLE_:
@@ -1137,10 +1143,167 @@ static void float_handle_monadic_operator(struct number *self, enum op_handle op
 	}
 }
 
+// merge result flags
+// (used by both int and float handlers for dyadic operators)
+static void number_fix_result_after_dyadic(struct number *self, struct number *other)
+{
+	// EVER_UNDEFINED and FORCEBIT flags are ORd together
+	self->flags |= other->flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
+	// DEFINED flags are ANDed together
+	self->flags &= (other->flags | ~NUMBER_IS_DEFINED);
+	// FITS_BYTE is cleared
+	self->flags &= ~NUMBER_FITS_BYTE;
+}
 
-// dyadic operators
-// FIXME - split into separate functions for ints and floats
-static void number_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
+// int type:
+// handle dyadic operator
+static void int_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
+{
+	int	refs;	// helper var for address references to shorten this fn
+
+	// first check type of second arg:
+	if (other->flags & NUMBER_IS_FLOAT) {
+		// handle according to operation
+		switch (op) {
+		case OPHANDLE_POWEROF:
+		case OPHANDLE_MULTIPLY:
+		case OPHANDLE_DIVIDE:
+		case OPHANDLE_INTDIV:
+		case OPHANDLE_ADD:
+		case OPHANDLE_SUBTRACT:
+		case OPHANDLE_EQUALS:
+		case OPHANDLE_LE:
+		case OPHANDLE_LESSTHAN:
+		case OPHANDLE_GE:
+		case OPHANDLE_GREATERTHAN:
+		case OPHANDLE_NOTEQUAL:
+			// become float, delegate to float handler
+			int_to_float(self);
+			float_handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
+			return;
+		case OPHANDLE_MODULO:
+		case OPHANDLE_SL:
+		case OPHANDLE_ASR:
+			// convert to int
+			float_to_int(other);
+			break;
+		case OPHANDLE_LSR:
+		case OPHANDLE_AND:
+		case OPHANDLE_OR:
+		case OPHANDLE_EOR:
+		case OPHANDLE_XOR:
+			// convert to int, warning user
+			float_to_int(other);
+			warn_float_to_int();
+			break;
+// add new dyadic operators here
+//		case OPHANDLE_:
+//			break;
+		default:
+			break;
+		}
+	}
+	// sanity check, now "other" can no longer be a float
+	if (other->flags & NUMBER_IS_FLOAT)
+		Bug_found("SecondArgIsStillFloatForOp", op);	// FIXME - rename? then add to docs!
+
+	// part 2: now we got rid of floats, perform actual operation:
+	refs = 0;	// default: result now is a non-address
+	switch (op) {
+	case OPHANDLE_POWEROF:
+		if (other->val.intval >= 0) {
+			self->val.intval = my_pow(self->val.intval, other->val.intval);
+		} else {
+			if (other->flags & NUMBER_IS_DEFINED)
+				Throw_error("Exponent is negative.");
+			self->val.intval = 0;
+		}
+		break;
+	case OPHANDLE_MULTIPLY:
+		self->val.intval *= other->val.intval;
+		break;
+	case OPHANDLE_DIVIDE:
+	case OPHANDLE_INTDIV:
+		if (other->val.intval) {
+			self->val.intval /= other->val.intval;
+			break;
+		}
+		// "division by zero" output is below
+		/*FALLTHROUGH*/
+	case OPHANDLE_MODULO:
+		if (other->val.intval) {
+			self->val.intval %= other->val.intval;
+		} else {
+			if (other->flags & NUMBER_IS_DEFINED)
+				Throw_error(exception_div_by_zero);
+			self->val.intval = 0;
+		}
+		break;
+	case OPHANDLE_ADD:
+		self->val.intval += other->val.intval;
+		refs = self->addr_refs + other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_SUBTRACT:
+		self->val.intval -= other->val.intval;
+		refs = self->addr_refs - other->addr_refs;	// subtract address references
+		break;
+	case OPHANDLE_SL:
+		self->val.intval <<= other->val.intval;
+		break;
+	case OPHANDLE_ASR:
+		self->val.intval = my_asr(self->val.intval, other->val.intval);
+		break;
+	case OPHANDLE_LSR:
+		self->val.intval = ((uintval_t) (self->val.intval)) >> other->val.intval;
+		break;
+	case OPHANDLE_LE:
+		self->val.intval = (self->val.intval <= other->val.intval);
+		break;
+	case OPHANDLE_LESSTHAN:
+		self->val.intval = (self->val.intval < other->val.intval);
+		break;
+	case OPHANDLE_GE:
+		self->val.intval = (self->val.intval >= other->val.intval);
+		break;
+	case OPHANDLE_GREATERTHAN:
+		self->val.intval = (self->val.intval > other->val.intval);
+		break;
+	case OPHANDLE_NOTEQUAL:
+		self->val.intval = (self->val.intval != other->val.intval);
+		break;
+	case OPHANDLE_EQUALS:
+		self->val.intval = (self->val.intval == other->val.intval);
+		break;
+	case OPHANDLE_AND:
+		self->val.intval &= other->val.intval;
+		refs = self->addr_refs + other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_OR:
+		self->val.intval |= other->val.intval;
+		refs = self->addr_refs + other->addr_refs;	// add address references
+		break;
+	case OPHANDLE_EOR:
+		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		/*FALLTHROUGH*/
+	case OPHANDLE_XOR:
+		self->val.intval ^= other->val.intval;
+		refs = self->addr_refs + other->addr_refs;	// add address references
+		break;
+// add new dyadic operators here
+//	case OPHANDLE_:
+//		Throw_error("'int' type does not support this operation");
+//		break;
+	default:
+		Bug_found("IllegalOperatorHandleID", op);
+	}
+	self->addr_refs = refs;	// update address refs with local copy
+	number_fix_result_after_dyadic(self, other);	// fix result flags
+}
+
+// float type:
+// handle dyadic operator
+// FIXME - this is just a copy of the old combined int/float handler, so remove the int stuff!
+static void float_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
 {
 	switch (op) {
 	case OPHANDLE_POWEROF:
@@ -1380,8 +1543,9 @@ static void number_handle_dyadic_operator(struct number *self, enum op_handle op
 //		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleND", op);
+		Bug_found("IllegalOperatorHandleFD", op);
 	}
+	number_fix_result_after_dyadic(self, other);	// fix result flags
 }
 
 
@@ -1473,16 +1637,12 @@ static void try_to_reduce_stacks(struct expression *expression)
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
-		// TODO - call different functions for ints and floats!
-		number_handle_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
-// TODO - move this into fn above {
-		// Handle flags and decrement value stack pointer
-		// "OR" EVER_UNDEFINED and FORCEBIT flags
-		ARG_PREV.flags |= ARG_NOW.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
-		// "AND" DEFINED flag
-		ARG_PREV.flags &= (ARG_NOW.flags | ~NUMBER_IS_DEFINED);
-		ARG_PREV.flags &= ~NUMBER_FITS_BYTE;	// clear FITS BYTE flag
-// }
+		if (ARG_PREV.flags & NUMBER_IS_FLOAT) {
+			float_handle_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
+		} else {
+			int_handle_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
+		}
+		// decrement argument stack pointer because dyadic operator merged two arguments into one
 		--arg_sp;
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
