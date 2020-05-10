@@ -12,19 +12,18 @@
 
 // types
 /*
-enum expression_type {
-	EXTY_NUMBER,	// int or float (what is returned by the current functions)
-	EXTY_STRING,	// TODO
-	EXTY_REGISTER,	// reserved cpu constant (register names), TODO
-	EXTY_LIST	// TODO
-};
+type_nothing,		// needed?
+type_int, type_float	// what is returned by the current functions
+type_string,		// TODO
+type_register,		// reserved cpu constant (register names), TODO
+type_list,		// TODO
 */
 struct expression {
-	//enum expression_type	type;
-	struct number		number;
-	boolean			is_empty;		// nothing parsed (first character was a delimiter)
-	int			open_parentheses;	// number of parentheses still open
-	boolean			is_parenthesized;	// whole expression was in parentheses (indicating indirect addressing)
+	//struct type	*type;
+	struct number	number;
+	boolean		is_empty;		// nothing parsed (first character was a delimiter)
+	int		open_parentheses;	// number of parentheses still open
+	boolean		is_parenthesized;	// whole expression was in parentheses (indicating indirect addressing)
 };
 
 

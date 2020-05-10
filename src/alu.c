@@ -66,7 +66,7 @@ enum op_handle {
 	OPHANDLE_LOWBYTEOF,	//	<v		Lowbyte of
 	OPHANDLE_HIGHBYTEOF,	//	>v		Highbyte of
 	OPHANDLE_BANKBYTEOF,	//	^v		Bankbyte of
-	OPHANDLE_ADDR,		//	addr(v)
+	OPHANDLE_ADDR,		//	addr(v)				FIXME - add nonaddr()?
 	OPHANDLE_INT,		//	int(v)
 	OPHANDLE_FLOAT,		//	float(v)
 	OPHANDLE_SIN,		//	sin(v)
@@ -94,7 +94,7 @@ enum op_handle {
 	OPHANDLE_NOTEQUAL,	//	v!=w	v<>w	v><w
 	OPHANDLE_AND,		//	v&w		v AND w
 	OPHANDLE_OR,		//	v|w		v OR w
-	OPHANDLE_EOR,		//	v EOR w		v XOR w		(FIXME:remove)
+	OPHANDLE_EOR,		//	v EOR w		v XOR w		FIXME - remove
 	OPHANDLE_XOR,		//	v XOR w
 };
 struct op {
@@ -108,7 +108,7 @@ static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPHANDLE_START_OF_EXPR
 static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
 static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
 static struct op ops_or			= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
-static struct op ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME:remove
+static struct op ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME - remove
 static struct op ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
 static struct op ops_and		= {12, OPGROUP_DYADIC, OPHANDLE_AND	};
 static struct op ops_equals		= {14, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
@@ -185,7 +185,7 @@ static struct ronode	op_list[]	= {
 	PREDEFNODE("mod",	&ops_modulo),
 	PREDEFNODE(s_and,	&ops_and),
 	PREDEFNODE(s_or,	&ops_or),
-	PREDEFNODE(s_eor,	&ops_eor),		// (FIXME:remove)
+	PREDEFNODE(s_eor,	&ops_eor),		// FIXME - remove
 	PREDEFLAST(s_xor,	&ops_xor),
 	//    ^^^^ this marks the last element
 };
@@ -596,6 +596,9 @@ static void parse_function_call(void)
 }
 
 
+// expression parser
+
+
 // Expect argument or monadic operator (hopefully inlined)
 // returns TRUE if it ate any non-space (-> so expression isn't empty)
 // returns FALSE if first non-space is delimiter (-> end of expression)
@@ -938,88 +941,92 @@ push_dyadic_op:
 }
 
 
-// FIXME - move to "float" type area in this file asap
-inline static void float_to_int(struct number *self)
-{
-	self->val.intval = self->val.fpval;
-	self->flags &= ~NUMBER_IS_FLOAT;
-}
+// int/float
 
-// FIXME - move to "int" type area in this file asap
+
+// int:
+// convert to float
 inline static void int_to_float(struct number *self)
 {
 	self->val.fpval = self->val.intval;
 	self->flags |= NUMBER_IS_FLOAT;
 }
 
-// FIXME - are there any callers left?
-static void warn_float_to_int(void)
+// float:
+// convert to int
+inline static void float_to_int(struct number *self)
 {
-	// FIXME - warning is never seen if both arguments are undefined in first pass!
-	Throw_first_pass_warning("Converted to integer for binary logic operator.");
-}
-
-// check both left-hand and right-hand values. if float, convert to int.
-// in first pass, throw warning
-// FIXME - get rid of this
-static void both_ensure_int(struct number *self, struct number *other, boolean warn)
-{
-	if (self->flags & NUMBER_IS_FLOAT) {
-		float_to_int(self);
-	}
-	if (other->flags & NUMBER_IS_FLOAT) {
-		float_to_int(other);
-	}
-	if (warn) {
-		warn_float_to_int();
-	}
-}
-
-
-// check both left-hand and right-hand values. if int, convert to float.
-// FIXME - get rid of this
-static void both_ensure_fp(struct number *self, struct number *other)
-{
-	if (!(self->flags & NUMBER_IS_FLOAT)) {
-		int_to_float(self);
-	}
-	if (!(other->flags & NUMBER_IS_FLOAT)) {
-		int_to_float(other);
-	}
-}
-
-
-// make sure both values are float, but mark left one as int because it will become one
-// (used for comparison operators)
-// FIXME - get rid of this
-static void ensure_int_from_fp(struct number *self, struct number *other)
-{
-	both_ensure_fp(self, other);
+	self->val.intval = self->val.fpval;
 	self->flags &= ~NUMBER_IS_FLOAT;
 }
 
+// int/float:
+// set flags according to result
+static void number_fixresult(struct number *self)
+{
+	// only allow a single force bit
+	if (self->flags & NUMBER_FORCES_24)
+		self->flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
+	else if (self->flags & NUMBER_FORCES_16)
+		self->flags &= ~NUMBER_FORCES_8;
+}
+
+// int:
+// set flags according to result
+static void int_fixresult(struct number *self)
+{
+	number_fixresult(self);
+	// if undefined, return zero
+	if (!(self->flags & NUMBER_IS_DEFINED))
+		self->val.intval = 0;
+	// if value is sure, check to set FITS BYTE
+	else if ((!(self->flags & NUMBER_EVER_UNDEFINED))
+	&& (self->val.intval <= 255)
+	&& (self->val.intval >= -128))
+		self->flags |= NUMBER_FITS_BYTE;
+}
+
+// float:
+// set flags according to result
+static void float_fixresult(struct number *self)
+{
+	number_fixresult(self);
+	// if undefined, return zero
+	if (!(self->flags & NUMBER_IS_DEFINED))
+		self->val.fpval = 0;
+	// if value is sure, check to set FITS BYTE
+	else if ((!(self->flags & NUMBER_EVER_UNDEFINED))
+	&& (self->val.fpval <= 255.0)
+	&& (self->val.fpval >= -128.0))
+		self->flags |= NUMBER_FITS_BYTE;
+}
+
+// this gets called for LSR, AND, OR, XOR with float args
+// FIXME - warning is never seen if arguments are undefined in first pass!
+static void warn_float_to_int(void)
+{
+	Throw_first_pass_warning("Converted to integer for binary logic operator.");
+}
 
 // prototypes needed because int and float handlers reference each other.
-// remove when handlers are put as pointers into proper "object" structures.
+// FIXME - remove when handlers are put as pointers into proper "type" structures.
 static void float_handle_monadic_operator(struct number *self, enum op_handle op);
 static void float_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other);
 
-
-// int type:
-
+// int:
 // handle monadic operator (includes functions)
 static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 {
+	int	refs	= 0;	// default for "addr_refs", shortens this fn
+
 	switch (op) {
 	case OPHANDLE_ADDR:
-		self->addr_refs = 1;	// result now is an address
+		refs = 1;	// result now is an address
 		break;
 	case OPHANDLE_INT:
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_FLOAT:
 		int_to_float(self);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_SIN:
 	case OPHANDLE_COS:
@@ -1030,33 +1037,32 @@ static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
 		float_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
-		break;
+		return;	// float handler has done everything
+
 	case OPHANDLE_NOT:
 		self->val.intval = ~(self->val.intval);
 		self->flags &= ~NUMBER_FITS_BYTE;
+		refs = self->addr_refs;	// no change	(FIXME - negate?)
 		break;
 	case OPHANDLE_NEGATE:
 		self->val.intval = -(self->val.intval);
 		self->flags &= ~NUMBER_FITS_BYTE;
-		self->addr_refs = -(self->addr_refs);	// negate address ref count as well
+		refs = -(self->addr_refs);	// negate address ref count as well
 		break;
 	case OPHANDLE_LOWBYTEOF:
 		self->val.intval = (self->val.intval) & 255;
 		self->flags |= NUMBER_FITS_BYTE;
 		self->flags &= ~NUMBER_FORCEBITS;
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_HIGHBYTEOF:
 		self->val.intval = ((self->val.intval) >> 8) & 255;
 		self->flags |= NUMBER_FITS_BYTE;
 		self->flags &= ~NUMBER_FORCEBITS;
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_BANKBYTEOF:
 		self->val.intval = ((self->val.intval) >> 16) & 255;
 		self->flags |= NUMBER_FITS_BYTE;
 		self->flags &= ~NUMBER_FORCEBITS;
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 // add new monadic operators here
 //	case OPHANDLE_:
@@ -1065,11 +1071,10 @@ static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 	default:
 		Bug_found("IllegalOperatorHandleIM", op);
 	}
+	self->addr_refs = refs;	// update address refs with local copy
 }
 
-
-// float type:
-
+// float:
 // helper function for asin/acos:
 // make sure arg is in [-1, 1] range before calling function
 static void float_ranged_fn(double (*fn)(double), struct number *self)
@@ -1083,48 +1088,43 @@ static void float_ranged_fn(double (*fn)(double), struct number *self)
 	}
 }
 
+// float:
 // handle monadic operator (includes functions)
 static void float_handle_monadic_operator(struct number *self, enum op_handle op)
 {
+	int	refs	= 0;	// default for "addr_refs", shortens this fn
+
 	switch (op) {
 	case OPHANDLE_ADDR:
-		self->addr_refs = 1;	// result now is an address
+		refs = 1;	// result now is an address
 		break;
 	case OPHANDLE_INT:
 		float_to_int(self);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_FLOAT:
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_SIN:
 		self->val.fpval = sin(self->val.fpval);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_COS:
 		self->val.fpval = cos(self->val.fpval);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_TAN:
 		self->val.fpval = tan(self->val.fpval);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_ARCSIN:
 		float_ranged_fn(asin, self);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_ARCCOS:
 		float_ranged_fn(acos, self);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_ARCTAN:
 		self->val.fpval = atan(self->val.fpval);
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_NEGATE:
 		self->val.fpval = -(self->val.fpval);
 		self->flags &= ~NUMBER_FITS_BYTE;
-		self->addr_refs = -(self->addr_refs);	// negate address ref count as well
+		refs = -(self->addr_refs);	// negate address ref count as well
 		break;
 	case OPHANDLE_NOT:
 	case OPHANDLE_LOWBYTEOF:
@@ -1133,7 +1133,8 @@ static void float_handle_monadic_operator(struct number *self, enum op_handle op
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
 		int_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
-		break;
+		return;	// int handler has done everything
+
 // add new monadic operators here
 //	case OPHANDLE_:
 //		Throw_error("'float' type does not support this operation");
@@ -1141,8 +1142,10 @@ static void float_handle_monadic_operator(struct number *self, enum op_handle op
 	default:
 		Bug_found("IllegalOperatorHandleFM", op);
 	}
+	self->addr_refs = refs;	// update address refs with local copy
 }
 
+// int/float:
 // merge result flags
 // (used by both int and float handlers for dyadic operators)
 static void number_fix_result_after_dyadic(struct number *self, struct number *other)
@@ -1155,11 +1158,11 @@ static void number_fix_result_after_dyadic(struct number *self, struct number *o
 	self->flags &= ~NUMBER_FITS_BYTE;
 }
 
-// int type:
+// int:
 // handle dyadic operator
 static void int_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
 {
-	int	refs;	// helper var for address references to shorten this fn
+	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
 	// first check type of second arg:
 	if (other->flags & NUMBER_IS_FLOAT) {
@@ -1180,11 +1183,12 @@ static void int_handle_dyadic_operator(struct number *self, enum op_handle op, s
 			// become float, delegate to float handler
 			int_to_float(self);
 			float_handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
-			return;
+			return;	// float handler has done everything
+
 		case OPHANDLE_MODULO:
 		case OPHANDLE_SL:
 		case OPHANDLE_ASR:
-			// convert to int
+			// convert other to int
 			float_to_int(other);
 			break;
 		case OPHANDLE_LSR:
@@ -1192,7 +1196,7 @@ static void int_handle_dyadic_operator(struct number *self, enum op_handle op, s
 		case OPHANDLE_OR:
 		case OPHANDLE_EOR:
 		case OPHANDLE_XOR:
-			// convert to int, warning user
+			// convert other to int, warning user
 			float_to_int(other);
 			warn_float_to_int();
 			break;
@@ -1208,7 +1212,6 @@ static void int_handle_dyadic_operator(struct number *self, enum op_handle op, s
 		Bug_found("SecondArgIsStillFloatForOp", op);	// FIXME - rename? then add to docs!
 
 	// part 2: now we got rid of floats, perform actual operation:
-	refs = 0;	// default: result now is a non-address
 	switch (op) {
 	case OPHANDLE_POWEROF:
 		if (other->val.intval >= 0) {
@@ -1300,243 +1303,131 @@ static void int_handle_dyadic_operator(struct number *self, enum op_handle op, s
 	number_fix_result_after_dyadic(self, other);	// fix result flags
 }
 
-// float type:
+// float:
 // handle dyadic operator
-// FIXME - this is just a copy of the old combined int/float handler, so remove the int stuff!
 static void float_handle_dyadic_operator(struct number *self, enum op_handle op, struct number *other)
 {
+	int	refs	= 0;	// default for "addr_refs", shortens this fn
+
+	// first check type of second arg:
+	if (!(other->flags & NUMBER_IS_FLOAT)) {
+		// handle according to operation
+		switch (op) {
+		// these want two floats
+		case OPHANDLE_POWEROF:
+		case OPHANDLE_MULTIPLY:
+		case OPHANDLE_DIVIDE:
+		case OPHANDLE_INTDIV:
+		case OPHANDLE_ADD:
+		case OPHANDLE_SUBTRACT:
+		case OPHANDLE_LE:
+		case OPHANDLE_LESSTHAN:
+		case OPHANDLE_GE:
+		case OPHANDLE_GREATERTHAN:
+		case OPHANDLE_NOTEQUAL:
+		case OPHANDLE_EQUALS:
+			// convert other to float
+			int_to_float(other);
+			break;
+		// these jump to int handler anyway
+		case OPHANDLE_MODULO:
+		case OPHANDLE_LSR:
+		case OPHANDLE_AND:
+		case OPHANDLE_OR:
+		case OPHANDLE_EOR:
+		case OPHANDLE_XOR:
+		// these actually want a float and an int
+		case OPHANDLE_SL:
+		case OPHANDLE_ASR:
+			break;
+// add new dyadic operators here
+//		case OPHANDLE_:
+//			break;
+		default:
+			break;
+		}
+	}
+
 	switch (op) {
 	case OPHANDLE_POWEROF:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			self->val.fpval = pow(self->val.fpval, other->val.fpval);
-		} else {
-			// two ints
-			if (other->val.intval >= 0) {
-				self->val.intval = my_pow(self->val.intval, other->val.intval);
-			} else {
-				if (other->flags & NUMBER_IS_DEFINED)
-					Throw_error("Exponent is negative.");
-				self->val.intval = 0;
-			}
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.fpval = pow(self->val.fpval, other->val.fpval);
 		break;
 	case OPHANDLE_MULTIPLY:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			self->val.fpval *= other->val.fpval;
-		} else {
-			// two ints
-			self->val.intval *= other->val.intval;
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.fpval *= other->val.fpval;
 		break;
 	case OPHANDLE_DIVIDE:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			if (other->val.fpval) {
-				self->val.fpval /= other->val.fpval;
-			} else {
-				if (other->flags & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				self->val.fpval = 0;
-			}
+		if (other->val.fpval) {
+			self->val.fpval /= other->val.fpval;
 		} else {
-			// two ints
-			if (other->val.intval) {
-				self->val.intval /= other->val.intval;
-			} else {
-				if (other->flags & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				self->val.intval = 0;
-			}
+			if (other->flags & NUMBER_IS_DEFINED)
+				Throw_error(exception_div_by_zero);
+			self->val.fpval = 0;
 		}
-		self->addr_refs = 0;	// result now is a non-address
 		break;
 	case OPHANDLE_INTDIV:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			if (other->val.fpval) {
-				self->val.intval = self->val.fpval / other->val.fpval;
-			} else {
-				if (other->flags & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				self->val.intval = 0;
-			}
-			self->flags &= ~NUMBER_IS_FLOAT;	// result is int
-		} else {
-			// two ints
-			if (other->val.intval) {
-				self->val.intval /= other->val.intval;
-			} else {
-				if (other->flags & NUMBER_IS_DEFINED)
-					Throw_error(exception_div_by_zero);
-				self->val.intval = 0;
-			}
-		}
-		self->addr_refs = 0;	// result now is a non-address
-		break;
-	case OPHANDLE_MODULO:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT)
-			// at least one float
-			both_ensure_int(self, other, FALSE);
-		if (other->val.intval) {
-			self->val.intval %= other->val.intval;
+		if (other->val.fpval) {
+			self->val.intval = self->val.fpval / other->val.fpval;
 		} else {
 			if (other->flags & NUMBER_IS_DEFINED)
 				Throw_error(exception_div_by_zero);
 			self->val.intval = 0;
 		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->flags &= ~NUMBER_IS_FLOAT;	// result is int
 		break;
+	case OPHANDLE_LSR:
+	case OPHANDLE_AND:
+	case OPHANDLE_OR:
+	case OPHANDLE_EOR:
+	case OPHANDLE_XOR:
+		warn_float_to_int();
+		/*FALLTHROUGH*/
+	case OPHANDLE_MODULO:
+		float_to_int(self);
+		// int handler will check other and, if needed, convert to int
+		int_handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
+		return;	// int handler has done everything
+
 	case OPHANDLE_ADD:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			self->val.fpval += other->val.fpval;
-		} else {
-			// two ints
-			self->val.intval += other->val.intval;
-		}
-		self->addr_refs += other->addr_refs;	// add address references
+		self->val.fpval += other->val.fpval;
+		refs = self->addr_refs + other->addr_refs;	// add address references
 		break;
 	case OPHANDLE_SUBTRACT:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_fp(self, other);
-			self->val.fpval -= other->val.fpval;
-		} else {
-			// two ints
-			self->val.intval -= other->val.intval;
-		}
-		self->addr_refs -= other->addr_refs;	// subtract address references
+		self->val.fpval -= other->val.fpval;
+		refs = self->addr_refs - other->addr_refs;	// subtract address references
 		break;
 	case OPHANDLE_SL:
 		if (other->flags & NUMBER_IS_FLOAT)
 			float_to_int(other);
-		if (self->flags & NUMBER_IS_FLOAT)
-			self->val.fpval *= pow(2.0, other->val.intval);
-		else
-			self->val.intval <<= other->val.intval;
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.fpval *= pow(2.0, other->val.intval);
 		break;
 	case OPHANDLE_ASR:
 		if (other->flags & NUMBER_IS_FLOAT)
 			float_to_int(other);
-		if (self->flags & NUMBER_IS_FLOAT)
-			self->val.fpval /= (1 << other->val.intval);	// FIXME - why not use pow() as in SL above?
-		else
-			self->val.intval = my_asr(self->val.intval, other->val.intval);
-		self->addr_refs = 0;	// result now is a non-address
-		break;
-	case OPHANDLE_LSR:
-		// fp become int
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT)
-			// at least one float
-			both_ensure_int(self, other, TRUE);
-		self->val.intval = ((uintval_t) (self->val.intval)) >> other->val.intval;
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.fpval /= (1 << other->val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
 	case OPHANDLE_LE:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval <= other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval <= other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.intval = (self->val.fpval <= other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 	case OPHANDLE_LESSTHAN:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval < other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval < other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.intval = (self->val.fpval < other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 	case OPHANDLE_GE:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval >= other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval >= other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.intval = (self->val.fpval >= other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 	case OPHANDLE_GREATERTHAN:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval > other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval > other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.intval = (self->val.fpval > other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 	case OPHANDLE_NOTEQUAL:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval != other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval != other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
+		self->val.intval = (self->val.fpval != other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 	case OPHANDLE_EQUALS:
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			ensure_int_from_fp(self, other);
-			self->val.intval = (self->val.fpval == other->val.fpval);
-		} else {
-			// two ints
-			self->val.intval = (self->val.intval == other->val.intval);
-		}
-		self->addr_refs = 0;	// result now is a non-address
-		break;
-	case OPHANDLE_AND:
-		// fp become int
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_int(self, other, TRUE);
-		}
-		self->val.intval &= other->val.intval;
-		self->addr_refs += other->addr_refs;	// add address references
-		break;
-	case OPHANDLE_EOR:
-		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
-		/*FALLTHROUGH*/
-	case OPHANDLE_XOR:
-		// fp become int
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_int(self, other, TRUE);
-		}
-		self->val.intval ^= other->val.intval;
-		self->addr_refs += other->addr_refs;	// add address references
-		break;
-	case OPHANDLE_OR:
-		// fp become int
-		if ((self->flags | other->flags) & NUMBER_IS_FLOAT) {
-			// at least one float
-			both_ensure_int(self, other, TRUE);
-		}
-		self->val.intval |= other->val.intval;
-		self->addr_refs += other->addr_refs;	// add address references
+		self->val.intval = (self->val.fpval == other->val.fpval);
+		self->flags &= ~NUMBER_IS_FLOAT;
 		break;
 // add new dyadic operators here
 //	case OPHANDLE_:
@@ -1545,6 +1436,7 @@ static void float_handle_dyadic_operator(struct number *self, enum op_handle op,
 	default:
 		Bug_found("IllegalOperatorHandleFD", op);
 	}
+	self->addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
 }
 
@@ -1665,7 +1557,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 }
 
 
-// The core of it.
+// this is what the exported functions call
 static void parse_expression(struct expression *expression)
 {
 	struct number	*result	= &expression->number;
@@ -1714,11 +1606,6 @@ static void parse_expression(struct expression *expression)
 			Bug_found("OperatorStackNotEmpty", op_sp);
 		// copy result
 		*result = arg_stack[0];
-		// only allow *one* force bit
-		if (result->flags & NUMBER_FORCES_24)
-			result->flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
-		else if (result->flags & NUMBER_FORCES_16)
-			result->flags &= ~NUMBER_FORCES_8;
 		// if there was nothing to parse, mark as undefined	FIXME - change this! make "nothing" its own result type; only numbers may be undefined
 		// (so ALU_defined_int() can react)
 		if (expression->is_empty) {
@@ -1731,25 +1618,10 @@ static void parse_expression(struct expression *expression)
 			}
 		}
 		// do some checks depending on int/float
-		// FIXME - move to extra int/float type functions
 		if (result->flags & NUMBER_IS_FLOAT) {
-/*float*/		// if undefined, return zero
-			if ((result->flags & NUMBER_IS_DEFINED) == 0)
-				result->val.fpval = 0;
-			// if value is sure, check to set FITS BYTE
-			else if (((result->flags & NUMBER_EVER_UNDEFINED) == 0)
-			&& (result->val.fpval <= 255.0)
-			&& (result->val.fpval >= -128.0))
-				result->flags |= NUMBER_FITS_BYTE;
+			float_fixresult(result);
 		} else {
-/*int*/			// if undefined, return zero
-			if ((result->flags & NUMBER_IS_DEFINED) == 0)
-				result->val.intval = 0;
-			// if value is sure, check to set FITS BYTE
-			else if (((result->flags & NUMBER_EVER_UNDEFINED) == 0)
-			&& (result->val.intval <= 255)
-			&& (result->val.intval >= -128))
-				result->flags |= NUMBER_FITS_BYTE;
+			int_fixresult(result);
 		}
 	} else {
 		// State is STATE_ERROR. Errors have already been reported,
