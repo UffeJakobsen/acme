@@ -1042,7 +1042,7 @@ static void int_handle_monadic_operator(struct number *self, enum op_handle op)
 	case OPHANDLE_NOT:
 		self->val.intval = ~(self->val.intval);
 		self->flags &= ~NUMBER_FITS_BYTE;
-		refs = self->addr_refs;	// no change	(FIXME - negate?)
+		refs = -(self->addr_refs);	// negate address ref count
 		break;
 	case OPHANDLE_NEGATE:
 		self->val.intval = -(self->val.intval);
