@@ -522,8 +522,10 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 
 	ALU_addrmode_int(&expression, 0);	// accept 0 parentheses still open (-> complain!)
 	if (expression.is_parenthesized && complain_about_indirect) {
-		// FIXME - add warning for "there are useless (), you know this mnemonic does not have indirect addressing, right?"
-		// or rather raise error and be done with it?
+		if (config.test_new_features) {
+			// TODO - raise error and be done with it?
+			Throw_first_pass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase!
+		}
 	}
 	*result = expression.number;
 }
@@ -549,7 +551,7 @@ static int get_addr_mode(struct number *result)
 		break;
 	case '[':
 		GetByte();	// proceed with next char
-		get_int_arg(result, FALSE);
+		get_int_arg(result, TRUE);
 		typesystem_want_addr(result);
 		if (GotByte == ']')
 			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
