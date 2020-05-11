@@ -551,7 +551,7 @@ static int get_addr_mode(struct number *result)
 		break;
 	case '[':
 		GetByte();	// proceed with next char
-		get_int_arg(result, TRUE);
+		get_int_arg(result, FALSE);
 		typesystem_want_addr(result);
 		if (GotByte == ']')
 			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
