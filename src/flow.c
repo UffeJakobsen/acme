@@ -190,6 +190,7 @@ void flow_do_while(struct do_while *loop)
 // helper functions for "!if", "!ifdef" and "!ifndef"
 
 // parse or skip a block. returns with GotByte as '}'.
+// TODO - remove when ELSE IF is finished
 static void skip_or_parse_block(boolean parse)
 {
 	if (parse) {
@@ -204,6 +205,7 @@ static void skip_or_parse_block(boolean parse)
 
 
 // parse {block} [else {block}]
+// TODO - remove when ELSE IF is finished
 void flow_parse_block_else_block(boolean parse_first)
 {
 	// Parse first block.

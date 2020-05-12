@@ -839,10 +839,68 @@ static enum eos po_source(void)	// now GotByte = illegal char
 }
 
 
+/* TODO - new if/ifdef/ifndef/else function, to be able to do ELSE IF
+enum ifmode {
+	IFMODE_IF,	// parse expression, then block
+	IFMODE_IFDEF,	// check symbol, then parse block or line
+	IFMODE_IFNDEF,	// check symbol, then parse block or line
+	IFMODE_ELSE,	// unconditional block
+	IFMODE_END	// no more blocks
+};
+// new function for if/ifdef/ifndef/else. has to be re-entrant.
+static enum eos ifelse(enum ifmode mode)
+{
+	boolean	nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met
+	boolean	condition_met;	// condition result for next block
+
+	do {
+		// check condition according to mode
+		switch (mode) {
+		case IFMODE_IF:
+			condition_met = check_if_condition();
+			break;
+		case IFMODE_IFDEF:
+			condition_met = check_ifdef_condition();
+			break;
+		case IFMODE_IFNDEF:
+			condition_met = !check_ifdef_condition();
+			break;
+		case IFMODE_ELSE:
+			condition_met = TRUE;
+			break;
+		default:
+			Bug_found("Illegal ifmode");
+			break;
+		}
+		// execute this block?
+		if (condition_met && nothing_done) {
+			nothing_done = FALSE;	// all further ones will be skipped
+			if (check_for_left_brace()) {
+				block_execute();
+			} else {
+				return PARSE_REMAINDER;
+			}
+		} else {
+			if (check_for_left_brace()) {
+				Input_skip_or_store_block(FALSE);	// skip block
+			} else {
+				return SKIP_REMAINDER;
+			}
+		}
+		// any more?
+		mode = check_for_else_and_next_keyword();
+	} while (mode != IFMODE_END);
+	return ENSURE_EOS;
+}
+*/
+
 // conditional assembly ("!if"). has to be re-entrant.
 static enum eos po_if(void)	// now GotByte = illegal char
 {
 	struct number	cond_result;
+
+//	if (config.test_new_features)
+//		return ifelse(IFMODE_IF);
 
 	ALU_defined_int(&cond_result);
 	if (GotByte != CHAR_SOB)
@@ -853,6 +911,7 @@ static enum eos po_if(void)	// now GotByte = illegal char
 
 
 // conditional assembly ("!ifdef" and "!ifndef"). has to be re-entrant.
+// TODO - remove when new ifelse function is finished
 static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
 {
 	struct rwnode	*node;
@@ -887,6 +946,9 @@ static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
 // conditional assembly ("!ifdef"). has to be re-entrant.
 static enum eos po_ifdef(void)	// now GotByte = illegal char
 {
+//	if (config.test_new_features)
+//		return ifelse(IFMODE_IFDEF);
+
 	return ifdef_ifndef(FALSE);
 }
 
@@ -894,6 +956,9 @@ static enum eos po_ifdef(void)	// now GotByte = illegal char
 // conditional assembly ("!ifndef"). has to be re-entrant.
 static enum eos po_ifndef(void)	// now GotByte = illegal char
 {
+//	if (config.test_new_features)
+//		return ifelse(IFMODE_IFNDEF);
+
 	return ifdef_ifndef(TRUE);
 }
 
