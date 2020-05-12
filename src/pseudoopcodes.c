@@ -839,25 +839,49 @@ static enum eos po_source(void)	// now GotByte = illegal char
 }
 
 
-/* TODO - new if/ifdef/ifndef/else function, to be able to do ELSE IF
+static boolean check_ifdef_condition(void)
+{
+	scope_t		scope;
+	struct rwnode	*node;
+	struct symbol	*symbol;
+
+	// read symbol name
+	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
+		return FALSE;	// there was an error, it has been reported, so return value is more or less meaningless anway
+
+	// look for it
+	Tree_hard_scan(&node, symbols_forest, scope, FALSE);
+	if (!node)
+		return FALSE;	// not found -> no, not defined
+
+	symbol = (struct symbol *) node->body;
+	// in first pass, count usage
+	if (FIRST_PASS)
+		symbol->usage++;
+	return !!(symbol->result.flags & NUMBER_IS_DEFINED);
+}
+// new if/ifdef/ifndef/else function, to be able to do ELSE IF
 enum ifmode {
 	IFMODE_IF,	// parse expression, then block
 	IFMODE_IFDEF,	// check symbol, then parse block or line
 	IFMODE_IFNDEF,	// check symbol, then parse block or line
-	IFMODE_ELSE,	// unconditional block
-	IFMODE_END	// no more blocks
+	IFMODE_ELSE	// unconditional last block
 };
 // new function for if/ifdef/ifndef/else. has to be re-entrant.
 static enum eos ifelse(enum ifmode mode)
 {
-	boolean	nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met
-	boolean	condition_met;	// condition result for next block
+	boolean		nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met
+	boolean		condition_met;	// condition result for next block
+	struct number	ifresult;
 
-	do {
+	for (;;) {
 		// check condition according to mode
 		switch (mode) {
 		case IFMODE_IF:
-			condition_met = check_if_condition();
+			ALU_defined_int(&ifresult);
+			condition_met = !!ifresult.val.intval;
+			if (GotByte != CHAR_SOB)
+				Throw_serious_error(exception_no_left_brace);
 			break;
 		case IFMODE_IFDEF:
 			condition_met = check_ifdef_condition();
@@ -869,38 +893,84 @@ static enum eos ifelse(enum ifmode mode)
 			condition_met = TRUE;
 			break;
 		default:
-			Bug_found("Illegal ifmode");
-			break;
+			Bug_found("IllegalIfMode", mode);	// FIXME - put in docs!
+			condition_met = TRUE;	// inhibit compiler warning ;)
 		}
+		SKIPSPACE();
 		// execute this block?
 		if (condition_met && nothing_done) {
-			nothing_done = FALSE;	// all further ones will be skipped
-			if (check_for_left_brace()) {
-				block_execute();
+			nothing_done = FALSE;	// all further ones will be skipped, even if conditions meet
+			if (GotByte == CHAR_SOB) {
+		                Parse_until_eob_or_eof();	// parse block
+        		        // if block isn't correctly terminated, complain and exit
+                		if (GotByte != CHAR_EOB)
+                		        Throw_serious_error(exception_no_right_brace);
 			} else {
-				return PARSE_REMAINDER;
+				return PARSE_REMAINDER;	// parse line (only for ifdef/ifndef)
 			}
 		} else {
-			if (check_for_left_brace()) {
+			if (GotByte == CHAR_SOB) {
 				Input_skip_or_store_block(FALSE);	// skip block
 			} else {
-				return SKIP_REMAINDER;
+				return SKIP_REMAINDER;	// skip line (only for ifdef/ifndef)
 			}
 		}
-		// any more?
-		mode = check_for_else_and_next_keyword();
-	} while (mode != IFMODE_END);
-	return ENSURE_EOS;
+		// now GotByte = '}'
+		NEXTANDSKIPSPACE();
+		// after ELSE {} it's all over. it must be.
+		if (mode == IFMODE_ELSE) {
+			// we could just return ENSURE_EOS, but checking here allows for better error message
+			if (GotByte != CHAR_EOS)
+				Throw_error("Expected end-of-statement after ELSE block");	// FIXME - put in docs!
+			return SKIP_REMAINDER;	// normal exit after ELSE {...}
+		}
+
+		// anything more?
+		if (GotByte == CHAR_EOS)
+			return AT_EOS_ANYWAY;	// normal exit if there is no ELSE {...} block
+
+		// read keyword (expected to be "else")
+		if (Input_read_and_lower_keyword() == 0)
+			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
+
+		// make sure it's "else"
+		if (strcmp(GlobalDynaBuf->buffer, "else")) {
+			Throw_error("Expected ELSE or end-of-statement");	// FIXME - put in docs!
+			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
+		}
+		// anything more?
+		SKIPSPACE();
+		if (GotByte == CHAR_SOB) {
+			// ELSE {...} -> one last round
+			mode = IFMODE_ELSE;
+			continue;
+		}
+
+		// read keyword (expected to be if/ifdef/ifndef)
+		if (Input_read_and_lower_keyword() == 0)
+			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
+
+		// which one is it?
+		if (strcmp(GlobalDynaBuf->buffer, "if") == 0) {
+			mode = IFMODE_IF;
+		} else if (strcmp(GlobalDynaBuf->buffer, "ifdef") == 0) {
+			mode = IFMODE_IFDEF;
+		} else if (strcmp(GlobalDynaBuf->buffer, "ifndef") == 0) {
+			mode = IFMODE_IFNDEF;
+		} else {
+			Throw_error("After ELSE, expected block or IF/IFDEF/IFNDEF");	// FIXME - put in docs!
+			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
+		}
+	}
 }
-*/
 
 // conditional assembly ("!if"). has to be re-entrant.
 static enum eos po_if(void)	// now GotByte = illegal char
 {
 	struct number	cond_result;
 
-//	if (config.test_new_features)
-//		return ifelse(IFMODE_IF);
+	if (config.test_new_features)
+		return ifelse(IFMODE_IF);
 
 	ALU_defined_int(&cond_result);
 	if (GotByte != CHAR_SOB)
@@ -946,8 +1016,8 @@ static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
 // conditional assembly ("!ifdef"). has to be re-entrant.
 static enum eos po_ifdef(void)	// now GotByte = illegal char
 {
-//	if (config.test_new_features)
-//		return ifelse(IFMODE_IFDEF);
+	if (config.test_new_features)
+		return ifelse(IFMODE_IFDEF);
 
 	return ifdef_ifndef(FALSE);
 }
@@ -956,8 +1026,8 @@ static enum eos po_ifdef(void)	// now GotByte = illegal char
 // conditional assembly ("!ifndef"). has to be re-entrant.
 static enum eos po_ifndef(void)	// now GotByte = illegal char
 {
-//	if (config.test_new_features)
-//		return ifelse(IFMODE_IFNDEF);
+	if (config.test_new_features)
+		return ifelse(IFMODE_IFNDEF);
 
 	return ifdef_ifndef(TRUE);
 }

@@ -51,7 +51,7 @@ extern int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf 
 // Search for a "RAM tree" item. Save pointer to found tree item in given
 // location. If no matching item is found, check the "create" flag: If set,
 // create new tree item, link to tree, fill with data and store its pointer.
-// If "create" is zero, store NULL. Returns whether item was created.
+// If "create" is FALSE, store NULL. Returns whether item was created.
 extern int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number, boolean create);
 // Calls given function for each node of each tree of given forest.
 extern void Tree_dump_forest(struct rwnode **, int, void (*)(struct rwnode *, FILE *), FILE *);
