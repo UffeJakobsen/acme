@@ -108,55 +108,55 @@ static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPHANDLE_END_OF_EXPR	};
 static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPHANDLE_START_OF_EXPR	};
 static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
 static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
-//static struct op ops_closeindex		= {, OPGROUP_SPECIAL, OPHANDLE_	};
-//static struct op ops_openindex		= {, OPGROUP_SPECIAL, OPHANDLE_	};
-static struct op ops_or			= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
-static struct op ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME - remove
-static struct op ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
-static struct op ops_and		= {12, OPGROUP_DYADIC, OPHANDLE_AND	};
-static struct op ops_equals		= {14, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
-static struct op ops_notequal		= {16, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
+//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL, OPHANDLE_	};
+//static struct op ops_openindex		= {10, OPGROUP_SPECIAL, OPHANDLE_	};
+static struct op ops_or			= {16, OPGROUP_DYADIC, OPHANDLE_OR	};
+static struct op ops_eor		= {18, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME - remove
+static struct op ops_xor		= {18, OPGROUP_DYADIC, OPHANDLE_XOR	};
+static struct op ops_and		= {20, OPGROUP_DYADIC, OPHANDLE_AND	};
+static struct op ops_equals		= {22, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
+static struct op ops_notequal		= {24, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
 	// same priority for all comparison operators
-static struct op ops_le			= {18, OPGROUP_DYADIC, OPHANDLE_LE	};
-static struct op ops_lessthan		= {18, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
-static struct op ops_ge			= {18, OPGROUP_DYADIC, OPHANDLE_GE	};
-static struct op ops_greaterthan	= {18, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
+static struct op ops_le			= {26, OPGROUP_DYADIC, OPHANDLE_LE	};
+static struct op ops_lessthan		= {26, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
+static struct op ops_ge			= {26, OPGROUP_DYADIC, OPHANDLE_GE	};
+static struct op ops_greaterthan	= {26, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
 	// same priority for all byte extraction operators
-static struct op ops_lowbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
-static struct op ops_highbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
-static struct op ops_bankbyteof		= {20, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
+static struct op ops_lowbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
+static struct op ops_highbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
+static struct op ops_bankbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
 	// same priority for all shift operators (left-associative, though they could be argued to be made right-associative :))
-static struct op ops_sl			= {22, OPGROUP_DYADIC, OPHANDLE_SL	};
-static struct op ops_asr		= {22, OPGROUP_DYADIC, OPHANDLE_ASR	};
-static struct op ops_lsr		= {22, OPGROUP_DYADIC, OPHANDLE_LSR	};
+static struct op ops_sl			= {30, OPGROUP_DYADIC, OPHANDLE_SL	};
+static struct op ops_asr		= {30, OPGROUP_DYADIC, OPHANDLE_ASR	};
+static struct op ops_lsr		= {30, OPGROUP_DYADIC, OPHANDLE_LSR	};
 	// same priority for "+" and "-"
-static struct op ops_add		= {24, OPGROUP_DYADIC, OPHANDLE_ADD	};
-static struct op ops_subtract		= {24, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
+static struct op ops_add		= {32, OPGROUP_DYADIC, OPHANDLE_ADD	};
+static struct op ops_subtract		= {32, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
 	// same priority for "*", "/" and "%"
-static struct op ops_multiply		= {26, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
-static struct op ops_divide		= {26, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
-static struct op ops_intdiv		= {26, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
-static struct op ops_modulo		= {26, OPGROUP_DYADIC, OPHANDLE_MODULO	};
+static struct op ops_multiply		= {34, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
+static struct op ops_divide		= {34, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
+static struct op ops_intdiv		= {34, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
+static struct op ops_modulo		= {34, OPGROUP_DYADIC, OPHANDLE_MODULO	};
 	// highest "real" priorities
-static struct op ops_negate		= {28, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
-static struct op ops_powerof		= {29, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
-static struct op ops_not		= {30, OPGROUP_MONADIC, OPHANDLE_NOT	};
-//static struct op ops_atindex		= {, OPGROUP_DYADIC, OPHANDLE_	};
+static struct op ops_negate		= {36, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
+static struct op ops_powerof		= {37, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
+static struct op ops_not		= {38, OPGROUP_MONADIC, OPHANDLE_NOT	};
+//static struct op ops_atindex		= {40, OPGROUP_DYADIC, OPHANDLE_	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
 	// "sin(3 + 4) DYADIC_OPERATOR 5" becomes "sin 7 DYADIC_OPERATOR 5",
 	// so function calls' priority must be higher than all dyadic operators.
-static struct op ops_addr		= {32, OPGROUP_MONADIC, OPHANDLE_ADDR	};
-static struct op ops_int		= {32, OPGROUP_MONADIC, OPHANDLE_INT	};
-static struct op ops_float		= {32, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
-static struct op ops_sin		= {32, OPGROUP_MONADIC, OPHANDLE_SIN	};
-static struct op ops_cos		= {32, OPGROUP_MONADIC, OPHANDLE_COS	};
-static struct op ops_tan		= {32, OPGROUP_MONADIC, OPHANDLE_TAN	};
-static struct op ops_arcsin		= {32, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
-static struct op ops_arccos		= {32, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
-static struct op ops_arctan		= {32, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
-//static struct op ops_len		= {32, OPGROUP_MONADIC, OPHANDLE_	};
+static struct op ops_addr		= {42, OPGROUP_MONADIC, OPHANDLE_ADDR	};
+static struct op ops_int		= {42, OPGROUP_MONADIC, OPHANDLE_INT	};
+static struct op ops_float		= {42, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
+static struct op ops_sin		= {42, OPGROUP_MONADIC, OPHANDLE_SIN	};
+static struct op ops_cos		= {42, OPGROUP_MONADIC, OPHANDLE_COS	};
+static struct op ops_tan		= {42, OPGROUP_MONADIC, OPHANDLE_TAN	};
+static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
+static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
+static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
+//static struct op ops_len		= {42, OPGROUP_MONADIC, OPHANDLE_	};
 
 
 // variables
