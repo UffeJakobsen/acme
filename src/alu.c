@@ -102,11 +102,14 @@ struct op {
 	int		priority;	// lsb holds "is_right_associative" info!
 	enum op_group	group;
 	enum op_handle	handle;
+	// FIXME - add text version of op to struct, for better error messages!
 };
 static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPHANDLE_END_OF_EXPR	};
 static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPHANDLE_START_OF_EXPR	};
 static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
 static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
+//static struct op ops_closeindex		= {, OPGROUP_SPECIAL, OPHANDLE_	};
+//static struct op ops_openindex		= {, OPGROUP_SPECIAL, OPHANDLE_	};
 static struct op ops_or			= {8, OPGROUP_DYADIC, OPHANDLE_OR	};
 static struct op ops_eor		= {10, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME - remove
 static struct op ops_xor		= {10, OPGROUP_DYADIC, OPHANDLE_XOR	};
@@ -138,6 +141,7 @@ static struct op ops_modulo		= {26, OPGROUP_DYADIC, OPHANDLE_MODULO	};
 static struct op ops_negate		= {28, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
 static struct op ops_powerof		= {29, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
 static struct op ops_not		= {30, OPGROUP_MONADIC, OPHANDLE_NOT	};
+//static struct op ops_atindex		= {, OPGROUP_DYADIC, OPHANDLE_	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
@@ -152,6 +156,7 @@ static struct op ops_tan		= {32, OPGROUP_MONADIC, OPHANDLE_TAN	};
 static struct op ops_arcsin		= {32, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
 static struct op ops_arccos		= {32, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
 static struct op ops_arctan		= {32, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
+//static struct op ops_len		= {32, OPGROUP_MONADIC, OPHANDLE_	};
 
 
 // variables
@@ -336,6 +341,7 @@ static void check_for_def(struct symbol *optional_symbol, int flags, char option
 // their internal name is different (longer) than their displayed name.
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
+// TODO - add int arg for number of pseudopc-de-refs via '&' prefix and act upon
 static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length)
 {
 	struct symbol	*symbol;
@@ -422,6 +428,7 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		}
 		break;	// found illegal character
 	}
+	// FIXME - add error check for "binary literal has no digits!"
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
@@ -467,6 +474,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 		}
 		break;	// found illegal character
 	}
+	// FIXME - add error check for "hex literal has no digits!"
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -562,6 +570,7 @@ static void parse_octal_literal(void)	// Now GotByte = "&"
 		++digits;
 		GetByte();
 	}
+	// FIXME - add error check for "octal literal has no digits!"
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 3) {
@@ -680,6 +689,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		goto now_expect_dyadic_op;
 
 	case '&':	// Octal value
+		// TODO - count consecutive '&' and allow symbol afterward, for pseudopc-de-ref!
 		parse_octal_literal();	// Now GotByte = non-octal char
 		goto now_expect_dyadic_op;
 
