@@ -429,7 +429,8 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		}
 		break;	// found illegal character
 	}
-	// FIXME - add error check for "binary literal has no digits!"
+	if (!digits)
+		Throw_warning("Binary literal without any digits");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
@@ -475,7 +476,8 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 		}
 		break;	// found illegal character
 	}
-	// FIXME - add error check for "hex literal has no digits!"
+	if (!digits)
+		Throw_warning("Hex literal without any digits");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -571,7 +573,8 @@ static void parse_octal_literal(void)	// Now GotByte = "&"
 		++digits;
 		GetByte();
 	}
-	// FIXME - add error check for "octal literal has no digits!"
+	if (!digits)
+		Throw_warning("Octal literal without any digits");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 3) {

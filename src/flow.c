@@ -59,14 +59,14 @@ void flow_forloop(struct for_loop *loop)
 	loop_counter.u.number.flags = NUMBER_IS_DEFINED;
 	loop_counter.u.number.val.intval = loop->counter.first;
 	loop_counter.u.number.addr_refs = loop->counter.addr_refs;
-	symbol_set_value(loop->symbol, &loop_counter, TRUE);
+	symbol_set_object(loop->symbol, &loop_counter, TRUE);
 	if (loop->use_old_algo) {
 		// old algo for old syntax:
 		// if count == 0, skip loop
 		if (loop->counter.last) {
 			do {
 				loop_counter.u.number.val.intval += loop->counter.increment;
-				symbol_set_value(loop->symbol, &loop_counter, TRUE);
+				symbol_set_object(loop->symbol, &loop_counter, TRUE);
 				parse_ram_block(&loop->block);
 			} while (loop_counter.u.number.val.intval < loop->counter.last);
 		}
@@ -75,7 +75,7 @@ void flow_forloop(struct for_loop *loop)
 		do {
 			parse_ram_block(&loop->block);
 			loop_counter.u.number.val.intval += loop->counter.increment;
-			symbol_set_value(loop->symbol, &loop_counter, TRUE);
+			symbol_set_object(loop->symbol, &loop_counter, TRUE);
 		} while (loop_counter.u.number.val.intval != (loop->counter.last + loop->counter.increment));
 	}
 	// restore previous input:

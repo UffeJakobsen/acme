@@ -145,7 +145,7 @@ struct symbol *symbol_find(scope_t scope, int flags)
 
 // assign value to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
-void symbol_set_value(struct symbol *symbol, struct object *new_value, boolean change_allowed)
+void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)
 {
 	int	flags;	// for int/float re-definitions
 
@@ -210,7 +210,7 @@ void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
-	symbol_set_value(symbol, &result, change_allowed);
+	symbol_set_object(symbol, &result, change_allowed);
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
 		section_new_cheap_scope(section_now);
@@ -239,7 +239,7 @@ void symbol_parse_definition(scope_t scope, int stat_flags)
 			|| (result.type == &type_float))
 				result.u.number.addr_refs = 1;
 		}
-		symbol_set_value(symbol, &result, FALSE);
+		symbol_set_object(symbol, &result, FALSE);
 		Input_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
@@ -259,7 +259,7 @@ void symbol_define(intval_t value)
 	result.u.number.flags = NUMBER_IS_DEFINED;
 	result.u.number.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL, 0);
-	symbol_set_value(symbol, &result, TRUE);
+	symbol_set_object(symbol, &result, TRUE);
 }
 
 

@@ -722,7 +722,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		}
 	}
 	// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
-	symbol_set_value(symbol, &result, TRUE);
+	symbol_set_object(symbol, &result, TRUE);
 	return ENSURE_EOS;
 }
 

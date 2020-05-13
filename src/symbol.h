@@ -29,8 +29,7 @@ extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 
 // function acts upon the symbol's flag bits and produces an error if needed.
-// FIXME - rename to symbol_set_object!
-extern void symbol_set_value(struct symbol *symbol, struct object *new_value, boolean change_allowed);
+extern void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed);
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
 extern void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed);
