@@ -43,7 +43,7 @@ void flow_forloop(struct for_loop *loop)
 {
 	struct input	loop_input,
 			*outer_input;
-	struct number	loop_counter;
+	struct object	loop_counter;
 
 	// switching input makes us lose GotByte. But we know it's '}' anyway!
 	// set up new input
@@ -55,27 +55,28 @@ void flow_forloop(struct for_loop *loop)
 	// (not yet useable; pointer and line number are still missing)
 	Input_now = &loop_input;
 	// init counter
-	loop_counter.flags = NUMBER_IS_DEFINED;
-	loop_counter.val.intval = loop->counter.first;
-	loop_counter.addr_refs = loop->counter.addr_refs;
+	loop_counter.type = &type_int;
+	loop_counter.u.number.flags = NUMBER_IS_DEFINED;
+	loop_counter.u.number.val.intval = loop->counter.first;
+	loop_counter.u.number.addr_refs = loop->counter.addr_refs;
 	symbol_set_value(loop->symbol, &loop_counter, TRUE);
 	if (loop->use_old_algo) {
 		// old algo for old syntax:
 		// if count == 0, skip loop
 		if (loop->counter.last) {
 			do {
-				loop_counter.val.intval += loop->counter.increment;
+				loop_counter.u.number.val.intval += loop->counter.increment;
 				symbol_set_value(loop->symbol, &loop_counter, TRUE);
 				parse_ram_block(&loop->block);
-			} while (loop_counter.val.intval < loop->counter.last);
+			} while (loop_counter.u.number.val.intval < loop->counter.last);
 		}
 	} else {
 		// new algo for new syntax:
 		do {
 			parse_ram_block(&loop->block);
-			loop_counter.val.intval += loop->counter.increment;
+			loop_counter.u.number.val.intval += loop->counter.increment;
 			symbol_set_value(loop->symbol, &loop_counter, TRUE);
-		} while (loop_counter.val.intval != (loop->counter.last + loop->counter.increment));
+		} while (loop_counter.u.number.val.intval != (loop->counter.last + loop->counter.increment));
 	}
 	// restore previous input:
 	Input_now = outer_input;

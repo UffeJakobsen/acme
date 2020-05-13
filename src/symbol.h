@@ -12,7 +12,7 @@
 
 
 struct symbol {
-	struct number	result;	// flags, value, address refs
+	struct object	result;	// flags, value, address refs
 	int		usage;	// usage count
 	int		pass;	// pass of creation (for anon counters)
 	boolean		has_been_reported;	// indicates "has been reported as undefined"
@@ -29,7 +29,8 @@ extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 
 // function acts upon the symbol's flag bits and produces an error if needed.
-extern void symbol_set_value(struct symbol *symbol, struct number *new_value, boolean change_allowed);
+// FIXME - rename to symbol_set_object!
+extern void symbol_set_value(struct symbol *symbol, struct object *new_value, boolean change_allowed);
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
 extern void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed);
@@ -48,7 +49,7 @@ extern void symbols_list(FILE *fd);
 extern void symbols_vicelabels(FILE *fd);
 // fix name of anonymous forward label (held in GlobalDynaBuf, NOT TERMINATED!)
 // so it references the *next* anonymous forward label definition.
-extern void symbol_fix_forward_anon_name(int increment);
+extern void symbol_fix_forward_anon_name(boolean increment);
 
 
 #endif

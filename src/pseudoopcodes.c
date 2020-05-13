@@ -692,7 +692,7 @@ Throw_serious_error("Not yet");	// FIXME
 // (re)set symbol
 static enum eos po_set(void)	// now GotByte = illegal char
 {
-	struct number	result;
+	struct object	result;
 	int		force_bit;
 	struct symbol	*symbol;
 	scope_t		scope;
@@ -712,11 +712,16 @@ static enum eos po_set(void)	// now GotByte = illegal char
 	GetByte();	// proceed with next char
 	ALU_any_result(&result);
 	// clear symbol's force bits and set new ones
-	symbol->result.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-	if (force_bit) {
-		symbol->result.flags |= force_bit;
-		result.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+	// (but only do this for numbers!)
+	if (((symbol->result.type == &type_int) || (symbol->result.type == &type_float))
+	&& ((result.type == &type_int) || (result.type == &type_float))) {
+		symbol->result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+		if (force_bit) {
+			symbol->result.u.number.flags |= force_bit;
+			result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+		}
 	}
+	// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
 	symbol_set_value(symbol, &result, TRUE);
 	return ENSURE_EOS;
 }
@@ -858,7 +863,7 @@ static boolean check_ifdef_condition(void)
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
-	return !!(symbol->result.flags & NUMBER_IS_DEFINED);
+	return symbol->result.type->is_defined(&symbol->result);
 }
 // new if/ifdef/ifndef/else function, to be able to do ELSE IF
 enum ifmode {
@@ -998,7 +1003,7 @@ static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
 		// in first pass, count usage
 		if (FIRST_PASS)
 			symbol->usage++;
-		if (symbol->result.flags & NUMBER_IS_DEFINED)
+		if (symbol->result.u.number.flags & NUMBER_IS_DEFINED)
 			defined = TRUE;
 	}
 	SKIPSPACE();
@@ -1188,7 +1193,7 @@ static struct dynabuf	*user_message;	// dynamic buffer (!warn/error/serious)
 // helper function to show user-defined messages
 static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 {
-	struct number	result;
+	struct object	object;
 
 	DYNABUF_CLEAR(user_message);
 	DynaBuf_add_string(user_message, prefix);
@@ -1207,31 +1212,8 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 			GetByte();
 		} else {
 			// parse value
-			ALU_any_result(&result);
-			if (result.flags & NUMBER_IS_FLOAT) {
-				// floating point
-				if (result.flags & NUMBER_IS_DEFINED) {
-					char	buffer[40];
-
-					// write up to 30 significant characters.
-					// remaining 10 should suffice for sign,
-					// decimal point, exponent, terminator etc.
-					sprintf(buffer, "%.30g", result.val.fpval);
-					DynaBuf_add_string(user_message, buffer);
-				} else {
-					DynaBuf_add_string(user_message, "<UNDEFINED FLOAT>");
-				}
-			} else {
-				// integer
-				if (result.flags & NUMBER_IS_DEFINED) {
-					char	buffer[32];	// 11 for dec, 8 for hex
-
-					sprintf(buffer, "%ld (0x%lx)", (long) result.val.intval, (long) result.val.intval);
-					DynaBuf_add_string(user_message, buffer);
-				} else {
-					DynaBuf_add_string(user_message, "<UNDEFINED INT>");
-				}
-			}
+			ALU_any_result(&object);
+			object.type->print(&object, user_message);
 		}
 	} while (Input_accept_comma());
 	DynaBuf_append(user_message, '\0');

@@ -10,20 +10,27 @@
 #include "config.h"
 
 
-// types
-/*
-type_nothing,		// needed?
-type_int, type_float	// what is returned by the current functions
-type_string,		// TODO
-type_register,		// reserved cpu constant (register names), TODO
-type_list,		// TODO
-*/
+enum op_handle;
+struct dynabuf;
+struct type {
+	//const char	*name;
+	boolean		(*is_defined)(struct object *self);
+	void		(*handle_monadic_operator)(struct object *self, enum op_handle op);
+	void		(*handle_dyadic_operator)(struct object *self, enum op_handle op, struct object *other);
+	void		(*fix_result)(struct object *self);
+	void		(*print)(struct object *self, struct dynabuf *db);
+};
+extern struct type	type_int;
+extern struct type	type_float;
+//extern struct type	type_string;
+//extern struct type	type_list;
+
 struct expression {
-	//struct type	*type;
-	struct number	number;
+	struct object	result;
 	boolean		is_empty;		// nothing parsed (first character was a delimiter)
 	int		open_parentheses;	// number of parentheses still open
 	boolean		is_parenthesized;	// whole expression was in parentheses (indicating indirect addressing)
+	// TODO - how to return reserved cpu constant (register names)?
 };
 
 
@@ -41,7 +48,6 @@ struct expression {
 	// passes; because in the first pass there will almost for sure be
 	// labels that are undefined, we can't simply get the addressing mode
 	// from looking at the parameter's value.
-#define NUMBER_IS_FLOAT		(1u << 6)	// floating point value
 
 
 // create dynamic buffer, operator/function trees and operator/operand stacks
@@ -67,7 +73,7 @@ extern void ALU_defined_int(struct number *intresult);
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 extern void ALU_addrmode_int(struct expression *expression, int paren);
 // stores value and flags (result may be either int or float)
-extern void ALU_any_result(struct number *result);
+extern void ALU_any_result(struct object *result);
 
 
 #endif

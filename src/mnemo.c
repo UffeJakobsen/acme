@@ -527,7 +527,7 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 			Throw_first_pass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase!
 		}
 	}
-	*result = expression.number;
+	*result = expression.result.u.number;
 }
 
 
@@ -560,7 +560,7 @@ static int get_addr_mode(struct number *result)
 		break;
 	default:
 		ALU_addrmode_int(&expression, 1);	// direct call instead of wrapper, to allow for "(...,"
-		*result = expression.number;
+		*result = expression.result.u.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing
 		if (expression.is_parenthesized)

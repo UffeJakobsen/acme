@@ -42,7 +42,7 @@ struct macro {
 // gives us the possibility to find out which args are call-by-value and
 // which ones are call-by-reference.
 union macro_arg_t {
-	struct number	result;	// value and flags (call by value)
+	struct object	result;	// value and flags (call by value)
 	struct symbol	*symbol;	// pointer to symbol struct (call by reference)
 };
 

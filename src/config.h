@@ -19,14 +19,24 @@ typedef enum { FALSE = 0, TRUE }	boolean;	// yes, I could include <stdbool.h>, b
 typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
-// result structure type definition with support for floating point
-struct number {	// either int or float
-	int	flags;	// result flags (see alu.h, one if these tells ints and floats apart)
+
+// structure for ints/floats
+struct number {
+	int	flags;	// DEFINED, FITS_IN_BYTE, etc. (see alu.h)
 	union {
 		intval_t	intval;	// integer value
 		double		fpval;	// floating point value
-	} val;	// Expression value
+	} val;
 	int	addr_refs;	// address reference count (only look at this if value is DEFINED)
+};
+// structure for ints/floats/TODO...
+struct type;
+struct object {
+	struct type	*type;
+	union {
+		struct number	number;
+		// TODO - add string struct
+	} u;
 };
 
 
