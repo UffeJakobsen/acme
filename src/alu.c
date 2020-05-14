@@ -75,6 +75,7 @@ enum op_id {
 	OPID_ARCSIN,		//	arcsin(v)
 	OPID_ARCCOS,		//	arccos(v)
 	OPID_ARCTAN,		//	arctan(v)
+	OPID_LEN,		//	len(v)
 	// dyadic operators:
 	OPID_POWEROF,		//	v^w
 	OPID_MULTIPLY,		//	v*w
@@ -156,7 +157,7 @@ static struct op ops_tan		= {42, OPGROUP_MONADIC, OPID_TAN,	"tan()"	};
 static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN,	"arcsin()"	};
 static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
 static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
-//static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
+static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
 
 
 // variables
@@ -200,6 +201,7 @@ static struct ronode	function_list[]	= {
 	PREDEFNODE("address",	&ops_addr),
 	PREDEFNODE("int",	&ops_int),
 	PREDEFNODE("float",	&ops_float),
+//	PREDEFNODE("len",	&ops_len),
 	PREDEFNODE(s_arcsin,	&ops_arcsin),
 	PREDEFNODE(s_arccos,	&ops_arccos),
 	PREDEFNODE(s_arctan,	&ops_arctan),
