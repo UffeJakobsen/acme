@@ -61,11 +61,11 @@ enum op_id {
 	OPID_OPENING,		//	(v	'(', starts subexpression (handled like monadic)
 	OPID_CLOSING,		//	v)	')', ends subexpression (handled like dyadic)
 	// monadic operators (including functions):
-	OPID_NOT,		//	!v	NOT v	bit-wise NOT
-	OPID_NEGATE,		//	-v		Negate
-	OPID_LOWBYTEOF,		//	<v		Lowbyte of
-	OPID_HIGHBYTEOF,	//	>v		Highbyte of
-	OPID_BANKBYTEOF,	//	^v		Bankbyte of
+	OPID_NOT,		//	!v	NOT v		bit-wise NOT
+	OPID_NEGATE,		//	-v			negation
+	OPID_LOWBYTEOF,		//	<v			low byte of
+	OPID_HIGHBYTEOF,	//	>v			high byte of
+	OPID_BANKBYTEOF,	//	^v			bank byte of
 	OPID_ADDRESS,		//	addr(v)				FIXME - add nonaddr()?
 	OPID_INT,		//	int(v)
 	OPID_FLOAT,		//	float(v)
@@ -78,18 +78,18 @@ enum op_id {
 	// dyadic operators:
 	OPID_POWEROF,		//	v^w
 	OPID_MULTIPLY,		//	v*w
-	OPID_DIVIDE,		//	v/w		(Integer) Division
-	OPID_INTDIV,		//	v/w	v DIV w	Integer Division
-	OPID_MODULO,		//	v%w	v MOD w	Remainder
-	OPID_SL,		//	v<<w	v ASL w	v LSL w	Shift left
-	OPID_ASR,		//	v>>w	v ASR w	Arithmetic shift right
-	OPID_LSR,		//	v>>>w	v LSR w	Logical shift right
+	OPID_DIVIDE,		//	v/w				division
+	OPID_INTDIV,		//	v/w	v DIV w			integer division
+	OPID_MODULO,		//	v%w	v MOD w			remainder
+	OPID_SHIFTLEFT,		//	v<<w	v ASL w	v LSL w		shift left
+	OPID_ASR,		//	v>>w	v ASR w			arithmetic shift right
+	OPID_LSR,		//	v>>>w	v LSR w			logical shift right
 	OPID_ADD,		//	v+w
 	OPID_SUBTRACT,		//	v-w
 	OPID_EQUALS,		//	v=w
-	OPID_LE,		//	v<=w
+	OPID_LESSOREQUAL,	//	v<=w
 	OPID_LESSTHAN,		//	v< w
-	OPID_GE,		//	v>=w
+	OPID_GREATEROREQUAL,	//	v>=w
 	OPID_GREATERTHAN,	//	v> w
 	OPID_NOTEQUAL,		//	v!=w	v<>w	v><w
 	OPID_AND,		//	v&w		v AND w
@@ -102,61 +102,61 @@ struct op {
 	int		priority;	// lsb holds "is_right_associative" info!
 	enum op_group	group;
 	enum op_id	id;
-	// FIXME - add text version of op to struct, for better error messages!
+	const char	*text_version;
 };
-static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPID_END_EXPRESSION	};
-static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPID_START_EXPRESSION	};
-static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPID_CLOSING	};
-static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPID_OPENING	};
-//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL, OPID_	};
-//static struct op ops_openindex		= {10, OPGROUP_SPECIAL, OPID_	};
-static struct op ops_or			= {16, OPGROUP_DYADIC, OPID_OR	};
-static struct op ops_eor		= {18, OPGROUP_DYADIC, OPID_EOR	};	// FIXME - remove
-static struct op ops_xor		= {18, OPGROUP_DYADIC, OPID_XOR	};
-static struct op ops_and		= {20, OPGROUP_DYADIC, OPID_AND	};
-static struct op ops_equals		= {22, OPGROUP_DYADIC, OPID_EQUALS	};
-static struct op ops_notequal		= {24, OPGROUP_DYADIC, OPID_NOTEQUAL	};
+static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"end of expression"	};
+static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
+static struct op ops_closing		= {4, OPGROUP_SPECIAL,	OPID_CLOSING,		"right parenthesis"	};
+static struct op ops_opening		= {6, OPGROUP_SPECIAL,	OPID_OPENING,		"left parenthesis"	};
+//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL,	OPID_CLOSEINDEX,	"right bracket"	};
+//static struct op ops_openindex		= {10, OPGROUP_SPECIAL,	OPID_OPENINDEX,		"left bracket"	};
+static struct op ops_or			= {16, OPGROUP_DYADIC,	OPID_OR,	"logical or"	};
+static struct op ops_eor		= {18, OPGROUP_DYADIC,	OPID_EOR,	"exclusive or"	};	// FIXME - remove
+static struct op ops_xor		= {18, OPGROUP_DYADIC,	OPID_XOR,	"exclusive or"	};
+static struct op ops_and		= {20, OPGROUP_DYADIC,	OPID_AND,	"logical and"	};
+static struct op ops_equals		= {22, OPGROUP_DYADIC,	OPID_EQUALS,		"test for equality"	};
+static struct op ops_not_equal		= {24, OPGROUP_DYADIC,	OPID_NOTEQUAL,		"test for inequality"	};
 	// same priority for all comparison operators
-static struct op ops_le			= {26, OPGROUP_DYADIC, OPID_LE	};
-static struct op ops_lessthan		= {26, OPGROUP_DYADIC, OPID_LESSTHAN	};
-static struct op ops_ge			= {26, OPGROUP_DYADIC, OPID_GE	};
-static struct op ops_greaterthan	= {26, OPGROUP_DYADIC, OPID_GREATERTHAN	};
+static struct op ops_less_or_equal	= {26, OPGROUP_DYADIC,	OPID_LESSOREQUAL,	"less than or equal"	};
+static struct op ops_less_than		= {26, OPGROUP_DYADIC,	OPID_LESSTHAN,		"less than"	};
+static struct op ops_greater_or_equal	= {26, OPGROUP_DYADIC,	OPID_GREATEROREQUAL,	"greater than or equal"	};
+static struct op ops_greater_than	= {26, OPGROUP_DYADIC,	OPID_GREATERTHAN,	"greater than"	};
 	// same priority for all byte extraction operators
-static struct op ops_lowbyteof		= {28, OPGROUP_MONADIC, OPID_LOWBYTEOF	};
-static struct op ops_highbyteof		= {28, OPGROUP_MONADIC, OPID_HIGHBYTEOF	};
-static struct op ops_bankbyteof		= {28, OPGROUP_MONADIC, OPID_BANKBYTEOF	};
+static struct op ops_low_byte_of	= {28, OPGROUP_MONADIC,	OPID_LOWBYTEOF,		"low byte of"	};
+static struct op ops_high_byte_of	= {28, OPGROUP_MONADIC,	OPID_HIGHBYTEOF,	"high byte of"	};
+static struct op ops_bank_byte_of	= {28, OPGROUP_MONADIC,	OPID_BANKBYTEOF,	"bank byte of"	};
 	// same priority for all shift operators (left-associative, though they could be argued to be made right-associative :))
-static struct op ops_sl			= {30, OPGROUP_DYADIC, OPID_SL	};
-static struct op ops_asr		= {30, OPGROUP_DYADIC, OPID_ASR	};
-static struct op ops_lsr		= {30, OPGROUP_DYADIC, OPID_LSR	};
+static struct op ops_shift_left		= {30, OPGROUP_DYADIC,	OPID_SHIFTLEFT,	"shift left"	};
+static struct op ops_asr		= {30, OPGROUP_DYADIC,	OPID_ASR,	"arithmetic shift right"	};
+static struct op ops_lsr		= {30, OPGROUP_DYADIC,	OPID_LSR,	"logical shift right"	};
 	// same priority for "+" and "-"
-static struct op ops_add		= {32, OPGROUP_DYADIC, OPID_ADD	};
-static struct op ops_subtract		= {32, OPGROUP_DYADIC, OPID_SUBTRACT	};
+static struct op ops_add		= {32, OPGROUP_DYADIC,	OPID_ADD,	"addition"	};
+static struct op ops_subtract		= {32, OPGROUP_DYADIC,	OPID_SUBTRACT,	"subtraction"	};
 	// same priority for "*", "/" and "%"
-static struct op ops_multiply		= {34, OPGROUP_DYADIC, OPID_MULTIPLY	};
-static struct op ops_divide		= {34, OPGROUP_DYADIC, OPID_DIVIDE	};
-static struct op ops_intdiv		= {34, OPGROUP_DYADIC, OPID_INTDIV	};
-static struct op ops_modulo		= {34, OPGROUP_DYADIC, OPID_MODULO	};
+static struct op ops_multiply		= {34, OPGROUP_DYADIC,	OPID_MULTIPLY,	"multiplication"	};
+static struct op ops_divide		= {34, OPGROUP_DYADIC,	OPID_DIVIDE,	"division"	};
+static struct op ops_intdiv		= {34, OPGROUP_DYADIC,	OPID_INTDIV,	"integer division"	};
+static struct op ops_modulo		= {34, OPGROUP_DYADIC,	OPID_MODULO,	"modulo"	};
 	// highest "real" priorities
-static struct op ops_negate		= {36, OPGROUP_MONADIC, OPID_NEGATE	};
-static struct op ops_powerof		= {37, OPGROUP_DYADIC, OPID_POWEROF	};	// right-associative!
-static struct op ops_not		= {38, OPGROUP_MONADIC, OPID_NOT	};
-//static struct op ops_atindex		= {40, OPGROUP_DYADIC, OPID_	};
+static struct op ops_negate		= {36, OPGROUP_MONADIC,	OPID_NEGATE,	"negation"	};
+static struct op ops_powerof		= {37, OPGROUP_DYADIC,	OPID_POWEROF,	"power of"	};	// right-associative!
+static struct op ops_not		= {38, OPGROUP_MONADIC,	OPID_NOT,	"logical not"	};
+//static struct op ops_atindex		= {40, OPGROUP_DYADIC,	OPID_ATINDEX,	"indexing"	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
 	// "sin(3 + 4) DYADIC_OPERATOR 5" becomes "sin 7 DYADIC_OPERATOR 5",
 	// so function calls' priority must be higher than all dyadic operators.
-static struct op ops_addr		= {42, OPGROUP_MONADIC, OPID_ADDRESS	};
-static struct op ops_int		= {42, OPGROUP_MONADIC, OPID_INT	};
-static struct op ops_float		= {42, OPGROUP_MONADIC, OPID_FLOAT	};
-static struct op ops_sin		= {42, OPGROUP_MONADIC, OPID_SIN	};
-static struct op ops_cos		= {42, OPGROUP_MONADIC, OPID_COS	};
-static struct op ops_tan		= {42, OPGROUP_MONADIC, OPID_TAN	};
-static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN	};
-static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS	};
-static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN	};
-//static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_	};
+static struct op ops_addr		= {42, OPGROUP_MONADIC, OPID_ADDRESS,	"address()"	};
+static struct op ops_int		= {42, OPGROUP_MONADIC, OPID_INT,	"int()"	};
+static struct op ops_float		= {42, OPGROUP_MONADIC, OPID_FLOAT,	"float()"	};
+static struct op ops_sin		= {42, OPGROUP_MONADIC, OPID_SIN,	"sin()"	};
+static struct op ops_cos		= {42, OPGROUP_MONADIC, OPID_COS,	"cos()"	};
+static struct op ops_tan		= {42, OPGROUP_MONADIC, OPID_TAN,	"tan()"	};
+static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN,	"arcsin()"	};
+static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
+static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
+//static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
 
 
 // variables
@@ -184,8 +184,8 @@ static struct ronode	*op_tree	= NULL;	// tree to hold operators
 static struct ronode	op_list[]	= {
 	PREDEFNODE(s_asr,	&ops_asr),
 	PREDEFNODE(s_lsr,	&ops_lsr),
-	PREDEFNODE(s_asl,	&ops_sl),
-	PREDEFNODE("lsl",	&ops_sl),
+	PREDEFNODE(s_asl,	&ops_shift_left),
+	PREDEFNODE("lsl",	&ops_shift_left),
 	PREDEFNODE("div",	&ops_intdiv),
 	PREDEFNODE("mod",	&ops_modulo),
 	PREDEFNODE(s_and,	&ops_and),
@@ -659,15 +659,15 @@ static boolean expect_argument_or_monadic_operator(void)
 		goto get_byte_and_push_monadic;
 
 	case '<':	// LOWBYTE operator
-		op = &ops_lowbyteof;
+		op = &ops_low_byte_of;
 		goto get_byte_and_push_monadic;
 
 	case '>':	// HIGHBYTE operator
-		op = &ops_highbyteof;
+		op = &ops_high_byte_of;
 		goto get_byte_and_push_monadic;
 
 	case '^':	// BANKBYTE operator
-		op = &ops_bankbyteof;
+		op = &ops_bank_byte_of;
 		goto get_byte_and_push_monadic;
 
 // Faked monadic operators
@@ -871,7 +871,7 @@ static void expect_dyadic_operator(void)
 // Multi-character dyadic operators
 	case '!':	// "!="
 		if (GetByte() == '=') {
-			op = &ops_notequal;
+			op = &ops_not_equal;
 			goto get_byte_and_push_dyadic;
 		}
 
@@ -881,19 +881,19 @@ static void expect_dyadic_operator(void)
 	case '<':	// "<", "<=", "<<" and "<>"
 		switch (GetByte()) {
 		case '=':	// "<=", less or equal
-			op = &ops_le;
+			op = &ops_less_or_equal;
 			goto get_byte_and_push_dyadic;
 
 		case '<':	// "<<", shift left
-			op = &ops_sl;
+			op = &ops_shift_left;
 			goto get_byte_and_push_dyadic;
 
 		case '>':	// "<>", not equal
-			op = &ops_notequal;
+			op = &ops_not_equal;
 			goto get_byte_and_push_dyadic;
 
 		default:	// "<", less than
-			op = &ops_lessthan;
+			op = &ops_less_than;
 			goto push_dyadic_op;
 
 		}
@@ -901,11 +901,11 @@ static void expect_dyadic_operator(void)
 	case '>':	// ">", ">=", ">>", ">>>" and "><"
 		switch (GetByte()) {
 		case '=':	// ">=", greater or equal
-			op = &ops_ge;
+			op = &ops_greater_or_equal;
 			goto get_byte_and_push_dyadic;
 
 		case '<':	// "><", not equal
-			op = &ops_notequal;
+			op = &ops_not_equal;
 			goto get_byte_and_push_dyadic;
 
 		case '>':	// ">>" or ">>>", shift right
@@ -917,7 +917,7 @@ static void expect_dyadic_operator(void)
 			goto get_byte_and_push_dyadic;
 
 		default:	// ">", greater than
-			op = &ops_greaterthan;
+			op = &ops_greater_than;
 			goto push_dyadic_op;
 
 		}
@@ -952,6 +952,22 @@ get_byte_and_push_dyadic:
 push_dyadic_op:
 	PUSH_OP(op);
 	alu_state = STATE_TRY_TO_REDUCE_STACKS;
+}
+
+
+// helper function: don't know how to handle that ARG OP combination
+static void unsupported_monadic(struct op *op, struct object *arg)
+{
+	if (op->group != OPGROUP_MONADIC)
+		Bug_found("OperatorIsNotMonadic", op->id);
+	Throw_error("Unsupported combination of monadic operator and argument type");	// FIXME - make dynamic, add text versions of op/arg, add to docs
+}
+// helper function: don't know how to handle that ARG1 OP ARG2 combination
+static void unsupported_dyadic(struct object *self, struct op *op, struct object *other)
+{
+	if (op->group != OPGROUP_DYADIC)
+		Bug_found("OperatorIsNotDyadic", op->id);
+	Throw_error("Unsupported combination of arguments and operator");	// FIXME - make dynamic, add text versions of self/op/other, add to docs
 }
 
 
@@ -1041,10 +1057,9 @@ static void int_handle_monadic_operator(struct object *self, struct op *op)
 		break;
 // add new monadic operators here
 //	case OPID_:
-//		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorIdIM", op->id);
+		unsupported_monadic(op, self);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1112,10 +1127,9 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 
 // add new monadic operators here
 //	case OPID_:
-//		Throw_error("'float' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorIdFM", op->id);
+		unsupported_monadic(op, self);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1131,13 +1145,6 @@ static void number_fix_result_after_dyadic(struct object *self, struct object *o
 	self->u.number.flags &= (other->u.number.flags | ~NUMBER_IS_DEFINED);
 	// FITS_BYTE is cleared
 	self->u.number.flags &= ~NUMBER_FITS_BYTE;
-}
-
-
-// helper function: don't know how to handle that ARG1 OP ARG2 combination
-static void unsupported_dyadic(struct object *self, struct op *op, struct object *other)
-{
-	Throw_error("Unsupported combination of argument(s) and operator");	// FIXME - make dynamic, add text versions of self/op/other, add to docs
 }
 
 
@@ -1160,9 +1167,9 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		case OPID_ADD:
 		case OPID_SUBTRACT:
 		case OPID_EQUALS:
-		case OPID_LE:
+		case OPID_LESSOREQUAL:
 		case OPID_LESSTHAN:
-		case OPID_GE:
+		case OPID_GREATEROREQUAL:
 		case OPID_GREATERTHAN:
 		case OPID_NOTEQUAL:
 			// become float, delegate to float handler
@@ -1171,7 +1178,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 			return;	// float handler has done everything
 
 		case OPID_MODULO:
-		case OPID_SL:
+		case OPID_SHIFTLEFT:
 		case OPID_ASR:
 			// convert other to int
 			float_to_int(other);
@@ -1243,7 +1250,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		self->u.number.val.intval -= other->u.number.val.intval;
 		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
 		break;
-	case OPID_SL:
+	case OPID_SHIFTLEFT:
 		self->u.number.val.intval <<= other->u.number.val.intval;
 		break;
 	case OPID_ASR:
@@ -1252,13 +1259,13 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 	case OPID_LSR:
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
-	case OPID_LE:
+	case OPID_LESSOREQUAL:
 		self->u.number.val.intval = (self->u.number.val.intval <= other->u.number.val.intval);
 		break;
 	case OPID_LESSTHAN:
 		self->u.number.val.intval = (self->u.number.val.intval < other->u.number.val.intval);
 		break;
-	case OPID_GE:
+	case OPID_GREATEROREQUAL:
 		self->u.number.val.intval = (self->u.number.val.intval >= other->u.number.val.intval);
 		break;
 	case OPID_GREATERTHAN:
@@ -1315,9 +1322,9 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		case OPID_INTDIV:
 		case OPID_ADD:
 		case OPID_SUBTRACT:
-		case OPID_LE:
+		case OPID_LESSOREQUAL:
 		case OPID_LESSTHAN:
-		case OPID_GE:
+		case OPID_GREATEROREQUAL:
 		case OPID_GREATERTHAN:
 		case OPID_NOTEQUAL:
 		case OPID_EQUALS:
@@ -1332,7 +1339,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		case OPID_EOR:
 		case OPID_XOR:
 		// these actually want a float and an int
-		case OPID_SL:
+		case OPID_SHIFTLEFT:
 		case OPID_ASR:
 			break;
 // add new dyadic operators here
@@ -1397,7 +1404,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		self->u.number.val.fpval -= other->u.number.val.fpval;
 		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
 		break;
-	case OPID_SL:
+	case OPID_SHIFTLEFT:
 		if (other->type == &type_float)
 			float_to_int(other);
 		self->u.number.val.fpval *= pow(2.0, other->u.number.val.intval);
@@ -1407,7 +1414,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 			float_to_int(other);
 		self->u.number.val.fpval /= (1 << other->u.number.val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
-	case OPID_LE:
+	case OPID_LESSOREQUAL:
 		self->u.number.val.intval = (self->u.number.val.fpval <= other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
@@ -1415,7 +1422,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		self->u.number.val.intval = (self->u.number.val.fpval < other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPID_GE:
+	case OPID_GREATEROREQUAL:
 		self->u.number.val.intval = (self->u.number.val.fpval >= other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
@@ -1515,7 +1522,7 @@ static void float_print(struct object *self, struct dynabuf *db)
 }
 
 struct type	type_int	= {
-	//"Integer",
+	"integer",
 	number_is_defined,
 	int_handle_monadic_operator,
 	int_handle_dyadic_operator,
@@ -1523,7 +1530,7 @@ struct type	type_int	= {
 	int_print
 };
 struct type	type_float	= {
-	//"Float",
+	"float",
 	number_is_defined,
 	float_handle_monadic_operator,
 	float_handle_dyadic_operator,
@@ -1532,10 +1539,10 @@ struct type	type_float	= {
 };
 /*
 struct type	type_string	= {
-	//"String",
+	"string",
 };
 struct type	type_list	= {
-	//"List",
+	"list",
 };
 */
 
