@@ -356,9 +356,7 @@ This is a list of the operators currently known by ACME:
         1     v  |  w     Bit-wise OR               OR
 
 Operations with higher priority are done first. Of course you can
-change this using parentheses. If you prefer the aliases over the
-shorthand characters, note that they must be written in capital
-letters.
+change this using parentheses.
 Note that though there are operators to extract the "low byte", the
 "high byte" and the "bank byte", there is no operator to extract the
 fourth byte. If you want to access that, shift it down using ">>>" or
