@@ -178,7 +178,7 @@ int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number
 
 // Call given function for each object of matching type in the given tree.
 // Calls itself recursively.
-void dump_tree(struct rwnode *node, int id_number, void (*fn)(struct rwnode *, FILE *), FILE *env)
+static void dump_tree(struct rwnode *node, int id_number, void (*fn)(struct rwnode *, FILE *), FILE *env)
 {
 
 	if (node->id_number == id_number)

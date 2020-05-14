@@ -36,7 +36,7 @@ struct rwnode {
 	hash_t		hash_value;
 	char		*id_string;	// name, zero-terminated
 	void		*body;		// macro/symbol body
-	unsigned int	id_number;	// scope number
+	int		id_number;	// scope number
 };
 
 
@@ -54,7 +54,7 @@ extern int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf 
 // If "create" is FALSE, store NULL. Returns whether item was created.
 extern int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number, boolean create);
 // Calls given function for each node of each tree of given forest.
-extern void Tree_dump_forest(struct rwnode **, int, void (*)(struct rwnode *, FILE *), FILE *);
+extern void Tree_dump_forest(struct rwnode **, int id_number, void (*)(struct rwnode *, FILE *), FILE *);
 
 
 #endif
