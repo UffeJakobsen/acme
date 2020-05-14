@@ -990,11 +990,11 @@ static void warn_float_to_int(void)
 
 // int:
 // handle monadic operator (includes functions)
-static void int_handle_monadic_operator(struct object *self, enum op_handle op)
+static void int_handle_monadic_operator(struct object *self, struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
-	switch (op) {
+	switch (op->handle) {
 	case OPHANDLE_ADDR:
 		refs = 1;	// result now is an address
 		break;
@@ -1044,7 +1044,7 @@ static void int_handle_monadic_operator(struct object *self, enum op_handle op)
 //		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleIM", op);
+		Bug_found("IllegalOperatorHandleIM", op->handle);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1065,11 +1065,11 @@ static void float_ranged_fn(double (*fn)(double), struct object *self)
 
 // float:
 // handle monadic operator (includes functions)
-static void float_handle_monadic_operator(struct object *self, enum op_handle op)
+static void float_handle_monadic_operator(struct object *self, struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
-	switch (op) {
+	switch (op->handle) {
 	case OPHANDLE_ADDR:
 		refs = 1;	// result now is an address
 		break;
@@ -1115,7 +1115,7 @@ static void float_handle_monadic_operator(struct object *self, enum op_handle op
 //		Throw_error("'float' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleFM", op);
+		Bug_found("IllegalOperatorHandleFM", op->handle);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1135,15 +1135,15 @@ static void number_fix_result_after_dyadic(struct object *self, struct object *o
 
 
 // helper function: don't know how to handle that ARG1 OP ARG2 combination
-static void unsupported_dyadic(struct object *self, enum op_handle op, struct object *other)
+static void unsupported_dyadic(struct object *self, struct op *op, struct object *other)
 {
-	Throw_error("Unsupported combination of argument(s) and operator");	// FIXME - make dynamic, add type names of self/other, add to docs
+	Throw_error("Unsupported combination of argument(s) and operator");	// FIXME - make dynamic, add text versions of self/op/other, add to docs
 }
 
 
 // int:
 // handle dyadic operator
-static void int_handle_dyadic_operator(struct object *self, enum op_handle op, struct object *other)
+static void int_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1152,7 +1152,7 @@ static void int_handle_dyadic_operator(struct object *self, enum op_handle op, s
 		// ok
 	} else if (other->type == &type_float) {
 		// handle according to operation
-		switch (op) {
+		switch (op->handle) {
 		case OPHANDLE_POWEROF:
 		case OPHANDLE_MULTIPLY:
 		case OPHANDLE_DIVIDE:
@@ -1202,10 +1202,10 @@ static void int_handle_dyadic_operator(struct object *self, enum op_handle op, s
 	// maybe put this into an extra "int_dyadic_int" function?
 	// sanity check, now "other" must be an int
 	if (other->type != &type_int)
-		Bug_found("SecondArgIsNotAnInt", op);	// FIXME - rename? then add to docs!
+		Bug_found("SecondArgIsNotAnInt", op->handle);	// FIXME - rename? then add to docs!
 
 	// part 2: now we got rid of floats, perform actual operation:
-	switch (op) {
+	switch (op->handle) {
 	case OPHANDLE_POWEROF:
 		if (other->u.number.val.intval >= 0) {
 			self->u.number.val.intval = my_pow(self->u.number.val.intval, other->u.number.val.intval);
@@ -1290,7 +1290,7 @@ static void int_handle_dyadic_operator(struct object *self, enum op_handle op, s
 //		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleID", op);
+		Bug_found("IllegalOperatorHandleID", op->handle);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1298,7 +1298,7 @@ static void int_handle_dyadic_operator(struct object *self, enum op_handle op, s
 
 // float:
 // handle dyadic operator
-static void float_handle_dyadic_operator(struct object *self, enum op_handle op, struct object *other)
+static void float_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1307,7 +1307,7 @@ static void float_handle_dyadic_operator(struct object *self, enum op_handle op,
 		// ok
 	} else if (other->type == &type_int) {
 		// handle according to operation
-		switch (op) {
+		switch (op->handle) {
 		// these want two floats
 		case OPHANDLE_POWEROF:
 		case OPHANDLE_MULTIPLY:
@@ -1350,7 +1350,7 @@ static void float_handle_dyadic_operator(struct object *self, enum op_handle op,
 		return;
 	}
 
-	switch (op) {
+	switch (op->handle) {
 	case OPHANDLE_POWEROF:
 		self->u.number.val.fpval = pow(self->u.number.val.fpval, other->u.number.val.fpval);
 		break;
@@ -1436,7 +1436,7 @@ static void float_handle_dyadic_operator(struct object *self, enum op_handle op,
 //		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleFD", op);
+		Bug_found("IllegalOperatorHandleFD", op->handle);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1617,12 +1617,12 @@ static void try_to_reduce_stacks(struct expression *expression)
 #define ARG_NOW		(arg_stack[arg_sp - 1])
 	switch (previous_op->group) {
 	case OPGROUP_MONADIC:	// monadic operators
-		ARG_NOW.type->handle_monadic_operator(&ARG_NOW, previous_op->handle);
+		ARG_NOW.type->handle_monadic_operator(&ARG_NOW, previous_op);
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
-		ARG_PREV.type->handle_dyadic_operator(&ARG_PREV, previous_op->handle, &ARG_NOW);
+		ARG_PREV.type->handle_dyadic_operator(&ARG_PREV, previous_op, &ARG_NOW);
 		// decrement argument stack pointer because dyadic operator merged two arguments into one
 		--arg_sp;
 		// operation was something other than parentheses

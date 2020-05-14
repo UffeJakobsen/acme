@@ -10,13 +10,13 @@
 #include "config.h"
 
 
-enum op_handle;
+struct op;
 struct dynabuf;
 struct type {
 	//const char	*name;
 	boolean		(*is_defined)(struct object *self);
-	void		(*handle_monadic_operator)(struct object *self, enum op_handle op);
-	void		(*handle_dyadic_operator)(struct object *self, enum op_handle op, struct object *other);
+	void		(*handle_monadic_operator)(struct object *self, struct op *op);
+	void		(*handle_dyadic_operator)(struct object *self, struct op *op, struct object *other);
 	void		(*fix_result)(struct object *self);
 	void		(*print)(struct object *self, struct dynabuf *db);
 };
