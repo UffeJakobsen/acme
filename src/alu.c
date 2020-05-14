@@ -54,109 +54,109 @@ enum op_group {
 	OPGROUP_MONADIC,	// {result} = {op} {arg}
 	OPGROUP_DYADIC		// {result} = {arg1} {op} {arg2}
 };
-enum op_handle {
+enum op_id {
 	// special (pseudo) operators:
-	OPHANDLE_START_OF_EXPR,	//		"start of expression"
-	OPHANDLE_END_OF_EXPR,	//		"end of expression"
-	OPHANDLE_OPENING,	//	(v	'(', starts subexpression (handled like monadic)
-	OPHANDLE_CLOSING,	//	v)	')', ends subexpression (handled like dyadic)
+	OPID_START_EXPRESSION,	//		"start of expression"
+	OPID_END_EXPRESSION,	//		"end of expression"
+	OPID_OPENING,		//	(v	'(', starts subexpression (handled like monadic)
+	OPID_CLOSING,		//	v)	')', ends subexpression (handled like dyadic)
 	// monadic operators (including functions):
-	OPHANDLE_NOT,		//	!v	NOT v	bit-wise NOT
-	OPHANDLE_NEGATE,	//	-v		Negate
-	OPHANDLE_LOWBYTEOF,	//	<v		Lowbyte of
-	OPHANDLE_HIGHBYTEOF,	//	>v		Highbyte of
-	OPHANDLE_BANKBYTEOF,	//	^v		Bankbyte of
-	OPHANDLE_ADDR,		//	addr(v)				FIXME - add nonaddr()?
-	OPHANDLE_INT,		//	int(v)
-	OPHANDLE_FLOAT,		//	float(v)
-	OPHANDLE_SIN,		//	sin(v)
-	OPHANDLE_COS,		//	cos(v)
-	OPHANDLE_TAN,		//	tan(v)
-	OPHANDLE_ARCSIN,	//	arcsin(v)
-	OPHANDLE_ARCCOS,	//	arccos(v)
-	OPHANDLE_ARCTAN,	//	arctan(v)
+	OPID_NOT,		//	!v	NOT v	bit-wise NOT
+	OPID_NEGATE,		//	-v		Negate
+	OPID_LOWBYTEOF,		//	<v		Lowbyte of
+	OPID_HIGHBYTEOF,	//	>v		Highbyte of
+	OPID_BANKBYTEOF,	//	^v		Bankbyte of
+	OPID_ADDRESS,		//	addr(v)				FIXME - add nonaddr()?
+	OPID_INT,		//	int(v)
+	OPID_FLOAT,		//	float(v)
+	OPID_SIN,		//	sin(v)
+	OPID_COS,		//	cos(v)
+	OPID_TAN,		//	tan(v)
+	OPID_ARCSIN,		//	arcsin(v)
+	OPID_ARCCOS,		//	arccos(v)
+	OPID_ARCTAN,		//	arctan(v)
 	// dyadic operators:
-	OPHANDLE_POWEROF,	//	v^w
-	OPHANDLE_MULTIPLY,	//	v*w
-	OPHANDLE_DIVIDE,	//	v/w		(Integer) Division
-	OPHANDLE_INTDIV,	//	v/w	v DIV w	Integer Division
-	OPHANDLE_MODULO,	//	v%w	v MOD w	Remainder
-	OPHANDLE_SL,		//	v<<w	v ASL w	v LSL w	Shift left
-	OPHANDLE_ASR,		//	v>>w	v ASR w	Arithmetic shift right
-	OPHANDLE_LSR,		//	v>>>w	v LSR w	Logical shift right
-	OPHANDLE_ADD,		//	v+w
-	OPHANDLE_SUBTRACT,	//	v-w
-	OPHANDLE_EQUALS,	//	v=w
-	OPHANDLE_LE,		//	v<=w
-	OPHANDLE_LESSTHAN,	//	v< w
-	OPHANDLE_GE,		//	v>=w
-	OPHANDLE_GREATERTHAN,	//	v> w
-	OPHANDLE_NOTEQUAL,	//	v!=w	v<>w	v><w
-	OPHANDLE_AND,		//	v&w		v AND w
-	OPHANDLE_OR,		//	v|w		v OR w
-	OPHANDLE_EOR,		//	v EOR w		v XOR w		FIXME - remove
-	OPHANDLE_XOR,		//	v XOR w
+	OPID_POWEROF,		//	v^w
+	OPID_MULTIPLY,		//	v*w
+	OPID_DIVIDE,		//	v/w		(Integer) Division
+	OPID_INTDIV,		//	v/w	v DIV w	Integer Division
+	OPID_MODULO,		//	v%w	v MOD w	Remainder
+	OPID_SL,		//	v<<w	v ASL w	v LSL w	Shift left
+	OPID_ASR,		//	v>>w	v ASR w	Arithmetic shift right
+	OPID_LSR,		//	v>>>w	v LSR w	Logical shift right
+	OPID_ADD,		//	v+w
+	OPID_SUBTRACT,		//	v-w
+	OPID_EQUALS,		//	v=w
+	OPID_LE,		//	v<=w
+	OPID_LESSTHAN,		//	v< w
+	OPID_GE,		//	v>=w
+	OPID_GREATERTHAN,	//	v> w
+	OPID_NOTEQUAL,		//	v!=w	v<>w	v><w
+	OPID_AND,		//	v&w		v AND w
+	OPID_OR,		//	v|w		v OR w
+	OPID_EOR,		//	v EOR w		v XOR w		FIXME - remove
+	OPID_XOR,		//	v XOR w
 };
 struct op {
 #define IS_RIGHT_ASSOCIATIVE(prio)	((prio) & 1)
 	int		priority;	// lsb holds "is_right_associative" info!
 	enum op_group	group;
-	enum op_handle	handle;
+	enum op_id	id;
 	// FIXME - add text version of op to struct, for better error messages!
 };
-static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPHANDLE_END_OF_EXPR	};
-static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPHANDLE_START_OF_EXPR	};
-static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPHANDLE_CLOSING	};
-static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPHANDLE_OPENING	};
-//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL, OPHANDLE_	};
-//static struct op ops_openindex		= {10, OPGROUP_SPECIAL, OPHANDLE_	};
-static struct op ops_or			= {16, OPGROUP_DYADIC, OPHANDLE_OR	};
-static struct op ops_eor		= {18, OPGROUP_DYADIC, OPHANDLE_EOR	};	// FIXME - remove
-static struct op ops_xor		= {18, OPGROUP_DYADIC, OPHANDLE_XOR	};
-static struct op ops_and		= {20, OPGROUP_DYADIC, OPHANDLE_AND	};
-static struct op ops_equals		= {22, OPGROUP_DYADIC, OPHANDLE_EQUALS	};
-static struct op ops_notequal		= {24, OPGROUP_DYADIC, OPHANDLE_NOTEQUAL	};
+static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL, OPID_END_EXPRESSION	};
+static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL, OPID_START_EXPRESSION	};
+static struct op ops_closing		= {4, OPGROUP_SPECIAL, OPID_CLOSING	};
+static struct op ops_opening		= {6, OPGROUP_SPECIAL, OPID_OPENING	};
+//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL, OPID_	};
+//static struct op ops_openindex		= {10, OPGROUP_SPECIAL, OPID_	};
+static struct op ops_or			= {16, OPGROUP_DYADIC, OPID_OR	};
+static struct op ops_eor		= {18, OPGROUP_DYADIC, OPID_EOR	};	// FIXME - remove
+static struct op ops_xor		= {18, OPGROUP_DYADIC, OPID_XOR	};
+static struct op ops_and		= {20, OPGROUP_DYADIC, OPID_AND	};
+static struct op ops_equals		= {22, OPGROUP_DYADIC, OPID_EQUALS	};
+static struct op ops_notequal		= {24, OPGROUP_DYADIC, OPID_NOTEQUAL	};
 	// same priority for all comparison operators
-static struct op ops_le			= {26, OPGROUP_DYADIC, OPHANDLE_LE	};
-static struct op ops_lessthan		= {26, OPGROUP_DYADIC, OPHANDLE_LESSTHAN	};
-static struct op ops_ge			= {26, OPGROUP_DYADIC, OPHANDLE_GE	};
-static struct op ops_greaterthan	= {26, OPGROUP_DYADIC, OPHANDLE_GREATERTHAN	};
+static struct op ops_le			= {26, OPGROUP_DYADIC, OPID_LE	};
+static struct op ops_lessthan		= {26, OPGROUP_DYADIC, OPID_LESSTHAN	};
+static struct op ops_ge			= {26, OPGROUP_DYADIC, OPID_GE	};
+static struct op ops_greaterthan	= {26, OPGROUP_DYADIC, OPID_GREATERTHAN	};
 	// same priority for all byte extraction operators
-static struct op ops_lowbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_LOWBYTEOF	};
-static struct op ops_highbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_HIGHBYTEOF	};
-static struct op ops_bankbyteof		= {28, OPGROUP_MONADIC, OPHANDLE_BANKBYTEOF	};
+static struct op ops_lowbyteof		= {28, OPGROUP_MONADIC, OPID_LOWBYTEOF	};
+static struct op ops_highbyteof		= {28, OPGROUP_MONADIC, OPID_HIGHBYTEOF	};
+static struct op ops_bankbyteof		= {28, OPGROUP_MONADIC, OPID_BANKBYTEOF	};
 	// same priority for all shift operators (left-associative, though they could be argued to be made right-associative :))
-static struct op ops_sl			= {30, OPGROUP_DYADIC, OPHANDLE_SL	};
-static struct op ops_asr		= {30, OPGROUP_DYADIC, OPHANDLE_ASR	};
-static struct op ops_lsr		= {30, OPGROUP_DYADIC, OPHANDLE_LSR	};
+static struct op ops_sl			= {30, OPGROUP_DYADIC, OPID_SL	};
+static struct op ops_asr		= {30, OPGROUP_DYADIC, OPID_ASR	};
+static struct op ops_lsr		= {30, OPGROUP_DYADIC, OPID_LSR	};
 	// same priority for "+" and "-"
-static struct op ops_add		= {32, OPGROUP_DYADIC, OPHANDLE_ADD	};
-static struct op ops_subtract		= {32, OPGROUP_DYADIC, OPHANDLE_SUBTRACT	};
+static struct op ops_add		= {32, OPGROUP_DYADIC, OPID_ADD	};
+static struct op ops_subtract		= {32, OPGROUP_DYADIC, OPID_SUBTRACT	};
 	// same priority for "*", "/" and "%"
-static struct op ops_multiply		= {34, OPGROUP_DYADIC, OPHANDLE_MULTIPLY	};
-static struct op ops_divide		= {34, OPGROUP_DYADIC, OPHANDLE_DIVIDE	};
-static struct op ops_intdiv		= {34, OPGROUP_DYADIC, OPHANDLE_INTDIV	};
-static struct op ops_modulo		= {34, OPGROUP_DYADIC, OPHANDLE_MODULO	};
+static struct op ops_multiply		= {34, OPGROUP_DYADIC, OPID_MULTIPLY	};
+static struct op ops_divide		= {34, OPGROUP_DYADIC, OPID_DIVIDE	};
+static struct op ops_intdiv		= {34, OPGROUP_DYADIC, OPID_INTDIV	};
+static struct op ops_modulo		= {34, OPGROUP_DYADIC, OPID_MODULO	};
 	// highest "real" priorities
-static struct op ops_negate		= {36, OPGROUP_MONADIC, OPHANDLE_NEGATE	};
-static struct op ops_powerof		= {37, OPGROUP_DYADIC, OPHANDLE_POWEROF	};	// right-associative!
-static struct op ops_not		= {38, OPGROUP_MONADIC, OPHANDLE_NOT	};
-//static struct op ops_atindex		= {40, OPGROUP_DYADIC, OPHANDLE_	};
+static struct op ops_negate		= {36, OPGROUP_MONADIC, OPID_NEGATE	};
+static struct op ops_powerof		= {37, OPGROUP_DYADIC, OPID_POWEROF	};	// right-associative!
+static struct op ops_not		= {38, OPGROUP_MONADIC, OPID_NOT	};
+//static struct op ops_atindex		= {40, OPGROUP_DYADIC, OPID_	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
 	// "sin(3 + 4) DYADIC_OPERATOR 5" becomes "sin 7 DYADIC_OPERATOR 5",
 	// so function calls' priority must be higher than all dyadic operators.
-static struct op ops_addr		= {42, OPGROUP_MONADIC, OPHANDLE_ADDR	};
-static struct op ops_int		= {42, OPGROUP_MONADIC, OPHANDLE_INT	};
-static struct op ops_float		= {42, OPGROUP_MONADIC, OPHANDLE_FLOAT	};
-static struct op ops_sin		= {42, OPGROUP_MONADIC, OPHANDLE_SIN	};
-static struct op ops_cos		= {42, OPGROUP_MONADIC, OPHANDLE_COS	};
-static struct op ops_tan		= {42, OPGROUP_MONADIC, OPHANDLE_TAN	};
-static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPHANDLE_ARCSIN	};
-static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPHANDLE_ARCCOS	};
-static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPHANDLE_ARCTAN	};
-//static struct op ops_len		= {42, OPGROUP_MONADIC, OPHANDLE_	};
+static struct op ops_addr		= {42, OPGROUP_MONADIC, OPID_ADDRESS	};
+static struct op ops_int		= {42, OPGROUP_MONADIC, OPID_INT	};
+static struct op ops_float		= {42, OPGROUP_MONADIC, OPID_FLOAT	};
+static struct op ops_sin		= {42, OPGROUP_MONADIC, OPID_SIN	};
+static struct op ops_cos		= {42, OPGROUP_MONADIC, OPID_COS	};
+static struct op ops_tan		= {42, OPGROUP_MONADIC, OPID_TAN	};
+static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN	};
+static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS	};
+static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN	};
+//static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_	};
 
 
 // variables
@@ -994,57 +994,57 @@ static void int_handle_monadic_operator(struct object *self, struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
-	switch (op->handle) {
-	case OPHANDLE_ADDR:
+	switch (op->id) {
+	case OPID_ADDRESS:
 		refs = 1;	// result now is an address
 		break;
-	case OPHANDLE_INT:
+	case OPID_INT:
 		break;
-	case OPHANDLE_FLOAT:
+	case OPID_FLOAT:
 		int_to_float(self);
 		break;
-	case OPHANDLE_SIN:
-	case OPHANDLE_COS:
-	case OPHANDLE_TAN:
-	case OPHANDLE_ARCSIN:
-	case OPHANDLE_ARCCOS:
-	case OPHANDLE_ARCTAN:
+	case OPID_SIN:
+	case OPID_COS:
+	case OPID_TAN:
+	case OPID_ARCSIN:
+	case OPID_ARCCOS:
+	case OPID_ARCTAN:
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
 		type_float.handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		return;	// float handler has done everything
 
-	case OPHANDLE_NOT:
+	case OPID_NOT:
 		self->u.number.val.intval = ~(self->u.number.val.intval);
 		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		refs = -(self->u.number.addr_refs);	// negate address ref count
 		break;
-	case OPHANDLE_NEGATE:
+	case OPID_NEGATE:
 		self->u.number.val.intval = -(self->u.number.val.intval);
 		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		refs = -(self->u.number.addr_refs);	// negate address ref count as well
 		break;
-	case OPHANDLE_LOWBYTEOF:
+	case OPID_LOWBYTEOF:
 		self->u.number.val.intval = (self->u.number.val.intval) & 255;
 		self->u.number.flags |= NUMBER_FITS_BYTE;
 		self->u.number.flags &= ~NUMBER_FORCEBITS;
 		break;
-	case OPHANDLE_HIGHBYTEOF:
+	case OPID_HIGHBYTEOF:
 		self->u.number.val.intval = ((self->u.number.val.intval) >> 8) & 255;
 		self->u.number.flags |= NUMBER_FITS_BYTE;
 		self->u.number.flags &= ~NUMBER_FORCEBITS;
 		break;
-	case OPHANDLE_BANKBYTEOF:
+	case OPID_BANKBYTEOF:
 		self->u.number.val.intval = ((self->u.number.val.intval) >> 16) & 255;
 		self->u.number.flags |= NUMBER_FITS_BYTE;
 		self->u.number.flags &= ~NUMBER_FORCEBITS;
 		break;
 // add new monadic operators here
-//	case OPHANDLE_:
+//	case OPID_:
 //		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleIM", op->handle);
+		Bug_found("IllegalOperatorIdIM", op->id);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1069,53 +1069,53 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
-	switch (op->handle) {
-	case OPHANDLE_ADDR:
+	switch (op->id) {
+	case OPID_ADDRESS:
 		refs = 1;	// result now is an address
 		break;
-	case OPHANDLE_INT:
+	case OPID_INT:
 		float_to_int(self);
 		break;
-	case OPHANDLE_FLOAT:
+	case OPID_FLOAT:
 		break;
-	case OPHANDLE_SIN:
+	case OPID_SIN:
 		self->u.number.val.fpval = sin(self->u.number.val.fpval);
 		break;
-	case OPHANDLE_COS:
+	case OPID_COS:
 		self->u.number.val.fpval = cos(self->u.number.val.fpval);
 		break;
-	case OPHANDLE_TAN:
+	case OPID_TAN:
 		self->u.number.val.fpval = tan(self->u.number.val.fpval);
 		break;
-	case OPHANDLE_ARCSIN:
+	case OPID_ARCSIN:
 		float_ranged_fn(asin, self);
 		break;
-	case OPHANDLE_ARCCOS:
+	case OPID_ARCCOS:
 		float_ranged_fn(acos, self);
 		break;
-	case OPHANDLE_ARCTAN:
+	case OPID_ARCTAN:
 		self->u.number.val.fpval = atan(self->u.number.val.fpval);
 		break;
-	case OPHANDLE_NEGATE:
+	case OPID_NEGATE:
 		self->u.number.val.fpval = -(self->u.number.val.fpval);
 		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		refs = -(self->u.number.addr_refs);	// negate address ref count as well
 		break;
-	case OPHANDLE_NOT:
-	case OPHANDLE_LOWBYTEOF:
-	case OPHANDLE_HIGHBYTEOF:
-	case OPHANDLE_BANKBYTEOF:
+	case OPID_NOT:
+	case OPID_LOWBYTEOF:
+	case OPID_HIGHBYTEOF:
+	case OPID_BANKBYTEOF:
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
 		type_int.handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
 // add new monadic operators here
-//	case OPHANDLE_:
+//	case OPID_:
 //		Throw_error("'float' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleFM", op->handle);
+		Bug_found("IllegalOperatorIdFM", op->id);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1152,41 +1152,41 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		// ok
 	} else if (other->type == &type_float) {
 		// handle according to operation
-		switch (op->handle) {
-		case OPHANDLE_POWEROF:
-		case OPHANDLE_MULTIPLY:
-		case OPHANDLE_DIVIDE:
-		case OPHANDLE_INTDIV:
-		case OPHANDLE_ADD:
-		case OPHANDLE_SUBTRACT:
-		case OPHANDLE_EQUALS:
-		case OPHANDLE_LE:
-		case OPHANDLE_LESSTHAN:
-		case OPHANDLE_GE:
-		case OPHANDLE_GREATERTHAN:
-		case OPHANDLE_NOTEQUAL:
+		switch (op->id) {
+		case OPID_POWEROF:
+		case OPID_MULTIPLY:
+		case OPID_DIVIDE:
+		case OPID_INTDIV:
+		case OPID_ADD:
+		case OPID_SUBTRACT:
+		case OPID_EQUALS:
+		case OPID_LE:
+		case OPID_LESSTHAN:
+		case OPID_GE:
+		case OPID_GREATERTHAN:
+		case OPID_NOTEQUAL:
 			// become float, delegate to float handler
 			int_to_float(self);
 			type_float.handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
 			return;	// float handler has done everything
 
-		case OPHANDLE_MODULO:
-		case OPHANDLE_SL:
-		case OPHANDLE_ASR:
+		case OPID_MODULO:
+		case OPID_SL:
+		case OPID_ASR:
 			// convert other to int
 			float_to_int(other);
 			break;
-		case OPHANDLE_LSR:
-		case OPHANDLE_AND:
-		case OPHANDLE_OR:
-		case OPHANDLE_EOR:
-		case OPHANDLE_XOR:
+		case OPID_LSR:
+		case OPID_AND:
+		case OPID_OR:
+		case OPID_EOR:
+		case OPID_XOR:
 			// convert other to int, warning user
 			float_to_int(other);
 			warn_float_to_int();
 			break;
 // add new dyadic operators here:
-//		case OPHANDLE_:
+//		case OPID_:
 //			break;
 		default:
 			unsupported_dyadic(self, op, other);
@@ -1202,11 +1202,11 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 	// maybe put this into an extra "int_dyadic_int" function?
 	// sanity check, now "other" must be an int
 	if (other->type != &type_int)
-		Bug_found("SecondArgIsNotAnInt", op->handle);	// FIXME - rename? then add to docs!
+		Bug_found("SecondArgIsNotAnInt", op->id);	// FIXME - rename? then add to docs!
 
 	// part 2: now we got rid of floats, perform actual operation:
-	switch (op->handle) {
-	case OPHANDLE_POWEROF:
+	switch (op->id) {
+	case OPID_POWEROF:
 		if (other->u.number.val.intval >= 0) {
 			self->u.number.val.intval = my_pow(self->u.number.val.intval, other->u.number.val.intval);
 		} else {
@@ -1215,18 +1215,18 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 			self->u.number.val.intval = 0;
 		}
 		break;
-	case OPHANDLE_MULTIPLY:
+	case OPID_MULTIPLY:
 		self->u.number.val.intval *= other->u.number.val.intval;
 		break;
-	case OPHANDLE_DIVIDE:
-	case OPHANDLE_INTDIV:
+	case OPID_DIVIDE:
+	case OPID_INTDIV:
 		if (other->u.number.val.intval) {
 			self->u.number.val.intval /= other->u.number.val.intval;
 			break;
 		}
 		// "division by zero" output is below
 		/*FALLTHROUGH*/
-	case OPHANDLE_MODULO:
+	case OPID_MODULO:
 		if (other->u.number.val.intval) {
 			self->u.number.val.intval %= other->u.number.val.intval;
 		} else {
@@ -1235,62 +1235,62 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 			self->u.number.val.intval = 0;
 		}
 		break;
-	case OPHANDLE_ADD:
+	case OPID_ADD:
 		self->u.number.val.intval += other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
-	case OPHANDLE_SUBTRACT:
+	case OPID_SUBTRACT:
 		self->u.number.val.intval -= other->u.number.val.intval;
 		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
 		break;
-	case OPHANDLE_SL:
+	case OPID_SL:
 		self->u.number.val.intval <<= other->u.number.val.intval;
 		break;
-	case OPHANDLE_ASR:
+	case OPID_ASR:
 		self->u.number.val.intval = my_asr(self->u.number.val.intval, other->u.number.val.intval);
 		break;
-	case OPHANDLE_LSR:
+	case OPID_LSR:
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
-	case OPHANDLE_LE:
+	case OPID_LE:
 		self->u.number.val.intval = (self->u.number.val.intval <= other->u.number.val.intval);
 		break;
-	case OPHANDLE_LESSTHAN:
+	case OPID_LESSTHAN:
 		self->u.number.val.intval = (self->u.number.val.intval < other->u.number.val.intval);
 		break;
-	case OPHANDLE_GE:
+	case OPID_GE:
 		self->u.number.val.intval = (self->u.number.val.intval >= other->u.number.val.intval);
 		break;
-	case OPHANDLE_GREATERTHAN:
+	case OPID_GREATERTHAN:
 		self->u.number.val.intval = (self->u.number.val.intval > other->u.number.val.intval);
 		break;
-	case OPHANDLE_NOTEQUAL:
+	case OPID_NOTEQUAL:
 		self->u.number.val.intval = (self->u.number.val.intval != other->u.number.val.intval);
 		break;
-	case OPHANDLE_EQUALS:
+	case OPID_EQUALS:
 		self->u.number.val.intval = (self->u.number.val.intval == other->u.number.val.intval);
 		break;
-	case OPHANDLE_AND:
+	case OPID_AND:
 		self->u.number.val.intval &= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
-	case OPHANDLE_OR:
+	case OPID_OR:
 		self->u.number.val.intval |= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
-	case OPHANDLE_EOR:
+	case OPID_EOR:
 		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
 		/*FALLTHROUGH*/
-	case OPHANDLE_XOR:
+	case OPID_XOR:
 		self->u.number.val.intval ^= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
 // add new dyadic operators here
-//	case OPHANDLE_:
+//	case OPID_:
 //		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleID", op->handle);
+		Bug_found("IllegalOperatorIdID", op->id);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1307,36 +1307,36 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		// ok
 	} else if (other->type == &type_int) {
 		// handle according to operation
-		switch (op->handle) {
+		switch (op->id) {
 		// these want two floats
-		case OPHANDLE_POWEROF:
-		case OPHANDLE_MULTIPLY:
-		case OPHANDLE_DIVIDE:
-		case OPHANDLE_INTDIV:
-		case OPHANDLE_ADD:
-		case OPHANDLE_SUBTRACT:
-		case OPHANDLE_LE:
-		case OPHANDLE_LESSTHAN:
-		case OPHANDLE_GE:
-		case OPHANDLE_GREATERTHAN:
-		case OPHANDLE_NOTEQUAL:
-		case OPHANDLE_EQUALS:
+		case OPID_POWEROF:
+		case OPID_MULTIPLY:
+		case OPID_DIVIDE:
+		case OPID_INTDIV:
+		case OPID_ADD:
+		case OPID_SUBTRACT:
+		case OPID_LE:
+		case OPID_LESSTHAN:
+		case OPID_GE:
+		case OPID_GREATERTHAN:
+		case OPID_NOTEQUAL:
+		case OPID_EQUALS:
 			// convert other to float
 			int_to_float(other);
 			break;
 		// these jump to int handler anyway
-		case OPHANDLE_MODULO:
-		case OPHANDLE_LSR:
-		case OPHANDLE_AND:
-		case OPHANDLE_OR:
-		case OPHANDLE_EOR:
-		case OPHANDLE_XOR:
+		case OPID_MODULO:
+		case OPID_LSR:
+		case OPID_AND:
+		case OPID_OR:
+		case OPID_EOR:
+		case OPID_XOR:
 		// these actually want a float and an int
-		case OPHANDLE_SL:
-		case OPHANDLE_ASR:
+		case OPID_SL:
+		case OPID_ASR:
 			break;
 // add new dyadic operators here
-//		case OPHANDLE_:
+//		case OPID_:
 //			break;
 		default:
 			unsupported_dyadic(self, op, other);
@@ -1350,14 +1350,14 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		return;
 	}
 
-	switch (op->handle) {
-	case OPHANDLE_POWEROF:
+	switch (op->id) {
+	case OPID_POWEROF:
 		self->u.number.val.fpval = pow(self->u.number.val.fpval, other->u.number.val.fpval);
 		break;
-	case OPHANDLE_MULTIPLY:
+	case OPID_MULTIPLY:
 		self->u.number.val.fpval *= other->u.number.val.fpval;
 		break;
-	case OPHANDLE_DIVIDE:
+	case OPID_DIVIDE:
 		if (other->u.number.val.fpval) {
 			self->u.number.val.fpval /= other->u.number.val.fpval;
 		} else {
@@ -1366,7 +1366,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 			self->u.number.val.fpval = 0;
 		}
 		break;
-	case OPHANDLE_INTDIV:
+	case OPID_INTDIV:
 		if (other->u.number.val.fpval) {
 			self->u.number.val.intval = self->u.number.val.fpval / other->u.number.val.fpval;	// fp becomes int!
 		} else {
@@ -1376,67 +1376,67 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		}
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_LSR:
-	case OPHANDLE_AND:
-	case OPHANDLE_OR:
-	case OPHANDLE_EOR:
-	case OPHANDLE_XOR:
+	case OPID_LSR:
+	case OPID_AND:
+	case OPID_OR:
+	case OPID_EOR:
+	case OPID_XOR:
 		warn_float_to_int();
 		/*FALLTHROUGH*/
-	case OPHANDLE_MODULO:
+	case OPID_MODULO:
 		float_to_int(self);
 		// int handler will check other and, if needed, convert to int
 		type_int.handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
-	case OPHANDLE_ADD:
+	case OPID_ADD:
 		self->u.number.val.fpval += other->u.number.val.fpval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
-	case OPHANDLE_SUBTRACT:
+	case OPID_SUBTRACT:
 		self->u.number.val.fpval -= other->u.number.val.fpval;
 		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
 		break;
-	case OPHANDLE_SL:
+	case OPID_SL:
 		if (other->type == &type_float)
 			float_to_int(other);
 		self->u.number.val.fpval *= pow(2.0, other->u.number.val.intval);
 		break;
-	case OPHANDLE_ASR:
+	case OPID_ASR:
 		if (other->type == &type_float)
 			float_to_int(other);
 		self->u.number.val.fpval /= (1 << other->u.number.val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
-	case OPHANDLE_LE:
+	case OPID_LE:
 		self->u.number.val.intval = (self->u.number.val.fpval <= other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_LESSTHAN:
+	case OPID_LESSTHAN:
 		self->u.number.val.intval = (self->u.number.val.fpval < other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_GE:
+	case OPID_GE:
 		self->u.number.val.intval = (self->u.number.val.fpval >= other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_GREATERTHAN:
+	case OPID_GREATERTHAN:
 		self->u.number.val.intval = (self->u.number.val.fpval > other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_NOTEQUAL:
+	case OPID_NOTEQUAL:
 		self->u.number.val.intval = (self->u.number.val.fpval != other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
-	case OPHANDLE_EQUALS:
+	case OPID_EQUALS:
 		self->u.number.val.intval = (self->u.number.val.fpval == other->u.number.val.fpval);
 		self->type = &type_int;	// result is int
 		break;
 // add new dyadic operators here
-//	case OPHANDLE_:
+//	case OPID_:
 //		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorHandleFD", op->handle);
+		Bug_found("IllegalOperatorIdFD", op->id);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1542,10 +1542,10 @@ struct type	type_list	= {
 
 // handler for special operators like parentheses and start/end of expression:
 // returns whether caller should just return without fixing stack (because this fn has fixed it)
-static boolean handle_special_operator(struct expression *expression, enum op_handle previous, enum op_handle current)
+static boolean handle_special_operator(struct expression *expression, enum op_id previous, enum op_id current)
 {
 	switch (previous) {
-	case OPHANDLE_START_OF_EXPR:
+	case OPID_START_EXPRESSION:
 		// the only operator with a lower priority than this
 		// "start-of-expression" operator is "end-of-expression",
 		// therefore we know we are done.
@@ -1553,15 +1553,15 @@ static boolean handle_special_operator(struct expression *expression, enum op_ha
 		--op_sp;	// decrement operator stack pointer
 		alu_state = STATE_END;	// done
 		break;
-	case OPHANDLE_OPENING:
+	case OPID_OPENING:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this.
 		// check current operator
 		switch (current) {
-		case OPHANDLE_CLOSING:	// matching parentheses
+		case OPID_CLOSING:	// matching parentheses
 			op_sp -= 2;	// remove both of them
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			break;
-		case OPHANDLE_END_OF_EXPR:	// unmatched parenthesis
+		case OPID_END_EXPRESSION:	// unmatched parenthesis
 			++(expression->open_parentheses);	// count
 			return FALSE;	// caller can remove operator from stack
 	
@@ -1569,12 +1569,12 @@ static boolean handle_special_operator(struct expression *expression, enum op_ha
 			Bug_found("StrangeParenthesis", current);
 		}
 		break;
-	case OPHANDLE_CLOSING:
+	case OPID_CLOSING:
 		Throw_error("Too many ')'.");
 		alu_state = STATE_ERROR;
 		break;
 	default:
-		Bug_found("IllegalOperatorHandleS", previous);
+		Bug_found("IllegalOperatorIdS", previous);
 	}
 	return TRUE;	// stack is done, so caller shouldn't touch it
 }
@@ -1629,13 +1629,13 @@ static void try_to_reduce_stacks(struct expression *expression)
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_SPECIAL:	// special (pseudo) operators
-		if (handle_special_operator(expression, previous_op->handle, current_op->handle))
+		if (handle_special_operator(expression, previous_op->id, current_op->id))
 			return;	// called fn has fixed the stack, so we return and don't touch it
 
 		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
 		break;
 	default:
-		Bug_found("IllegalOperatorHandle", previous_op->group);	// FIXME - change to IllegalOperatorGroup!
+		Bug_found("IllegalOperatorGroup", previous_op->group);	// FIXME - add to docs!
 	}
 // shared endings for "we did the operation indicated by previous operator":
 	// fix stack:
