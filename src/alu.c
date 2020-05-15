@@ -109,8 +109,7 @@ static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"en
 static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
 static struct op ops_closing		= {4, OPGROUP_SPECIAL,	OPID_CLOSING,		"right parenthesis"	};
 static struct op ops_opening		= {6, OPGROUP_SPECIAL,	OPID_OPENING,		"left parenthesis"	};
-//static struct op ops_closeindex		= {8, OPGROUP_SPECIAL,	OPID_CLOSEINDEX,	"right bracket"	};
-//static struct op ops_openindex		= {10, OPGROUP_SPECIAL,	OPID_OPENINDEX,		"left bracket"	};
+//static struct op ops_openindex		= {10, OPGROUP_SPECIAL,	OPID_OPENINDEX,		"open index"	};
 static struct op ops_or			= {16, OPGROUP_DYADIC,	OPID_OR,	"logical or"	};
 static struct op ops_eor		= {18, OPGROUP_DYADIC,	OPID_EOR,	"exclusive or"	};	// FIXME - remove
 static struct op ops_xor		= {18, OPGROUP_DYADIC,	OPID_XOR,	"exclusive or"	};
@@ -1559,19 +1558,19 @@ struct type	type_list	= {
 
 
 // handler for special operators like parentheses and start/end of expression:
-// returns whether caller should just return without fixing stack (because this fn has fixed it)
+// returns whether caller should remove operator from stack
 static boolean handle_special_operator(struct expression *expression, enum op_id previous, enum op_id current)
 {
-	// when this gets called, "previous" is a special operator, while "current" could be anything with a lower priority
+	// when this gets called, "previous" is a special operator, and "current" has a lower priority, so it is also a special operator
 	switch (previous) {
 	case OPID_START_EXPRESSION:
 		// the only operator with a lower priority than this
 		// "start-of-expression" operator is "end-of-expression",
 		// therefore we know we are done.
 		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
-		--op_sp;	// decrement operator stack pointer
 		alu_state = STATE_END;	// done
-		break;
+		return TRUE;	// caller can remove this operator
+
 	case OPID_OPENING:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
 		// check current operator
@@ -1579,49 +1578,74 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		case OPID_CLOSING:	// matching parentheses
 			op_sp -= 2;	// remove both of them
 			alu_state = STATE_EXPECT_DYADIC_OP;
-			break;
+			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+
 		case OPID_END_EXPRESSION:	// unmatched parenthesis, as in "lda ($80,x)"
 			++(expression->open_parentheses);	// count
-			return FALSE;	// caller can remove operator from stack
-	
+			return TRUE;	// caller can remove "OPID_OPENING" operator from stack
+
 		default:
 			Bug_found("StrangeParenthesis", current);
 		}
-		break;
+		break;	// this is unreachable
 	case OPID_CLOSING:
 		// this op should have been removed upon handling the preceding OPID_OPENING, so it must be an extra:
 		Throw_error("Too many ')'.");
 		alu_state = STATE_ERROR;
-		break;
+		return TRUE;	// caller can remove operator from stack
 /*
 	case OPID_OPENINDEX:
 		// check current operator
 		switch (current) {
-		case OPID_CLOSEINDEX:	// matching brackets
-			op_sp -= 2;	// remove both of them
-			alu_state = STATE_EXPECT_DYADIC_OP;
-			break;
-		case OPID_CLOSING:		// [...)
 		case OPID_END_EXPRESSION:	// [...
+			if (GotByte == ']') {
+				GetByte();	// eat ']'
+				op_sp -= 2;	// remove both OPENINDEX and END_EXPRESSION
+				alu_state = STATE_EXPECT_DYADIC_OP;
+				return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+			}
+*/			/*FALLTHROUGH*/
+/*		case OPID_CLOSING:		// [...)
 			Throw_error("Unmatched '['.");	// FIXME - add to docs!
 			alu_state = STATE_ERROR;
-			break;
-		case OPID_OPENING:		canthappen
-		case OPID_START_EXPRESSION:	canthappen
+			return TRUE;	// caller can remove operator from stack
+
+		case OPID_OPENING:		// cannot happen
+		case OPID_START_EXPRESSION:	// cannot happen
 		default:
 			Bug_found("StrangeBracket", current);
 		}
-		break;
-	case OPID_CLOSEINDEX:
-		// this op should have been removed upon handling the preceding OPID_OPENINDEX, so it must be an extra:
-		Throw_error("Too many ']'.");
-		alu_state = STATE_ERROR;
-		break;
-*/
-	default:
+		break;	// this is unreachable
+	case OPID_LISTBUILDER:
+		// check current operator
+		switch (current) {
+		case OPID_END_EXPRESSION:
+			if (GotByte == ',') {
+				GetByte();	// eat ','
+				list.append(previous_arg, current_arg);
+				decrement arg stack pointer
+				alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+				return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+			}
+			if (GotByte == ']') {
+				GetByte();	// eat ']'
+				list.append(previous_arg, current_arg);
+				decrement arg stack pointer
+				alu_state = STATE_EXPECT_DYADIC_OP;
+				return TRUE;	// caller can remove LISTBUILDER op from stack
+			}
+			Throw_error("Unterminated list");	// FIXME - add to docs!
+			alu_state = STATE_ERROR;
+			return TRUE;	// caller can remove LISTBUILDER operator from stack
+		default:
+			Bug_found("StrangeBracket2", current);
+		}
+		break;	// this is unreachable
+*/	default:
 		Bug_found("IllegalOperatorIdS", previous);
 	}
-	return TRUE;	// stack is done, so caller shouldn't touch it
+	// this is unreachable
+	return FALSE;	// stack is done, so caller shouldn't touch it
 }
 
 
@@ -1675,7 +1699,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_SPECIAL:	// special (pseudo) operators
-		if (handle_special_operator(expression, previous_op->id, current_op->id))
+		if (!handle_special_operator(expression, previous_op->id, current_op->id))
 			return;	// called fn has fixed the stack, so we return and don't touch it
 
 		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
