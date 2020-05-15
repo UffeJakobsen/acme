@@ -868,7 +868,17 @@ static void expect_dyadic_operator(void)
 	case ')':	// closing parenthesis
 		op = &ops_closing;
 		goto get_byte_and_push_dyadic;
-
+/*
+	case '[':	// indexing operator
+		GetByte();	// eat char
+		// two PUSH_OP in a row without checking could overrun the stack, so:
+		PUSH_OP(&ops_atindex);	// first put high-priority dyadic on stack,
+		if (op_sp >= opstack_size)
+			enlarge_operator_stack();
+		PUSH_OP(&ops_openindex);	// then low-priority special ops_openindex
+		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+		return;
+*/
 // Multi-character dyadic operators
 	case '!':	// "!="
 		if (GetByte() == '=') {
