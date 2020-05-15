@@ -161,7 +161,7 @@ static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
 
 
 // variables
-static struct dynabuf	*errormsg_dyna_buf;	// dynamic buffer for "value not defined" error
+static struct dynabuf	*errormsg_dyna_buf;	// dynamic buffer to build variable-length error messages
 static struct dynabuf	*function_dyna_buf;	// dynamic buffer for fn names
 // operator stack, current size and stack pointer:
 static struct op	**op_stack	= NULL;
@@ -201,7 +201,7 @@ static struct ronode	function_list[]	= {
 	PREDEFNODE("address",	&ops_addr),
 	PREDEFNODE("int",	&ops_int),
 	PREDEFNODE("float",	&ops_float),
-//	PREDEFNODE("len",	&ops_len),
+	PREDEFNODE("len",	&ops_len),
 	PREDEFNODE(s_arcsin,	&ops_arcsin),
 	PREDEFNODE(s_arccos,	&ops_arccos),
 	PREDEFNODE(s_arctan,	&ops_arctan),
@@ -957,19 +957,28 @@ push_dyadic_op:
 }
 
 
-// helper function: don't know how to handle that ARG OP combination
-static void unsupported_monadic(struct op *op, struct object *arg)
+// helper function: create and output error message about (argument/)operator/argument combination
+static void unsupported_operation(struct object *optional, struct op *op, struct object *arg)
 {
-	if (op->group != OPGROUP_MONADIC)
-		Bug_found("OperatorIsNotMonadic", op->id);
-	Throw_error("Unsupported combination of monadic operator and argument type");	// FIXME - make dynamic, add text versions of op/arg, add to docs
-}
-// helper function: don't know how to handle that ARG1 OP ARG2 combination
-static void unsupported_dyadic(struct object *self, struct op *op, struct object *other)
-{
-	if (op->group != OPGROUP_DYADIC)
-		Bug_found("OperatorIsNotDyadic", op->id);
-	Throw_error("Unsupported combination of arguments and operator");	// FIXME - make dynamic, add text versions of self/op/other, add to docs
+	if (optional) {
+		if (op->group != OPGROUP_DYADIC)
+			Bug_found("OperatorIsNotDyadic", op->id);	// FIXME - add to docs
+	} else {
+		if (op->group != OPGROUP_MONADIC)
+			Bug_found("OperatorIsNotMonadic", op->id);	// FIXME - add to docs
+	}
+	DYNABUF_CLEAR(errormsg_dyna_buf);
+	DynaBuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");	// FIXME - add to docs
+	DynaBuf_add_string(errormsg_dyna_buf, op->text_version);
+	DynaBuf_add_string(errormsg_dyna_buf, "\" to \"");
+	if (optional) {
+		DynaBuf_add_string(errormsg_dyna_buf, optional->type->name);
+		DynaBuf_add_string(errormsg_dyna_buf, "\" and \"");
+	}
+	DynaBuf_add_string(errormsg_dyna_buf, arg->type->name);
+	DynaBuf_add_string(errormsg_dyna_buf, "\".");
+	DynaBuf_append(errormsg_dyna_buf, '\0');
+	Throw_error(errormsg_dyna_buf->buffer);
 }
 
 
@@ -1061,7 +1070,7 @@ static void int_handle_monadic_operator(struct object *self, struct op *op)
 //	case OPID_:
 //		break;
 	default:
-		unsupported_monadic(op, self);
+		unsupported_operation(NULL, op, self);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1131,7 +1140,7 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 //	case OPID_:
 //		break;
 	default:
-		unsupported_monadic(op, self);
+		unsupported_operation(NULL, op, self);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
@@ -1198,14 +1207,14 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 //		case OPID_:
 //			break;
 		default:
-			unsupported_dyadic(self, op, other);
+			unsupported_operation(self, op, other);
 			return;
 		}
 // add new types here:
 //	} else if (other->type == &type_) {
 //		...
 	} else {
-		unsupported_dyadic(self, op, other);
+		unsupported_operation(self, op, other);
 		return;
 	}
 	// maybe put this into an extra "int_dyadic_int" function?
@@ -1213,7 +1222,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 	if (other->type != &type_int)
 		Bug_found("SecondArgIsNotAnInt", op->id);	// FIXME - rename? then add to docs!
 
-	// part 2: now we got rid of floats, perform actual operation:
+	// part 2: now we got rid of non-ints, perform actual operation:
 	switch (op->id) {
 	case OPID_POWEROF:
 		if (other->u.number.val.intval >= 0) {
@@ -1296,10 +1305,10 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		break;
 // add new dyadic operators here
 //	case OPID_:
-//		Throw_error("'int' type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorIdID", op->id);
+		unsupported_operation(self, op, other);
+		return;
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1348,14 +1357,14 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 //		case OPID_:
 //			break;
 		default:
-			unsupported_dyadic(self, op, other);
+			unsupported_operation(self, op, other);
 			return;
 		}
 // add new types here
 //	} else if (other->type == &type_) {
 //		...
 	} else {
-		unsupported_dyadic(self, op, other);
+		unsupported_operation(self, op, other);
 		return;
 	}
 
@@ -1442,10 +1451,10 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		break;
 // add new dyadic operators here
 //	case OPID_:
-//		Throw_error("var type does not support this operation");
 //		break;
 	default:
-		Bug_found("IllegalOperatorIdFD", op->id);
+		unsupported_operation(self, op, other);
+		return;
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
@@ -1553,6 +1562,7 @@ struct type	type_list	= {
 // returns whether caller should just return without fixing stack (because this fn has fixed it)
 static boolean handle_special_operator(struct expression *expression, enum op_id previous, enum op_id current)
 {
+	// when this gets called, "previous" is a special operator, while "current" could be anything with a lower priority
 	switch (previous) {
 	case OPID_START_EXPRESSION:
 		// the only operator with a lower priority than this
@@ -1563,14 +1573,14 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		alu_state = STATE_END;	// done
 		break;
 	case OPID_OPENING:
-		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this.
+		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
 		// check current operator
 		switch (current) {
 		case OPID_CLOSING:	// matching parentheses
 			op_sp -= 2;	// remove both of them
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			break;
-		case OPID_END_EXPRESSION:	// unmatched parenthesis
+		case OPID_END_EXPRESSION:	// unmatched parenthesis, as in "lda ($80,x)"
 			++(expression->open_parentheses);	// count
 			return FALSE;	// caller can remove operator from stack
 	
@@ -1579,9 +1589,35 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		}
 		break;
 	case OPID_CLOSING:
+		// this op should have been removed upon handling the preceding OPID_OPENING, so it must be an extra:
 		Throw_error("Too many ')'.");
 		alu_state = STATE_ERROR;
 		break;
+/*
+	case OPID_OPENINDEX:
+		// check current operator
+		switch (current) {
+		case OPID_CLOSEINDEX:	// matching brackets
+			op_sp -= 2;	// remove both of them
+			alu_state = STATE_EXPECT_DYADIC_OP;
+			break;
+		case OPID_CLOSING:		// [...)
+		case OPID_END_EXPRESSION:	// [...
+			Throw_error("Unmatched '['.");	// FIXME - add to docs!
+			alu_state = STATE_ERROR;
+			break;
+		case OPID_OPENING:		canthappen
+		case OPID_START_EXPRESSION:	canthappen
+		default:
+			Bug_found("StrangeBracket", current);
+		}
+		break;
+	case OPID_CLOSEINDEX:
+		// this op should have been removed upon handling the preceding OPID_OPENINDEX, so it must be an extra:
+		Throw_error("Too many ']'.");
+		alu_state = STATE_ERROR;
+		break;
+*/
 	default:
 		Bug_found("IllegalOperatorIdS", previous);
 	}
@@ -1597,7 +1633,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 	struct op	*current_op;
 
 	if (op_sp < 2) {
-		// we only have one operator, which must be "start of expression"
+		// we only have one operator, which must be "start of expression",
+		// so there isn't anything left to do, so go on trying to parse the expression
 		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}
