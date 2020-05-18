@@ -478,9 +478,11 @@ static const char *long_option(const char *string)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
 		config.segment_warning_is_error = TRUE;
-	else if (strcmp(string, OPTION_TEST) == 0)
+	else if (strcmp(string, OPTION_TEST) == 0) {
+		if (config.test_new_features)
+			config.backslash_escaping = TRUE;
 		config.test_new_features = TRUE;
-	PLATFORM_LONGOPTION_CODE
+	} PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
 		config.format_color = TRUE;
 	else if (strcmp(string, OPTION_VERSION) == 0)

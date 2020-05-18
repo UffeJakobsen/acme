@@ -29,16 +29,31 @@ struct number {
 	} val;
 	int	addr_refs;	// address reference count (only look at this if value is DEFINED)
 };
-// structure for ints/floats/TODO...
+// structure for ints/floats/lists/strings (TODO)
 struct type;
+struct string;
+struct listitem;
 struct object {
 	struct type	*type;
 	union {
 		struct number	number;
+		struct string	*string;
+		struct listitem	*listhead;
 		// TODO - add string struct
 	} u;
 };
-
+struct string {
+	int 	length;
+	int 	refs;
+	char	payload[1];	// real structs are malloc'd to correct size
+};
+struct listitem {
+	struct listitem	*next;
+	struct listitem	*prev;
+	int		length;	// only used if item is list head (head itself is not included in length)
+	int		refs;	// only used if item is list head
+	struct object	payload;
+};
 
 // debugging flag, should be undefined in release version
 // #define FDEBUG

@@ -75,6 +75,7 @@ struct config {
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
+	boolean		backslash_escaping;	// FALSE, enabled by --test --test
 };
 extern struct config	config;
 

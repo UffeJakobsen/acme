@@ -327,7 +327,13 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 {
 	SKIPSPACE();
 	if (GotByte) {
-		Throw_error("Garbage data at end of statement.");
+		char	buf[80];	// actually needed are 51
+		char	quote	= '\'';
+
+		if (GotByte == '\'')
+			quote = '"';
+		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);	// FIXME - change in docs!
+		Throw_error(buf);
 		Input_skip_remainder();
 	}
 }
