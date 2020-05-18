@@ -379,6 +379,8 @@ static void parse_quoted_character(char closing_quote)
 {
 	intval_t	value;
 
+	// FIXME - this will fail with backslash escaping!
+
 	// read character to parse - make sure not at end of statement
 	if (GetQuotedByte() == CHAR_EOS)
 		return;

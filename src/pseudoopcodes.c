@@ -374,6 +374,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 		if (GotByte == '"') {
 			// read initial character
 			GetQuotedByte();
+			// FIXME - this will fail with backslash escaping!
 			// send characters until closing quote is reached
 			while (GotByte && (GotByte != '"')) {
 				output_8(xor ^ encoding_encode_char(GotByte));
@@ -1201,6 +1202,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 		if (GotByte == '"') {
 			// parse string
 			GetQuotedByte();	// read initial character
+			// FIXME - this will fail with backslash escaping!
 			// send characters until closing quote is reached
 			while (GotByte && (GotByte != '"')) {
 				DYNABUF_APPEND(user_message, GotByte);

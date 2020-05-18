@@ -256,7 +256,7 @@ char GetByte(void)
 		// necessary, because in RAM the source already has
 		// high-level format
 		// Otherwise, the source is a file. This means we will call
-		// GetFormatted() which will do a shit load of conversions.
+		// get_processed_from_file() which will do a shit load of conversions.
 		switch (Input_now->source) {
 		case INPUTSRC_RAM:
 			GotByte = *(Input_now->src.ram_ptr++);
@@ -379,7 +379,8 @@ char *Input_skip_or_store_block(boolean store)
 				// if wanted, store
 				if (store)
 					DYNABUF_APPEND(GlobalDynaBuf, GotByte);
-			} while ((GotByte != CHAR_EOS) && (GotByte != byte));
+				// it's not enough to check the previous char for backslash, because it might be an escaped backslash...
+			} while ((GotByte != CHAR_EOS) && (GotByte != byte));	// FIXME - this would fail with backslash escaping!
 			break;
 		case CHAR_SOB:
 			++depth;
@@ -418,7 +419,7 @@ void Input_until_terminator(char terminator)
 				// Okay, read quoted stuff.
 				GetQuotedByte();	// throws error on EOS
 				DYNABUF_APPEND(GlobalDynaBuf, GotByte);
-			} while ((GotByte != CHAR_EOS) && (GotByte != byte));
+			} while ((GotByte != CHAR_EOS) && (GotByte != byte));	// FIXME - this would fail with backslash escaping!
 			// on error, exit now, before calling GetByte()
 			if (GotByte != byte)
 				return;
@@ -550,6 +551,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		return TRUE;
 	}
 
+	// FIXME - this will fail with backslash escaping!
 	// read characters until closing quote (or EOS) is reached
 	// append platform-converted characters to current string
 	while ((GotByte != CHAR_EOS) && (GotByte != end_quote)) {
@@ -579,6 +581,7 @@ int Input_accept_comma(void)
 }
 
 // read optional info about parameter length
+// FIXME - move to different file!
 int Input_get_force_bit(void)
 {
 	char	byte;
