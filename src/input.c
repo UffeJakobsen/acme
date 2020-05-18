@@ -28,7 +28,7 @@ const char	FILE_READBINARY[]	= "rb";
 static struct input	outermost	= {
 	"<none>",	// file name
 	0,		// line number
-	FALSE,		// Faked file access, so no RAM read
+	INPUTSRC_FILE,	// fake file access, so no RAM read
 	INPUTSTATE_EOF,	// state of input
 	{
 		NULL	// RAM read pointer or file handle
