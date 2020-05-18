@@ -47,7 +47,7 @@ void Input_new_file(const char *filename, FILE *fd)
 {
 	Input_now->original_filename	= filename;
 	Input_now->line_number		= 1;
-	Input_now->source_is_ram	= FALSE;
+	Input_now->source		= INPUTSRC_FILE;
 	Input_now->state		= INPUTSTATE_NORMAL;
 	Input_now->src.fd		= fd;
 }
@@ -257,10 +257,16 @@ char GetByte(void)
 		// high-level format
 		// Otherwise, the source is a file. This means we will call
 		// GetFormatted() which will do a shit load of conversions.
-		if (Input_now->source_is_ram)
+		switch (Input_now->source) {
+		case INPUTSRC_RAM:
 			GotByte = *(Input_now->src.ram_ptr++);
-		else
+			break;
+		case INPUTSRC_FILE:
 			GotByte = get_processed_from_file();
+			break;
+		default:
+			Bug_found("InvalidInputSrc", Input_now->source);	// FIXME - add to docs
+		}
 //		// if start-of-line was read, increment line counter and repeat
 //		if (GotByte != CHAR_SOL)
 //			return GotByte;
@@ -278,12 +284,13 @@ char GetQuotedByte(void)
 {
 	int	from_file;	// must be an int to catch EOF
 
-	// if byte source is RAM, then no conversion is necessary,
-	// because in RAM the source already has high-level format
-	if (Input_now->source_is_ram) {
+	switch (Input_now->source) {
+	case INPUTSRC_RAM:
+		// if byte source is RAM, then no conversion is necessary,
+		// because in RAM the source already has high-level format
 		GotByte = *(Input_now->src.ram_ptr++);
-	// Otherwise, the source is a file.
-	} else {
+		break;
+	case INPUTSRC_FILE:
 		// fetch a fresh byte from the current source file
 		from_file = getc(Input_now->src.fd);
 		IF_WANTED_REPORT_SRCCHAR(from_file);
@@ -306,7 +313,9 @@ char GetQuotedByte(void)
 		default:
 			GotByte = from_file;
 		}
-
+		break;
+	default:
+		Bug_found("InvalidInputSrc", Input_now->source);	// FIXME - add to docs!
 	}
 	// now check for end of statement
 	if (GotByte == CHAR_EOS)

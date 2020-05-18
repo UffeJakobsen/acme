@@ -25,10 +25,14 @@ enum inputstate {
 	INPUTSTATE_EOB,		// send end-of-block after end-of-statement
 	INPUTSTATE_EOF,		// send end-of-file after end-of-statement
 };
+enum inputsrc {
+	INPUTSRC_FILE,
+	INPUTSRC_RAM
+};
 struct input {
 	const char	*original_filename;	// during RAM reads, too
 	int		line_number;	// in file (on RAM reads, too)
-	boolean		source_is_ram;	// TRUE if RAM, FALSE if file	(TODO - change to enum)
+	enum inputsrc	source;
 	enum inputstate	state;	// state of input
 	union {
 		FILE	*fd;		// file descriptor

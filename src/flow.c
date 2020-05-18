@@ -48,7 +48,7 @@ void flow_forloop(struct for_loop *loop)
 	// switching input makes us lose GotByte. But we know it's '}' anyway!
 	// set up new input
 	loop_input = *Input_now;	// copy current input structure into new
-	loop_input.source_is_ram = TRUE;	// set new byte source
+	loop_input.source = INPUTSRC_RAM;	// set new byte source
 	// remember old input
 	outer_input = Input_now;
 	// activate new input
@@ -163,7 +163,7 @@ void flow_do_while(struct do_while *loop)
 
 	// set up new input
 	loop_input = *Input_now;	// copy current input structure into new
-	loop_input.source_is_ram = TRUE;	// set new byte source
+	loop_input.source = INPUTSRC_RAM;	// set new byte source
 	// remember old input
 	outer_input = Input_now;
 	// activate new input (not useable yet, as pointer and

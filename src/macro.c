@@ -294,7 +294,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 		// set up new input
 		new_input.original_filename = actual_macro->def_filename;
 		new_input.line_number = actual_macro->def_line_number;
-		new_input.source_is_ram = TRUE;
+		new_input.source = INPUTSRC_RAM;
 		new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 		new_input.src.ram_ptr = actual_macro->parameter_list;
 		// remember old input
