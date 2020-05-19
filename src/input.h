@@ -72,10 +72,19 @@ extern void Input_skip_remainder(void);
 // Ensure that the remainder of the current statement is empty, for example
 // after mnemonics using implied addressing.
 extern void Input_ensure_EOS(void);
+
+// read string to dynabuf until closing quote is found
+// returns 1 on errors (unterminated, escaping error)
+extern int Input_quoted_to_dynabuf(char closing_quote);
+
+// process backslash escapes in GlobalDynaBuf (so size might shrink)
+// returns 1 on errors (escaping errors)
+extern int Input_unescape_dynabuf(void);
+
 // Skip or store block (starting with next byte, so call directly after
 // reading opening brace).
-// If "Store" is TRUE, the block is read into GlobalDynaBuf, then a copy
-// is made and a pointer to that is returned.
+// the block is read into GlobalDynaBuf.
+// If "Store" is TRUE, then a copy is made and a pointer to that is returned.
 // If "Store" is FALSE, NULL is returned.
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.

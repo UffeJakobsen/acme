@@ -347,10 +347,38 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 	}
 }
 
+// read string to dynabuf until closing quote is found
+// returns 1 on errors (unterminated, escaping error)
+int Input_quoted_to_dynabuf(char closing_quote)
+{
+	//DYNABUF_CLEAR(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
+	for (;;) {
+		GetQuotedByte();
+// FIXME - this will fail with backslash escaping!
+// it's not enough to check the previous char for backslash, because it might be an escaped backslash...
+		if (GotByte == closing_quote)
+			return 0;	// ok
+
+		if (GotByte == CHAR_EOS)
+			return 1;	// unterminated string constant (GetQuotedByte will have complained already)
+
+		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
+	}
+}
+
+// process backslash escapes in GlobalDynaBuf (so size might shrink)
+// returns 1 on errors (escaping errors)
+int Input_unescape_dynabuf(void)
+{
+	// FIXME - implement backslash escaping!
+	// TODO - shorten GlobalDynaBuf->size accordingly
+	return 0;
+}
+
 // Skip or store block (starting with next byte, so call directly after
 // reading opening brace).
-// If "Store" is TRUE, the block is read into GlobalDynaBuf, then a copy
-// is made and a pointer to that is returned.
+// the block is read into GlobalDynaBuf.
+// If "Store" is TRUE, then a copy is made and a pointer to that is returned.
 // If "Store" is FALSE, NULL is returned.
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
@@ -364,9 +392,8 @@ char *Input_skip_or_store_block(boolean store)
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	do {
 		byte = GetByte();
-		// if wanted, store
-		if (store)
-			DYNABUF_APPEND(GlobalDynaBuf, byte);
+		// store
+		DYNABUF_APPEND(GlobalDynaBuf, byte);
 		// now check for some special characters
 		switch (byte) {
 		case CHAR_EOF:	// End-of-file in block? Sorry, no way.
@@ -374,13 +401,8 @@ char *Input_skip_or_store_block(boolean store)
 
 		case '"':	// Quotes? Okay, read quoted stuff.
 		case '\'':
-			do {
-				GetQuotedByte();
-				// if wanted, store
-				if (store)
-					DYNABUF_APPEND(GlobalDynaBuf, GotByte);
-				// it's not enough to check the previous char for backslash, because it might be an escaped backslash...
-			} while ((GotByte != CHAR_EOS) && (GotByte != byte));	// FIXME - this would fail with backslash escaping!
+			Input_quoted_to_dynabuf(byte);
+			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add closing quote
 			break;
 		case CHAR_SOB:
 			++depth;
@@ -419,7 +441,8 @@ void Input_until_terminator(char terminator)
 				// Okay, read quoted stuff.
 				GetQuotedByte();	// throws error on EOS
 				DYNABUF_APPEND(GlobalDynaBuf, GotByte);
-			} while ((GotByte != CHAR_EOS) && (GotByte != byte));	// FIXME - this would fail with backslash escaping!
+// FIXME - this would fail with backslash escaping!
+			} while ((GotByte != CHAR_EOS) && (GotByte != byte));
 			// on error, exit now, before calling GetByte()
 			if (GotByte != byte)
 				return;
@@ -551,7 +574,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		return TRUE;
 	}
 
-	// FIXME - this will fail with backslash escaping!
+// FIXME - this will fail with backslash escaping!
 	// read characters until closing quote (or EOS) is reached
 	// append platform-converted characters to current string
 	while ((GotByte != CHAR_EOS) && (GotByte != end_quote)) {

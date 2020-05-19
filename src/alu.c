@@ -379,35 +379,35 @@ static void parse_quoted_character(char closing_quote)
 {
 	intval_t	value;
 
-	// FIXME - this will fail with backslash escaping!
+// this can be used later on for real strings as well {
+	DYNABUF_CLEAR(GlobalDynaBuf);
+	if (Input_quoted_to_dynabuf(closing_quote))
+		goto fail;	// unterminated or escaping error
 
-	// read character to parse - make sure not at end of statement
-	if (GetQuotedByte() == CHAR_EOS) {
-		alu_state = STATE_ERROR;
-		return;
-	}
-
-	// on empty string, complain
-	if (GotByte == closing_quote) {
+	// eat closing quote
+	GetByte();
+	// now convert to unescaped version
+	if (Input_unescape_dynabuf())
+		goto fail;	// escaping error
+// }
+	// too short?
+	if (GlobalDynaBuf->size == 0) {
 		Throw_error(exception_missing_string);
-		alu_state = STATE_ERROR;
-		return;
+		goto fail;
 	}
 
+	// too long?
+	if (GlobalDynaBuf->size != 1)
+		Throw_error("There's more than one character.");
 	// parse character
-	value = (intval_t) encoding_encode_char(GotByte);
-	// Read closing quote (hopefully)
-	if (GetQuotedByte() == closing_quote) {
-		GetByte();	// if length == 1, proceed with next byte
-	} else {
-		if (GotByte) {
-			// if longer than one character
-			Throw_error("There's more than one character.");
-			alu_state = STATE_ERROR;
-		}
-	}
+	value = (intval_t) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
 	PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
+	return;
+
+fail:
+	PUSH_INT_ARG(0, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);	// dummy
+	alu_state = STATE_ERROR;
 }
 
 
