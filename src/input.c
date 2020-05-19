@@ -427,33 +427,6 @@ char *Input_skip_or_store_block(boolean store)
 	return DynaBuf_get_copy(GlobalDynaBuf);
 }
 
-// Read bytes and add to GlobalDynaBuf until the given terminator (or CHAR_EOS)
-// is found. Act upon single and double quotes by entering (and leaving) quote
-// mode as needed (So the terminator does not terminate when inside quotes).
-// TODO - called by ONE fn to read loop conditions, terminator is either SOB or EOS,
-// so integrate this fn with its caller!
-void Input_until_terminator(char terminator)
-{
-	int	err;
-	char	byte	= GotByte;
-
-	for (;;) {
-		// Terminator? Exit. EndOfStatement? Exit.
-		if ((byte == terminator) || (byte == CHAR_EOS))
-			return;
-
-		// otherwise, append to GlobalDynaBuf and check for quotes
-		DYNABUF_APPEND(GlobalDynaBuf, byte);
-		if ((byte == '"') || (byte == '\'')) {
-			err = Input_quoted_to_dynabuf(byte);
-			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add terminating char (quote/EOS) as well
-			if (err)
-				return;	// on error, exit now, before calling GetByte()
-		}
-		byte = GetByte();
-	}
-}
-
 // Append to GlobalDynaBuf while characters are legal for keywords.
 // Throws "missing string" error if none.
 // Returns number of characters added.

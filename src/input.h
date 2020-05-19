@@ -86,10 +86,7 @@ extern int Input_unescape_dynabuf(void);
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
 extern char *Input_skip_or_store_block(boolean store);
-// Read bytes and add to GlobalDynaBuf until the given terminator (or CHAR_EOS)
-// is found. Act upon single and double quotes by entering (and leaving) quote
-// mode as needed (So the terminator does not terminate when inside quotes).
-extern void Input_until_terminator(char terminator);
+
 // Append to GlobalDynaBuf while characters are legal for keywords.
 // Throws "missing string" error if none. Returns number of characters added.
 extern int Input_append_keyword_to_global_dynabuf(void);

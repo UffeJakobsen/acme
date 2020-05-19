@@ -86,9 +86,22 @@ void flow_forloop(struct for_loop *loop)
 // read condition, make copy, link to struct
 static void copy_condition(struct condition *condition, char terminator)
 {
+	int	err;
+
 	SKIPSPACE();
 	DYNABUF_CLEAR(GlobalDynaBuf);
-	Input_until_terminator(terminator);
+	while ((GotByte != terminator) && (GotByte != CHAR_EOS)) {
+		// append to GlobalDynaBuf and check for quotes
+		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
+		if ((GotByte == '"') || (GotByte == '\'')) {
+			err = Input_quoted_to_dynabuf(GotByte);
+			// here GotByte changes, it might become CHAR_EOS
+			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add closing quotes (or CHAR_EOS) as well
+			if (err)
+				break;	// on error, exit before eating CHAR_EOS via GetByte()
+		}
+		GetByte();
+	}
 	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
 	condition->body = DynaBuf_get_copy(GlobalDynaBuf);
 }
