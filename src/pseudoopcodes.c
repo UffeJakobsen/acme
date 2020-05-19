@@ -367,24 +367,25 @@ static enum eos po_convtab(void)
 static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 {
 	const struct encoder	*outer_encoder	= encoder_current;	// buffer encoder
+	int			offset;
 
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
 	do {
 		if (GotByte == '"') {
-			// read initial character
-			GetQuotedByte();
-			// FIXME - this will fail with backslash escaping!
-			// send characters until closing quote is reached
-			while (GotByte && (GotByte != '"')) {
-				output_8(xor ^ encoding_encode_char(GotByte));
-				GetQuotedByte();
-			}
-			if (GotByte == CHAR_EOS)
-				return AT_EOS_ANYWAY;
+			DYNABUF_CLEAR(GlobalDynaBuf);
+			if (Input_quoted_to_dynabuf('"'))
+				return SKIP_REMAINDER;	// unterminated or escaping error
 
-			// after closing quote, proceed with next char
+			// eat closing quote
 			GetByte();
+			// now convert to unescaped version
+			if (Input_unescape_dynabuf())
+				return SKIP_REMAINDER;	// escaping error
+
+			// send characters
+			for (offset = 0; offset < GlobalDynaBuf->size; ++offset)
+				output_8(xor ^ encoding_encode_char(GLOBALDYNABUF_CURRENT[offset]));
 		} else {
 			// Parse value. No problems with single characters
 			// because the current encoding is
@@ -1200,18 +1201,18 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 	DynaBuf_add_string(user_message, prefix);
 	do {
 		if (GotByte == '"') {
-			// parse string
-			GetQuotedByte();	// read initial character
-			// FIXME - this will fail with backslash escaping!
-			// send characters until closing quote is reached
-			while (GotByte && (GotByte != '"')) {
-				DYNABUF_APPEND(user_message, GotByte);
-				GetQuotedByte();
-			}
-			if (GotByte == CHAR_EOS)
-				return AT_EOS_ANYWAY;
-			// after closing quote, proceed with next char
+			DYNABUF_CLEAR(GlobalDynaBuf);
+			if (Input_quoted_to_dynabuf('"'))
+				return SKIP_REMAINDER;	// unterminated or escaping error
+
+			// eat closing quote
 			GetByte();
+			// now convert to unescaped version
+			if (Input_unescape_dynabuf())
+				return SKIP_REMAINDER;	// escaping error
+
+			DynaBuf_append(GlobalDynaBuf, '\0');	// terminate string
+			DynaBuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
 		} else {
 			// parse value
 			ALU_any_result(&object);
