@@ -429,7 +429,7 @@ static void parse_quoted(char closing_quote)
 		if (GlobalDynaBuf->size != 1)
 			Throw_error("There's more than one character.");
 		// parse character
-		value = (intval_t) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
+		value = (intval_t) (unsigned char) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
 		PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
 	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
@@ -1648,7 +1648,7 @@ static void string_handle_dyadic_operator(struct object *self, struct op *op, st
 		if (get_valid_index(&index, length, self, op, other))
 			return;	// error
 
-		character = (intval_t) encoding_encode_char(self->u.string->payload[index]);
+		character = (intval_t) (unsigned char) encoding_encode_char(self->u.string->payload[index]);
 		self->u.string->refs--;	// FIXME - call a function for this...
 		self->type = &type_int;
 		self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;
