@@ -12,7 +12,7 @@
 #include "acme.h"
 #include "alu.h"
 #include "dynabuf.h"
-#include "global.h"	// FIXME - remove when no longer needed
+#include "global.h"
 #include "input.h"
 #include "output.h"
 #include "platform.h"

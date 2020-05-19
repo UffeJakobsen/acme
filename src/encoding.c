@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Character encoding stuff
@@ -9,7 +9,7 @@
 #include "alu.h"
 #include "acme.h"
 #include "dynabuf.h"
-#include "global.h"	// FIXME - remove when no longer needed
+#include "global.h"
 #include "output.h"
 #include "input.h"
 #include "tree.h"

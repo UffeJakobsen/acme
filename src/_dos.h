@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for DOS, OS/2 and Windows)
@@ -16,7 +16,7 @@
 #define PLATFORM_INIT		DOS_entry()
 
 // convert UNIX-style pathname to DOS-style pathname
-#define PLATFORM_CONVERTPATHCHAR(a)	DOS_convert_path_char(a)
+#define PLATFORM_CONVERTPATH(p)	DOS_convert_path(p)
 
 // directory separator for include paths
 #define DIRECTORY_SEPARATOR	'\\'
@@ -57,8 +57,8 @@ extern char *DOS_lib_prefix;	// header string of library tree
 
 // used as PLATFORM_INIT: reads "ACME" environment variable
 extern void DOS_entry(void);
-// Convert UNIX-style pathname character to DOS-style pathname character
-extern char DOS_convert_path_char(char);
+// Convert UNIX-style pathname to DOS-style pathname
+extern void DOS_convert_path(char *p);
 
 
 #endif

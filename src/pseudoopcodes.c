@@ -380,7 +380,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 			// eat closing quote
 			GetByte();
 			// now convert to unescaped version
-			if (Input_unescape_dynabuf())
+			if (Input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
 			// send characters
@@ -1208,7 +1208,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 			// eat closing quote
 			GetByte();
 			// now convert to unescaped version
-			if (Input_unescape_dynabuf())
+			if (Input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
 			DynaBuf_append(GlobalDynaBuf, '\0');	// terminate string

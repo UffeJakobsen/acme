@@ -387,7 +387,7 @@ static void parse_quoted_character(char closing_quote)
 	// eat closing quote
 	GetByte();
 	// now convert to unescaped version
-	if (Input_unescape_dynabuf())
+	if (Input_unescape_dynabuf(0))
 		goto fail;	// escaping error
 // }
 	// too short?

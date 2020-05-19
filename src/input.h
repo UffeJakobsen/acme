@@ -76,7 +76,7 @@ extern int Input_quoted_to_dynabuf(char closing_quote);
 
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
-extern int Input_unescape_dynabuf(void);
+extern int Input_unescape_dynabuf(int start_index);
 
 // Skip or store block (starting with next byte, so call directly after
 // reading opening brace).
@@ -112,7 +112,7 @@ extern int Input_read_and_lower_keyword(void);
 // usage is stored there.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns whether error occurred (TRUE on error). Filename in GlobalDynaBuf.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // Input_skip_remainder() then.
 extern int Input_read_filename(boolean library_allowed, boolean *uses_lib);

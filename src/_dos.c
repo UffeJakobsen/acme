@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for DOS, OS/2 and Windows)
@@ -34,14 +34,17 @@ void DOS_entry(void)
 }
 
 
-// convert UNIX-style pathname character to DOS-style pathname character
-char DOS_convert_path_char(char byte)
+// convert UNIX-style pathname to DOS-style pathname
+void DOS_convert_path(char *p)
 {
-	if (byte == '/')
-		return '\\';
-	if (byte == '\\')
-		return '/';
-	return byte;
+	while (*p) {
+		if (*p == '/') {
+			*p = '\\';
+		} else if (*p == '\\') {
+			*p = '/';
+		}
+		++p;
+	}
 }
 
 

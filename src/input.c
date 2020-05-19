@@ -9,7 +9,7 @@
 #include "config.h"
 #include "alu.h"
 #include "dynabuf.h"
-#include "global.h"	// FIXME - remove when no longer needed
+#include "global.h"
 #include "platform.h"
 #include "section.h"
 #include "symbol.h"
@@ -280,6 +280,7 @@ char GetByte(void)
 // This function delivers the next byte from the currently active byte source
 // in un-shortened high-level format.
 // This function complains if CHAR_EOS (end of statement) is read.
+// TODO - check if return value is actually used
 static char GetQuotedByte(void)
 {
 	int	from_file;	// must be an int to catch EOF
@@ -368,13 +369,14 @@ int Input_quoted_to_dynabuf(char closing_quote)
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
 // TODO - check: if this is only ever called directly after Input_quoted_to_dynabuf, integrate that call here?
-int Input_unescape_dynabuf(void)
+int Input_unescape_dynabuf(int start_index)
 {
 	if (!config.backslash_escaping)
 		return 0;	// ok
 
 	// FIXME - implement backslash escaping!
 	// TODO - shorten GlobalDynaBuf->size accordingly
+	// CAUTION - contents of dynabuf are not terminated!
 	return 0;	// ok
 }
 
@@ -502,13 +504,14 @@ int Input_read_and_lower_keyword(void)
 // usage is stored there.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns whether error occurred (TRUE on error). Filename in GlobalDynaBuf.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // Input_skip_remainder() then.
 int Input_read_filename(boolean allow_library, boolean *uses_lib)
 {
+	int	start_of_string;
 	char	*lib_prefix,
-		end_quote;
+		terminator;
 
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	SKIPSPACE();
@@ -519,7 +522,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		// if library access forbidden, complain
 		if (!allow_library) {
 			Throw_error("Writing to library not supported.");
-			return TRUE;
+			return 1;	// error
 		}
 
 		// read platform's lib prefix
@@ -528,43 +531,45 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		// if lib prefix not set, complain
 		if (lib_prefix == NULL) {
 			Throw_error("\"ACME\" environment variable not found.");
-			return TRUE;
+			return 1;	// error
 		}
 #endif
 		// copy lib path and set quoting char
 		DynaBuf_add_string(GlobalDynaBuf, lib_prefix);
-		end_quote = '>';
+		terminator = '>';
 	} else {
 		if (uses_lib)
 			*uses_lib = FALSE;
-		if (GotByte == '"') {
-			end_quote = '"';
-		} else {
+		if (GotByte != '"') {
 			Throw_error("File name quotes not found (\"\" or <>).");
-			return TRUE;
+			return 1;	// error
 		}
+		terminator = '"';
 	}
-	// read first character, complain if closing quote
-	if (GetQuotedByte() == end_quote) {
+	// remember border between optional library prefix and string from assembler source file
+	start_of_string = GlobalDynaBuf->size;
+	// read file name string
+	if (Input_quoted_to_dynabuf(terminator))
+		return 1;	// unterminated or escaping error
+
+	GetByte();	// eat terminator
+	// check length
+	if (GlobalDynaBuf->size == start_of_string) {
 		Throw_error("No file name given.");
-		return TRUE;
+		return 1;	// error
 	}
 
-// FIXME - this will fail with backslash escaping!
-	// read characters until closing quote (or EOS) is reached
-	// append platform-converted characters to current string
-	while ((GotByte != CHAR_EOS) && (GotByte != end_quote)) {
-		DYNABUF_APPEND(GlobalDynaBuf, PLATFORM_CONVERTPATHCHAR(GotByte));
-		GetQuotedByte();
-	}
-	// on error, return
-	if (GotByte == CHAR_EOS)
-		return TRUE;
+	// resolve backslash escapes
+	if (Input_unescape_dynabuf(start_of_string))
+		return 1;	// escaping error
 
-	GetByte();	// fetch next to forget closing quote
 	// terminate string
-	DynaBuf_append(GlobalDynaBuf, '\0');	// add terminator
-	return FALSE;	// no error
+	DynaBuf_append(GlobalDynaBuf, '\0');
+#ifdef PLATFORM_CONVERTPATH
+	// platform-specific path name conversion
+	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT + start_of_string);
+#endif
+	return 0;	// ok
 }
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
@@ -674,5 +679,6 @@ FILE *includepaths_open_ro(boolean uses_lib)
 	}
 	if (stream == NULL)
 		Throw_error(exception_cannot_open_input_file);
+	//fprintf(stderr, "File is [%s]\n", GLOBALDYNABUF_CURRENT);
 	return stream;
 }

@@ -6,7 +6,7 @@
 #include "section.h"
 #include "config.h"
 #include "dynabuf.h"
-#include "global.h"	// FIXME - remove when no longer needed
+#include "global.h"
 #include "input.h"
 #include "symbol.h"
 #include "tree.h"

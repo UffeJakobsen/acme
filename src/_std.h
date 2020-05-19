@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for unknown OSes)
@@ -13,7 +13,7 @@
 #define PLATFORM_INIT		AnyOS_entry()
 
 // convert UNIX-style pathname to AnyOS-style pathname (no change)
-#define PLATFORM_CONVERTPATHCHAR(a)	(a)
+//#define PLATFORM_CONVERTPATH(p)
 
 // directory separator for include paths
 #define DIRECTORY_SEPARATOR	'/'
