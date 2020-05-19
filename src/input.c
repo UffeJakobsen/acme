@@ -351,17 +351,29 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 // returns 1 on errors (unterminated, escaping error)
 int Input_quoted_to_dynabuf(char closing_quote)
 {
+	boolean	escaped	= FALSE;
+
 	//DYNABUF_CLEAR(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
 	for (;;) {
 		GetQuotedByte();
 		if (GotByte == CHAR_EOS)
 			return 1;	// unterminated string constant; GetQuotedByte will have complained already
 
-// FIXME - this will fail with backslash escaping!
-// it's not enough to check the previous char for backslash, because it might be an escaped backslash...
-		if (GotByte == closing_quote)
-			return 0;	// ok
+		if (escaped) {
+			// previous byte was backslash, so do not check for terminator nor backslash
+			escaped = FALSE;
+			// do not actually _convert_ escape sequences to their target byte, that is done by Input_unescape_dynabuf() below!
+			// TODO - but maybe check for illegal escape sequences?
+			// at the moment checking is only done when the string
+			// gets used for something...
+		} else {
+			// non-escaped: only terminator and backslash are of interest
+			if (GotByte == closing_quote)
+				return 0;	// ok
 
+			if ((GotByte == '\\') && (config.backslash_escaping))
+				escaped = TRUE;
+		}
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
 	}
 }
@@ -369,14 +381,43 @@ int Input_quoted_to_dynabuf(char closing_quote)
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
 // TODO - check: if this is only ever called directly after Input_quoted_to_dynabuf, integrate that call here?
-int Input_unescape_dynabuf(int start_index)
+int Input_unescape_dynabuf(int read_index)
 {
+	int	write_index;
+	char	byte;
+	boolean	escaped;
+
 	if (!config.backslash_escaping)
 		return 0;	// ok
 
-	// FIXME - implement backslash escaping!
-	// TODO - shorten GlobalDynaBuf->size accordingly
-	// CAUTION - contents of dynabuf are not terminated!
+	write_index = read_index;
+	escaped = FALSE;
+	// CAUTION - contents of dynabuf are not terminated:
+	while (read_index < GlobalDynaBuf->size) {
+		byte = GLOBALDYNABUF_CURRENT[read_index++];
+		if (escaped) {
+			switch (byte) {
+			case '\\':
+			case '\'':
+			case '"':
+				break;
+			// TODO - convert '0' to 0, 'n' to 10, 'a' to BEL, etc.
+			default:
+				Throw_error("Unsupported backslash sequence.");	// TODO - add to docs
+			}
+			GLOBALDYNABUF_CURRENT[write_index++] = byte;
+			escaped = FALSE;
+		} else {
+			if (byte == '\\') {
+				escaped = TRUE;
+			} else {
+				GLOBALDYNABUF_CURRENT[write_index++] = byte;
+			}
+		}
+	}
+	if (escaped)
+		Bug_found("PartialEscapeSequence", 0);	// FIXME - add to docs!
+	GlobalDynaBuf->size = write_index;
 	return 0;	// ok
 }
 
