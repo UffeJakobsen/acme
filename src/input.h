@@ -62,11 +62,8 @@ extern struct input	*Input_now;	// current input structure
 // let current input point to start of file
 extern void Input_new_file(const char *filename, FILE *fd);
 // get next byte from currently active byte source in shortened high-level
-// format. When inside quotes, use GetQuotedByte() instead!
+// format. When inside quotes, use Input_quoted_to_dynabuf() instead!
 extern char GetByte(void);
-// get next byte from currently active byte source in un-shortened high-level
-// format. Complains if CHAR_EOS (end of statement) is read.
-extern char GetQuotedByte(void);
 // Skip remainder of statement, for example on error
 extern void Input_skip_remainder(void);
 // Ensure that the remainder of the current statement is empty, for example

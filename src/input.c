@@ -248,7 +248,7 @@ static char get_processed_from_file(void)
 
 // This function delivers the next byte from the currently active byte source
 // in shortened high-level format. FIXME - use fn ptr?
-// When inside quotes, use GetQuotedByte() instead!
+// When inside quotes, use Input_quoted_to_dynabuf() instead!
 char GetByte(void)
 {
 //	for (;;) {
@@ -280,7 +280,7 @@ char GetByte(void)
 // This function delivers the next byte from the currently active byte source
 // in un-shortened high-level format.
 // This function complains if CHAR_EOS (end of statement) is read.
-char GetQuotedByte(void)
+static char GetQuotedByte(void)
 {
 	int	from_file;	// must be an int to catch EOF
 
@@ -337,10 +337,9 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 	SKIPSPACE();
 	if (GotByte) {
 		char	buf[80];	// actually needed are 51
-		char	quote	= '\'';
+		char	quote;		// character before and after
 
-		if (GotByte == '\'')
-			quote = '"';
+		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
 		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);	// FIXME - change in docs!
 		Throw_error(buf);
 		Input_skip_remainder();
@@ -354,13 +353,13 @@ int Input_quoted_to_dynabuf(char closing_quote)
 	//DYNABUF_CLEAR(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
 	for (;;) {
 		GetQuotedByte();
+		if (GotByte == CHAR_EOS)
+			return 1;	// unterminated string constant; GetQuotedByte will have complained already
+
 // FIXME - this will fail with backslash escaping!
 // it's not enough to check the previous char for backslash, because it might be an escaped backslash...
 		if (GotByte == closing_quote)
 			return 0;	// ok
-
-		if (GotByte == CHAR_EOS)
-			return 1;	// unterminated string constant (GetQuotedByte will have complained already)
 
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
 	}
@@ -368,11 +367,15 @@ int Input_quoted_to_dynabuf(char closing_quote)
 
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
+// TODO - check: if this is only ever called directly after Input_quoted_to_dynabuf, integrate that call here?
 int Input_unescape_dynabuf(void)
 {
+	if (!config.backslash_escaping)
+		return 0;	// ok
+
 	// FIXME - implement backslash escaping!
 	// TODO - shorten GlobalDynaBuf->size accordingly
-	return 0;
+	return 0;	// ok
 }
 
 // Skip or store block (starting with next byte, so call directly after
@@ -415,6 +418,7 @@ char *Input_skip_or_store_block(boolean store)
 	// in case of skip, return now
 	if (!store)
 		return NULL;
+
 	// otherwise, prepare to return copy of block
 	// add EOF, just to make sure block is never read too far
 	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);
@@ -426,26 +430,25 @@ char *Input_skip_or_store_block(boolean store)
 // Read bytes and add to GlobalDynaBuf until the given terminator (or CHAR_EOS)
 // is found. Act upon single and double quotes by entering (and leaving) quote
 // mode as needed (So the terminator does not terminate when inside quotes).
+// TODO - called by ONE fn to read loop conditions, terminator is either SOB or EOS,
+// so integrate this fn with its caller!
 void Input_until_terminator(char terminator)
 {
+	int	err;
 	char	byte	= GotByte;
 
 	for (;;) {
 		// Terminator? Exit. EndOfStatement? Exit.
 		if ((byte == terminator) || (byte == CHAR_EOS))
 			return;
+
 		// otherwise, append to GlobalDynaBuf and check for quotes
 		DYNABUF_APPEND(GlobalDynaBuf, byte);
 		if ((byte == '"') || (byte == '\'')) {
-			do {
-				// Okay, read quoted stuff.
-				GetQuotedByte();	// throws error on EOS
-				DYNABUF_APPEND(GlobalDynaBuf, GotByte);
-// FIXME - this would fail with backslash escaping!
-			} while ((GotByte != CHAR_EOS) && (GotByte != byte));
-			// on error, exit now, before calling GetByte()
-			if (GotByte != byte)
-				return;
+			err = Input_quoted_to_dynabuf(byte);
+			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add terminating char (quote/EOS) as well
+			if (err)
+				return;	// on error, exit now, before calling GetByte()
 		}
 		byte = GetByte();
 	}
