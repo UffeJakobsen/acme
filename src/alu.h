@@ -22,8 +22,8 @@ struct type {
 };
 extern struct type	type_int;
 extern struct type	type_float;
-//extern struct type	type_string;
-//extern struct type	type_list;
+extern struct type	type_list;
+extern struct type	type_string;
 
 struct expression {
 	struct object	result;

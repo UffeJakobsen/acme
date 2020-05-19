@@ -21,6 +21,7 @@
 #include "alu.h"
 #include <stdlib.h>
 #include <math.h>	// only for fp support
+#include <string.h>	// for memcpy()
 #include "platform.h"
 #include "dynabuf.h"
 #include "encoding.h"
@@ -56,10 +57,11 @@ enum op_group {
 };
 enum op_id {
 	// special (pseudo) operators:
-	OPID_START_EXPRESSION,	//		"start of expression"
-	OPID_END_EXPRESSION,	//		"end of expression"
-	OPID_OPENING,		//	(v	'(', starts subexpression (handled like monadic)
-	OPID_CLOSING,		//	v)	')', ends subexpression (handled like dyadic)
+	OPID_END_EXPRESSION,	//		end of expression (quasi-dyadic)
+	OPID_START_EXPRESSION,	//		start of expression
+	OPID_LEFT_PARENTHESIS,	//	(v	'(' starts subexpression (quasi-monadic)
+	OPID_START_LIST,	//	[1,2]	'[' starts list literal (quasi-monadic)
+	OPID_START_INDEX,	//	v[	'[' starts subexpression (quasi-monadic, also see dyadic OPID_ATINDEX)
 	// monadic operators (including functions):
 	OPID_NOT,		//	!v	NOT v		bit-wise NOT
 	OPID_NEGATE,		//	-v			negation
@@ -97,6 +99,8 @@ enum op_id {
 	OPID_OR,		//	v|w		v OR w
 	OPID_EOR,		//	v EOR w		v XOR w		FIXME - remove
 	OPID_XOR,		//	v XOR w
+	OPID_LIST_APPEND,	//			used internally when building list literal
+	OPID_ATINDEX,		//	v[w]
 };
 struct op {
 #define IS_RIGHT_ASSOCIATIVE(prio)	((prio) & 1)
@@ -105,11 +109,12 @@ struct op {
 	enum op_id	id;
 	const char	*text_version;
 };
-static struct op ops_end_of_expr	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"end of expression"	};
-static struct op ops_start_of_expr	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
-static struct op ops_closing		= {4, OPGROUP_SPECIAL,	OPID_CLOSING,		"right parenthesis"	};
-static struct op ops_opening		= {6, OPGROUP_SPECIAL,	OPID_OPENING,		"left parenthesis"	};
-//static struct op ops_openindex		= {10, OPGROUP_SPECIAL,	OPID_OPENINDEX,		"open index"	};
+static struct op ops_end_expression	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"end of expression"	};
+static struct op ops_start_expression	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
+static struct op ops_left_parenthesis	= {4, OPGROUP_SPECIAL,	OPID_LEFT_PARENTHESIS,	"left parenthesis"	};
+static struct op ops_start_list		= {6, OPGROUP_SPECIAL,	OPID_START_LIST,	"start list"	};
+static struct op ops_start_index	= {8, OPGROUP_SPECIAL,	OPID_START_INDEX,	"open index"	};
+static struct op ops_list_append	= {14, OPGROUP_DYADIC,	OPID_LIST_APPEND,	"append to list"	};
 static struct op ops_or			= {16, OPGROUP_DYADIC,	OPID_OR,	"logical or"	};
 static struct op ops_eor		= {18, OPGROUP_DYADIC,	OPID_EOR,	"exclusive or"	};	// FIXME - remove
 static struct op ops_xor		= {18, OPGROUP_DYADIC,	OPID_XOR,	"exclusive or"	};
@@ -141,7 +146,7 @@ static struct op ops_modulo		= {34, OPGROUP_DYADIC,	OPID_MODULO,	"modulo"	};
 static struct op ops_negate		= {36, OPGROUP_MONADIC,	OPID_NEGATE,	"negation"	};
 static struct op ops_powerof		= {37, OPGROUP_DYADIC,	OPID_POWEROF,	"power of"	};	// right-associative!
 static struct op ops_not		= {38, OPGROUP_MONADIC,	OPID_NOT,	"logical not"	};
-//static struct op ops_atindex		= {40, OPGROUP_DYADIC,	OPID_ATINDEX,	"indexing"	};
+static struct op ops_atindex		= {40, OPGROUP_DYADIC,	OPID_ATINDEX,	"indexing"	};
 	// function calls act as if they were monadic operators.
 	// they need high priorities to make sure they are evaluated once the
 	// parentheses' content is known:
@@ -157,6 +162,7 @@ static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN,	"arcsin()"	};
 static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
 static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
 static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
+// CAUTION: when adding a function that returns something indexable, fix the code inserting ops_atindex!
 
 
 // variables
@@ -210,7 +216,12 @@ static struct ronode	function_list[]	= {
 	//    ^^^^ this marks the last element
 };
 
-#define PUSH_OP(x)	op_stack[op_sp++] = (x)
+#define PUSH_OP(x)				\
+do {						\
+	op_stack[op_sp] = (x);			\
+	if (++op_sp >= opstack_size)		\
+		enlarge_operator_stack();	\
+} while (0)
 
 #define PUSH_INT_ARG(i, f, r)				\
 do {							\
@@ -355,6 +366,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	if (FIRST_PASS)
 		symbol->usage++;
 	// push argument, regardless of whether int or float
+	// FIXME - if arg is list, increment ref count!
 	arg_stack[arg_sp++] = symbol->result;
 }
 
@@ -373,13 +385,22 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 }
 
 
-// Parse quoted character.
-// The character will be converted using the current encoding.
-static void parse_quoted_character(char closing_quote)
+// make new string object
+static void string_init_string(struct object *self, const char *data, int len)
+{
+	self->type = &type_string;
+	self->u.string = safe_malloc(sizeof(*(self->u.string)) + len);
+	memcpy(self->u.string->payload, data, len);
+	self->u.string->payload[len] = 0;	// terminate (just for easier printf-debugging)
+	self->u.string->length = len;
+	self->u.string->refs = 1;
+}
+// parse string or character
+// characters will be converted using the current encoding, strings are kept as-is.
+static void parse_quoted(char closing_quote)
 {
 	intval_t	value;
 
-// this can be used later on for real strings as well {
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	if (Input_quoted_to_dynabuf(closing_quote))
 		goto fail;	// unterminated or escaping error
@@ -389,19 +410,28 @@ static void parse_quoted_character(char closing_quote)
 	// now convert to unescaped version
 	if (Input_unescape_dynabuf(0))
 		goto fail;	// escaping error
-// }
-	// too short?
-	if (GlobalDynaBuf->size == 0) {
-		Throw_error(exception_missing_string);
-		goto fail;
-	}
 
-	// too long?
-	if (GlobalDynaBuf->size != 1)
-		Throw_error("There's more than one character.");
-	// parse character
-	value = (intval_t) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
-	PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
+	// without backslash escaping, both ' and " are used for single
+	// characters.
+	// with backslash escaping, ' is for characters and " is for strings:
+	if ((closing_quote == '"') && (config.backslash_escaping)) {
+		// string //////////////////////////////////
+		string_init_string(&arg_stack[arg_sp++], GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// create string object and put on arg stack
+	} else {
+		// single character ////////////////////////
+		// too short?
+		if (GlobalDynaBuf->size == 0) {
+			Throw_error(exception_missing_string);
+			goto fail;
+		}
+
+		// too long?
+		if (GlobalDynaBuf->size != 1)
+			Throw_error("There's more than one character.");
+		// parse character
+		value = (intval_t) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
+		PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
+	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 	return;
 
@@ -614,6 +644,18 @@ static void parse_function_call(void)
 }
 
 
+// make empty list
+static void list_init_list(struct object *self)
+{
+	self->type = &type_list;
+	self->u.listhead = safe_malloc(sizeof(*(self->u.listhead)));
+	self->u.listhead->next = self->u.listhead;
+	self->u.listhead->prev = self->u.listhead;
+	self->u.listhead->length = 0;
+	self->u.listhead->refs = 1;
+}
+
+
 // expression parser
 
 
@@ -675,21 +717,32 @@ static boolean expect_argument_or_monadic_operator(void)
 		op = &ops_bank_byte_of;
 		goto get_byte_and_push_monadic;
 
-// Faked monadic operators
+// special operators
+	case '[':	// start of list literal
+		list_init_list(&arg_stack[arg_sp++]);	// put empty list on arg stack
+		NEXTANDSKIPSPACE();
+		if (GotByte == ']') {
+			// list literal is empty, so we're basically done
+			GetByte();
+			alu_state = STATE_EXPECT_DYADIC_OP;
+		} else {
+			// non-empty list literal
+			PUSH_OP(&ops_start_list);	// quasi-monadic "start of list", makes sure earlier ops do not process empty list
+			PUSH_OP(&ops_list_append);	// dyadic "append to list", so next arg will be appended to list
+			// no need to TRY_TO_REDUCE_STACKS, because we know the one pushed first has a lower priority anyway
+			//stay in STATE_EXPECT_ARG_OR_MONADIC_OP
+		}
+		break;
+
 	case '(':	// left parenthesis
-		op = &ops_opening;
+		op = &ops_left_parenthesis;
 		goto get_byte_and_push_monadic;
 
-	case ')':	// right parenthesis
-		// this makes "()" also throw a syntax error
-		Throw_error(exception_syntax);
-		alu_state = STATE_ERROR;
-		break;
 // arguments (state changes to ExpectDyadic)
-	case '"':	// Quoted character
-	case '\'':	// Quoted character
+	case '"':	// character (old) or string (new)
+	case '\'':	// character
 		// Character will be converted using current encoding
-		parse_quoted_character(GotByte);
+		parse_quoted(GotByte);
 		// Now GotByte = char following closing quote
 		goto now_expect_dyadic_op;
 
@@ -784,9 +837,9 @@ static boolean expect_argument_or_monadic_operator(void)
 			// illegal character read - so don't go on
 			// we found end-of-expression instead of an argument,
 			// that's either an empty expression or an erroneous one!
-			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack is ok
-			if (op_stack[op_sp - 1] == &ops_start_of_expr) {
-				PUSH_OP(&ops_end_of_expr);
+			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack checking code won't bark
+			if (op_stack[op_sp - 1] == &ops_start_expression) {
+				PUSH_OP(&ops_end_expression);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
 			} else {
 				Throw_error(exception_syntax);
@@ -869,20 +922,20 @@ static void expect_dyadic_operator(void)
 		}
 		goto push_dyadic_op;
 
-	case ')':	// closing parenthesis
-		op = &ops_closing;
-		goto get_byte_and_push_dyadic;
-/*
 	case '[':	// indexing operator
 		GetByte();	// eat char
-		// two PUSH_OP in a row without checking could overrun the stack, so:
 		PUSH_OP(&ops_atindex);	// first put high-priority dyadic on stack,
-		if (op_sp >= opstack_size)
-			enlarge_operator_stack();
-		PUSH_OP(&ops_openindex);	// then low-priority special ops_openindex
+		PUSH_OP(&ops_start_index);	// then low-priority special ops_start_index
+// FIXME! this would work reliably if "atindex" had the highest priority.
+// but function calls have higher priority than indexing:
+// fn(a+b)[c] -> fn d [c] -> e [c], but the code above would return fn(d[c]) instead
+// atm, it's not a problem, because all functions return numbers, and numbers cannot
+// be indexed anyway, but in the long run, this must be fixed.
+// maybe call "try_to_reduce_stacks" inbetween the two PUSH_OPs above?
+// or maybe add a PUSH_DYADIC_AND_TRY_TO_REDUCE(op) macro?
 		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
-*/
+
 // Multi-character dyadic operators
 	case '!':	// "!="
 		if (GetByte() == '=') {
@@ -949,17 +1002,16 @@ static void expect_dyadic_operator(void)
 				goto push_dyadic_op;
 			}
 
-			// goto means we don't need an "else {" here
 			Throw_error("Unknown operator.");
 			alu_state = STATE_ERROR;
 		} else {
 			// we found end-of-expression when expecting an operator, that's ok.
-			op = &ops_end_of_expr;
+			op = &ops_end_expression;
 			goto push_dyadic_op;
 		}
 
 	}
-	return;
+	return;	// TODO - check if anything goes here, then change that and add a Bug_found()
 
 // shared endings
 get_byte_and_push_dyadic:
@@ -1019,6 +1071,13 @@ inline static void float_to_int(struct object *self)
 static boolean number_is_defined(struct object *self)
 {
 	return !!(self->u.number.flags & NUMBER_IS_DEFINED);
+}
+
+// list/string:
+// ...are always considered "defined"
+static boolean object_return_true(struct object *self)
+{
+	return TRUE;
 }
 
 // this gets called for LSR, AND, OR, XOR with float args
@@ -1156,6 +1215,42 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 		unsupported_operation(NULL, op, self);
 	}
 	self->u.number.addr_refs = refs;	// update address refs with local copy
+}
+
+// list:
+// handle monadic operator (includes functions)
+static void list_handle_monadic_operator(struct object *self, struct op *op)
+{
+	int	length;
+
+	if (op->id == OPID_LEN) {
+		length = self->u.listhead->length;
+		self->u.listhead->refs--;	// FIXME - call some list_decrement_refs() instead...
+		self->type = &type_int;
+		self->u.number.flags = NUMBER_IS_DEFINED;
+		self->u.number.val.intval = length;
+		self->u.number.addr_refs = 0;
+	} else {
+		unsupported_operation(NULL, op, self);
+	}
+}
+
+// string:
+// handle monadic operator (includes functions)
+static void string_handle_monadic_operator(struct object *self, struct op *op)
+{
+	int	length;
+
+	if (op->id == OPID_LEN) {
+		length = self->u.string->length;
+		self->u.string->refs--;	// FIXME - call some string_decrement_refs() instead...
+		self->type = &type_int;
+		self->u.number.flags = NUMBER_IS_DEFINED;
+		self->u.number.val.intval = length;
+		self->u.number.addr_refs = 0;
+	} else {
+		unsupported_operation(NULL, op, self);
+	}
 }
 
 // int/float:
@@ -1473,6 +1568,99 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 	number_fix_result_after_dyadic(self, other);	// fix result flags
 }
 
+
+// helper function for lists and strings, check index
+// return zero on success, nonzero on error
+static int get_valid_index(int *target, int length, struct object *self, struct op *op, struct object *other)
+{
+	int	index;
+
+	if (other->type == &type_float)
+		float_to_int(other);
+	if (other->type != &type_int) {
+		unsupported_operation(self, op, other);
+		return 1;
+	}
+	if (!(other->u.number.flags & NUMBER_IS_DEFINED)) {
+		Throw_error("Index is undefined.");	// FIXME - add to docs
+		return 1;
+	}
+	index = other->u.number.val.intval;
+	// negative indices access from the end
+	if (index < 0)
+		index += length;
+	if ((index < 0) || (index >= length)) {
+		Throw_error("Index out of range.");	// FIXME - add to docs
+		return 1;
+	}
+	*target = index;
+	return 0;	// ok
+}
+
+// list:
+// handle dyadic operator
+static void list_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+{
+	struct listitem	*item;
+	int		length;
+	int		index;
+
+	length = self->u.listhead->length;
+	switch (op->id) {
+	case OPID_LIST_APPEND:
+		item = safe_malloc(sizeof(*item));
+		item->payload = *other;
+		item->next = self->u.listhead;
+		item->prev = self->u.listhead->prev;
+		item->next->prev = item;
+		item->prev->next = item;
+		self->u.listhead->length++;
+		// no need to check/update ref count of "other": it loses the ref on the stack and gains one in the list
+		break;
+	case OPID_ATINDEX:
+		if (get_valid_index(&index, length, self, op, other))
+			return;	// error
+
+		item = self->u.listhead->next;
+		while (index) {
+			item = item->next;
+			--index;
+		}
+		self->u.listhead->refs--;	// FIXME - call some fn for this
+		*self = item->payload;	// FIXME - if item is a list, it would gain a ref by this...
+		break;
+	default:
+		unsupported_operation(self, op, other);
+	}
+}
+
+// string:
+// handle dyadic operator
+static void string_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+{
+	int		length;
+	int		index;
+	intval_t	character;
+
+	length = self->u.string->length;
+	switch (op->id) {
+	case OPID_ATINDEX:
+		if (get_valid_index(&index, length, self, op, other))
+			return;	// error
+
+		character = (intval_t) encoding_encode_char(self->u.string->payload[index]);
+		self->u.string->refs--;	// FIXME - call a function for this...
+		self->type = &type_int;
+		self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;
+		self->u.number.val.intval = character;
+		self->u.number.addr_refs = 0;
+		break;
+	//case OPID_ADD:	TODO?
+	default:
+		unsupported_operation(self, op, other);
+	}
+}
+
 // int/float:
 // set flags according to result
 static void number_fix_result(struct object *self)
@@ -1514,6 +1702,12 @@ static void float_fix_result(struct object *self)
 		self->u.number.flags |= NUMBER_FITS_BYTE;
 }
 
+// list/string:
+// no need to fix results
+static void object_no_op(struct object *self)
+{
+}
+
 // int:
 // print value for user message
 static void int_print(struct object *self, struct dynabuf *db)
@@ -1545,6 +1739,26 @@ static void float_print(struct object *self, struct dynabuf *db)
 	}
 }
 
+// list:
+// print value for user message
+static void list_print(struct object *self, struct dynabuf *db)
+{
+	char	buffer[64];	// 20 + 2*20 for 64-bit numbers, 64 bytes should be enough for anybody
+
+	sprintf(buffer, "<LIST (len %ld, refs %ld)>", (long) self->u.listhead->length, (long) self->u.listhead->refs);
+	DynaBuf_add_string(db, buffer);
+}
+
+// string:
+// print value for user message
+static void string_print(struct object *self, struct dynabuf *db)
+{
+	char	buffer[64];	// 20 + 2*20 for 64-bit numbers, 64 bytes should be enough for anybody
+
+	sprintf(buffer, "<STRING (len %ld, refs %ld)>", (long) self->u.string->length, (long) self->u.string->refs);
+	DynaBuf_add_string(db, buffer);
+}
+
 struct type	type_int	= {
 	"integer",
 	number_is_defined,
@@ -1561,18 +1775,26 @@ struct type	type_float	= {
 	float_fix_result,
 	float_print
 };
-/*
-struct type	type_string	= {
-	"string",
-};
 struct type	type_list	= {
 	"list",
+	object_return_true,	// lists are always considered to be defined (even though they can hold undefined numbers...)
+	list_handle_monadic_operator,
+	list_handle_dyadic_operator,
+	object_no_op,	// no need to fix list results
+	list_print
 };
-*/
+struct type	type_string	= {
+	"string",
+	object_return_true,	// strings are always defined
+	string_handle_monadic_operator,
+	string_handle_dyadic_operator,
+	object_no_op,	// no need to fix string results
+	string_print
+};
 
 
 // handler for special operators like parentheses and start/end of expression:
-// returns whether caller should remove operator from stack
+// returns whether caller can remove "previous" operator from stack
 static boolean handle_special_operator(struct expression *expression, enum op_id previous, enum op_id current)
 {
 	// when this gets called, "previous" is a special operator, and "current" has a lower priority, so it is also a special operator
@@ -1583,79 +1805,57 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		// therefore we know we are done.
 		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
 		alu_state = STATE_END;	// done
-		return TRUE;	// caller can remove this operator
+		return TRUE;	// caller can remove this operator (we are done, so not really needed, but there are sanity checks for stack pointers)
 
-	case OPID_OPENING:
+	case OPID_LEFT_PARENTHESIS:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
-		// check current operator
-		switch (current) {
-		case OPID_CLOSING:	// matching parentheses
-			op_sp -= 2;	// remove both of them
+		if (current != OPID_END_EXPRESSION)
+			Bug_found("StrangeParenthesis", current);
+		if (GotByte == ')') {
+			// matching parenthesis
+			GetByte();	// eat char
+			op_sp -= 2;	// remove both operators
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
-
-		case OPID_END_EXPRESSION:	// unmatched parenthesis, as in "lda ($80,x)"
-			++(expression->open_parentheses);	// count
-			return TRUE;	// caller can remove "OPID_OPENING" operator from stack
-
-		default:
-			Bug_found("StrangeParenthesis", current);
 		}
-		break;	// this is unreachable
-	case OPID_CLOSING:
-		// this op should have been removed upon handling the preceding OPID_OPENING, so it must be an extra:
-		Throw_error("Too many ')'.");
+		// unmatched parenthesis, as in "lda ($80,x)"
+		++(expression->open_parentheses);	// count
+		return TRUE;	// caller can remove "OPID_LEFT_PARENTHESIS" operator from stack
+//		Throw_error("Too many ')'.");	// FIXME - remove from docs!
+
+	case OPID_START_LIST:
+		if (current != OPID_END_EXPRESSION)
+			Bug_found("StrangeListBracket", current);	// FIXME - add to docs!
+		if (GotByte == ',') {
+			GetByte();	// eat ','
+			op_stack[op_sp - 1] = &ops_list_append;	// change "end of expression" to "append"
+			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+			return FALSE;	// stack remains, so caller shouldn't touch it
+		}
+		if (GotByte == ']') {
+			GetByte();	// eat ']'
+			op_sp -= 2;	// remove both START_LIST and END_EXPRESSION
+			alu_state = STATE_EXPECT_DYADIC_OP;
+			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+		}
+		Throw_error("Unterminated list");	// FIXME - add to docs!
 		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove operator from stack
-/*
-	case OPID_OPENINDEX:
-		// check current operator
-		switch (current) {
-		case OPID_END_EXPRESSION:	// [...
-			if (GotByte == ']') {
-				GetByte();	// eat ']'
-				op_sp -= 2;	// remove both OPENINDEX and END_EXPRESSION
-				alu_state = STATE_EXPECT_DYADIC_OP;
-				return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
-			}
-*/			/*FALLTHROUGH*/
-/*		case OPID_CLOSING:		// [...)
-			Throw_error("Unmatched '['.");	// FIXME - add to docs!
-			alu_state = STATE_ERROR;
-			return TRUE;	// caller can remove operator from stack
+		return TRUE;	// caller can remove LISTBUILDER operator from stack
 
-		case OPID_OPENING:		// cannot happen
-		case OPID_START_EXPRESSION:	// cannot happen
-		default:
-			Bug_found("StrangeBracket", current);
+	case OPID_START_INDEX:
+		if (current != OPID_END_EXPRESSION)
+			Bug_found("StrangeIndexBracket", current);	// FIXME - add to docs!
+		if (GotByte == ']') {
+			GetByte();	// eat ']'
+			op_sp -= 2;	// remove both OPENINDEX and END_EXPRESSION
+			alu_state = STATE_EXPECT_DYADIC_OP;
+			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
-		break;	// this is unreachable
-	case OPID_LISTBUILDER:
-		// check current operator
-		switch (current) {
-		case OPID_END_EXPRESSION:
-			if (GotByte == ',') {
-				GetByte();	// eat ','
-				list.append(previous_arg, current_arg);
-				decrement arg stack pointer
-				alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-				return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
-			}
-			if (GotByte == ']') {
-				GetByte();	// eat ']'
-				list.append(previous_arg, current_arg);
-				decrement arg stack pointer
-				alu_state = STATE_EXPECT_DYADIC_OP;
-				return TRUE;	// caller can remove LISTBUILDER op from stack
-			}
-			Throw_error("Unterminated list");	// FIXME - add to docs!
-			alu_state = STATE_ERROR;
-			return TRUE;	// caller can remove LISTBUILDER operator from stack
-		default:
-			Bug_found("StrangeBracket2", current);
-		}
-		break;	// this is unreachable
-*/	default:
+		Throw_error("Unterminated index spec");	// FIXME - add to docs!
+		alu_state = STATE_ERROR;
+		return TRUE;	// caller can remove START_INDEX operator from stack
+
+	default:
 		Bug_found("IllegalOperatorIdS", previous);
 	}
 	// this is unreachable
@@ -1749,11 +1949,9 @@ static void parse_expression(struct expression *expression)
 	arg_sp = 0;	// argument stack pointer
 	// begin by reading an argument (or a monadic operator)
 	alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-	PUSH_OP(&ops_start_of_expr);
+	PUSH_OP(&ops_start_expression);
 	do {
 		// check stack sizes. enlarge if needed
-		if (op_sp >= opstack_size)
-			enlarge_operator_stack();
 		if (arg_sp >= argstack_size)
 			enlarge_argument_stack();
 		switch (alu_state) {
