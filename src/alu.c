@@ -382,8 +382,10 @@ static void parse_quoted_character(char closing_quote)
 	// FIXME - this will fail with backslash escaping!
 
 	// read character to parse - make sure not at end of statement
-	if (GetQuotedByte() == CHAR_EOS)
+	if (GetQuotedByte() == CHAR_EOS) {
+		alu_state = STATE_ERROR;
 		return;
+	}
 
 	// on empty string, complain
 	if (GotByte == closing_quote) {
@@ -1699,11 +1701,15 @@ static void try_to_reduce_stacks(struct expression *expression)
 #define ARG_NOW		(arg_stack[arg_sp - 1])
 	switch (previous_op->group) {
 	case OPGROUP_MONADIC:	// monadic operators
+		if (arg_sp < 1)
+			Bug_found("ArgStackEmpty", arg_sp);	// FIXME - add to docs!
 		ARG_NOW.type->handle_monadic_operator(&ARG_NOW, previous_op);
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
+		if (arg_sp < 2)
+			Bug_found("NotEnoughArgs", arg_sp);	// FIXME - add to docs!
 		ARG_PREV.type->handle_dyadic_operator(&ARG_PREV, previous_op, &ARG_NOW);
 		// decrement argument stack pointer because dyadic operator merged two arguments into one
 		--arg_sp;
