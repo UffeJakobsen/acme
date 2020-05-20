@@ -1935,7 +1935,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 
 
 // this is what the exported functions call
-static void parse_expression(struct expression *expression)
+// returns nonzero on parse error
+static int parse_expression(struct expression *expression)
 {
 	struct object	*result	= &expression->result;
 
@@ -1997,6 +1998,7 @@ static void parse_expression(struct expression *expression)
 		}
 		// do some checks depending on int/float
 		result->type->fix_result(result);
+		return 0;	// ok
 	} else {
 		// State is STATE_ERROR. Errors have already been reported,
 		// but we must make sure not to pass bogus data to caller.
@@ -2010,6 +2012,7 @@ static void parse_expression(struct expression *expression)
 		// FIXME - remove this when new function interface gets used:
 		// callers must decide for themselves what to do when expression parser returns error
 		// (currently LDA'' results in both "no string given" AND "illegal combination of command and addressing mode"!)
+		return 1;	// error
 	}
 }
 
@@ -2024,7 +2027,7 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 {
 	struct expression	expression;
 
-	parse_expression(&expression);
+	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
@@ -2035,7 +2038,7 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 	if (expression.result.type == &type_float)
 		return expression.result.u.number.val.fpval;
 
-	Bug_found("Unhandled object type!", 0);
+	Throw_error("Expression did not return a number.");	// TODO - add to docs!
 	return 0;	// inhibit compiler warning
 }
 
@@ -2052,7 +2055,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	boolean			buf	= pass.complain_about_undefined;
 
 	pass.complain_about_undefined = TRUE;
-	parse_expression(&expression);
+	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	pass.complain_about_undefined = buf;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
@@ -2063,7 +2066,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	} else if (expression.result.type == &type_float) {
 		float_to_int(&expression.result);
 	} else {
-		Bug_found("Unhandled object type!", 1);
+		Throw_serious_error("Expression did not return a number.");
 	}
 	if (!(expression.result.u.number.flags & NUMBER_IS_DEFINED))
 		Throw_serious_error(exception_value_not_defined);
@@ -2081,12 +2084,12 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 // FLOAT: convert to int
 void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
-	parse_expression(expression);
+	parse_expression(expression);	// FIXME - check return value and pass to caller!
 	// convert float to int
 	if (expression->result.type == &type_float)
 		float_to_int(&(expression->result));
 	if (expression->result.type != &type_int)
-		Bug_found("Unhandled object type!", 2);
+		Throw_error("Expression did not return a number.");
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);
@@ -2096,7 +2099,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 }
 
 
-// Store value and flags (result may be either int or float)
+// Store resulting object
 // For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
@@ -2106,7 +2109,7 @@ void ALU_any_result(struct object *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 {
 	struct expression	expression;
 
-	parse_expression(&expression);
+	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	*result = expression.result;
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
@@ -2117,8 +2120,7 @@ void ALU_any_result(struct object *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 
 /* TODO
 
-change parse_expression() to return error/ok.
-after that, move
+maybe move
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
 to end of parse_expression()
@@ -2129,7 +2131,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)
 	mnemo.c
 		when parsing addressing modes						needvalue!
 
-// stores value and flags (result may be either int or float)
+// store resulting object
 void ALU_any_result(struct object *result)
 	macro.c
 		macro call, when parsing call-by-value arg				don't care

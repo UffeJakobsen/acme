@@ -20,10 +20,8 @@
 // Constants
 #define MACRONAME_DYNABUF_INITIALSIZE	128
 #define ARG_SEPARATOR	' '	// separates macro title from arg types
-#define ARGTYPE_NUM_VAL	'v'
-#define ARGTYPE_NUM_REF	'V'
-//#define ARGTYPE_STR_VAL	's'
-//#define ARGTYPE_STR_REF	'S'
+#define ARGTYPE_VALUE	'v'
+#define ARGTYPE_REF	'r'
 #define REFERENCE_CHAR	'~'	// prefix for call-by-reference
 #define HALF_INITIAL_ARG_TABLE_SIZE	4
 static const char	exception_macro_twice[]	= "Macro already defined.";
@@ -185,9 +183,9 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		do {
 			// handle call-by-reference character ('~')
 			if (GotByte != REFERENCE_CHAR) {
-				DynaBuf_append(internal_name, ARGTYPE_NUM_VAL);
+				DynaBuf_append(internal_name, ARGTYPE_VALUE);
 			} else {
-				DynaBuf_append(internal_name, ARGTYPE_NUM_REF);
+				DynaBuf_append(internal_name, ARGTYPE_REF);
 				DynaBuf_append(GlobalDynaBuf, REFERENCE_CHAR);
 				GetByte();
 			}
@@ -253,8 +251,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 	// Accept n>=0 comma-separated arguments before CHAR_EOS.
 	// Valid argument formats are:
 	// EXPRESSION (everything that does NOT start with '~'
-	// ~.LOCAL_LABEL_BY_REFERENCE
-	// ~GLOBAL_LABEL_BY_REFERENCE
+	// ~SYMBOL
 	// now GotByte = non-space
 	if (GotByte != CHAR_EOS) {	// any at all?
 		do {
@@ -265,14 +262,14 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 			// In both cases, GlobalDynaBuf may be used.
 			if (GotByte == REFERENCE_CHAR) {
 				// read call-by-reference arg
-				DynaBuf_append(internal_name, ARGTYPE_NUM_REF);
+				DynaBuf_append(internal_name, ARGTYPE_REF);
 				GetByte();	// skip '~' character
 				Input_read_scope_and_keyword(&symbol_scope);
 				// GotByte = illegal char
 				arg_table[arg_count].symbol = symbol_find(symbol_scope, 0);
 			} else {
 				// read call-by-value arg
-				DynaBuf_append(internal_name, ARGTYPE_NUM_VAL);
+				DynaBuf_append(internal_name, ARGTYPE_VALUE);
 				ALU_any_result(&(arg_table[arg_count].result));
 			}
 			++arg_count;

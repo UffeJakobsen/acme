@@ -72,7 +72,7 @@ extern intval_t ALU_any_int(void);
 extern void ALU_defined_int(struct number *intresult);
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 extern void ALU_addrmode_int(struct expression *expression, int paren);
-// stores value and flags (result may be either int or float)
+// stores resulting object
 extern void ALU_any_result(struct object *result);
 
 
