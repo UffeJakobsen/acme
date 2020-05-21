@@ -60,6 +60,11 @@ static struct cpu_type	cpu_type_4502	= {
 	CPUFLAG_DECIMALSUBTRACTBUGGY,	// SBC does not work reliably in decimal mode
 	234	// !align fills with "NOP"
 };
+static struct cpu_type	cpu_type_m65	= {
+	keyword_is_m65_mnemo,
+	CPUFLAG_DECIMALSUBTRACTBUGGY,	// SBC does not work reliably in decimal mode		FIXME - is this correct? has this been fixed?
+	234	// !align fills with "NOP"
+};
 
 
 // variables
@@ -67,7 +72,7 @@ static struct cpu_type	cpu_type_4502	= {
 // predefined stuff
 static struct ronode	*cputype_tree	= NULL;
 static struct ronode	cputype_list[]	= {
-#define KNOWN_TYPES	"'6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'c64dtv2'"	// shown in CLI error message for unknown types
+#define KNOWN_TYPES	"'6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'm65', 'c64dtv2'"	// shown in CLI error message for unknown types
 //	PREDEFNODE("z80",		&cpu_type_Z80),
 	PREDEFNODE("6502",		&cpu_type_6502),
 	PREDEFNODE("6510",		&cpu_type_6510),
@@ -77,6 +82,7 @@ static struct ronode	cputype_list[]	= {
 	PREDEFNODE("65816",		&cpu_type_65816),
 	PREDEFNODE("65ce02",		&cpu_type_65ce02),
 	PREDEFNODE("4502",		&cpu_type_4502),
+	PREDEFNODE("m65",		&cpu_type_m65),
 	PREDEFLAST("c64dtv2",		&cpu_type_c64dtv2),
 	//    ^^^^ this marks the last element
 };

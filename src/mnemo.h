@@ -30,6 +30,8 @@ extern boolean keyword_is_65816_mnemo(int length);
 extern boolean keyword_is_65ce02_mnemo(int length);
 // check whether mnemonic in GlobalDynaBuf is supported by CSG 4502 cpu.
 extern boolean keyword_is_4502_mnemo(int length);
+// check whether mnemonic in GlobalDynaBuf is supported by MEGA65 cpu.
+extern boolean keyword_is_m65_mnemo(int length);
 
 
 #endif
