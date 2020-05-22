@@ -783,17 +783,18 @@ static void not_in_bank(intval_t target)
 // helper function for branches with 8-bit offset (including bbr0..7/bbs0..7)
 static void near_branch(int preoffset)
 {
+	struct number	pc;
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
+	vcpu_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
-	// FIXME - read pc via function call instead!
-	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
+	if (pc.flags & target.flags & NUMBER_IS_DEFINED) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
-			offset = (target.val.intval - (CPU_state.pc.val.intval + preoffset)) & 0xffff;	// clip to 16 bit offset
+			offset = (target.val.intval - (pc.val.intval + preoffset)) & 0xffff;	// clip to 16 bit offset
 			// fix sign
 			if (offset & 0x8000)
 				offset -= 0x10000;
@@ -817,17 +818,18 @@ static void near_branch(int preoffset)
 // helper function for relative addressing with 16-bit offset
 static void far_branch(int preoffset)
 {
+	struct number	pc;
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
+	vcpu_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
-	// FIXME - read pc via function call instead!
-	if (CPU_state.pc.flags & target.flags & NUMBER_IS_DEFINED) {
+	if (pc.flags & target.flags & NUMBER_IS_DEFINED) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
-			offset = (target.val.intval - (CPU_state.pc.val.intval + preoffset)) & 0xffff;
+			offset = (target.val.intval - (pc.val.intval + preoffset)) & 0xffff;
 			// no further checks necessary, 16-bit branches can access whole bank
 		}
 	}

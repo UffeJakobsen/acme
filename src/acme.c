@@ -587,3 +587,41 @@ int main(int argc, const char *argv[])
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted
 }
+
+/*
+TODO - maybe add a "use version" switch to ease assembling old sources?
+relevant changes are:
+
+"0.05"
+	...would be the syntax before any changes
+	(how was offset assembly ended? '*' in a line on its own?)
+	BIT without any arg would output $2c, masking the next two bytes
+"0.07"
+	"leading zeroes" info is now stored in symbols as well
+	changed argument order of mvp/mvn
+	!cbm outputs warning to use !ct pet instead
+	!end changed to !eof
+	*= is now segment change instead of offset assembly
+	added !pseudopc/!realpc
+"0.86"
+	!pseudopc/!realpc gives a warning to use !pseudopc{} instead
+"0.89"
+	>> now does ASR everywhere, added >>> as LSR
+	numbers before mnemonics are no longer interpreted as labels
+"0.93"
+	*= no longer ends offset assembly
+"0.94.6"
+	powerof is now right-associative
+"0.94.8"
+	disabled !cbm
+	disabled !pseudopc/!realpc
+	disabled !subzone
+"0.94.12"
+	new !for syntax
+"0.95.2"
+	changed ANC#8 from 0x2b to 0x0b
+"future"
+	backslash escaping (= strings)
+	TODO: paths should be relative to file, not start dir
+	TODO: ignore leading zeroes?
+*/

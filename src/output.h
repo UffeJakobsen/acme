@@ -27,6 +27,11 @@ struct vcpu {
 	boolean			a_is_long;
 	boolean			xy_are_long;
 };
+// buffer to hold outer state while parsing "pseudopc" block
+struct pseudopc {
+	intval_t	offset;
+	int		flags;
+};
 
 
 // variables
@@ -98,6 +103,10 @@ extern void vcpu_read_pc(struct number *target);
 extern int vcpu_get_statement_size(void);
 // adjust program counter (called at end of each statement)
 extern void vcpu_end_statement(void);
+// start offset assembly
+extern void pseudopc_start(struct pseudopc *buffer, struct number *new_pc);
+// end offset assembly
+extern void pseudopc_end(struct pseudopc *buffer);
 
 
 #endif

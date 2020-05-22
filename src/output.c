@@ -496,8 +496,6 @@ void Output_passinit(void)
 	CPU_state.pc.flags = 0;	// not defined yet
 	CPU_state.pc.val.intval = 0;	// same as output's write_idx on pass init
 	CPU_state.add_to_pc = 0;	// increase PC by this at end of statement
-	CPU_state.a_is_long = FALSE;	// short accu
-	CPU_state.xy_are_long = FALSE;	// short index regs
 }
 
 
@@ -629,4 +627,20 @@ void vcpu_end_statement(void)
 {
 	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & 0xffff;
 	CPU_state.add_to_pc = 0;
+}
+
+// start offset assembly
+void pseudopc_start(struct pseudopc *buffer, struct number *new_pc)
+{
+	buffer->flags = CPU_state.pc.flags;
+	buffer->offset = (new_pc->val.intval - CPU_state.pc.val.intval) & 0xffff;
+	CPU_state.pc.val.intval = new_pc->val.intval;
+	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
+	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
+}
+// end offset assembly
+void pseudopc_end(struct pseudopc *buffer)
+{
+	CPU_state.pc.val.intval = (CPU_state.pc.val.intval - buffer->offset) & 0xffff;
+	CPU_state.pc.flags = buffer->flags;
 }

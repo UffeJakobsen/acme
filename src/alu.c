@@ -2049,6 +2049,8 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 // EMPTY: complain _seriously_
 // UNDEFINED: complain _seriously_
 // FLOAT: convert to int
+// FIXME - only very few callers actually _need_ a serious error to be thrown,
+// so throw a normal one here and pass ok/fail as return value, so caller can react.
 void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 {
 	struct expression	expression;

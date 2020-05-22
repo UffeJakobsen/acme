@@ -122,4 +122,6 @@ void cputype_passinit(const struct cpu_type *cpu_type)
 {
 	// handle cpu type (default is 6502)
 	CPU_state.type = cpu_type ? cpu_type : &cpu_type_6502;
+	CPU_state.a_is_long = FALSE;	// short accu
+	CPU_state.xy_are_long = FALSE;	// short index regs
 }

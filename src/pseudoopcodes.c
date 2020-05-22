@@ -540,18 +540,10 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 // insert byte until PC fits condition
 static enum eos po_align(void)
 {
-	// FIXME - read cpu state via function call!
 	struct number	andresult,
 			equalresult;
-	intval_t	fill,
-			test	= CPU_state.pc.val.intval;
-
-	// make sure PC is defined.
-	if ((CPU_state.pc.flags & NUMBER_IS_DEFINED) == 0) {
-		Throw_error(exception_pc_undefined);
-		CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// do not complain again
-		return SKIP_REMAINDER;
-	}
+	intval_t	fill;
+	struct number	pc;
 
 	// TODO:
 	// now: !align ANDVALUE, EQUALVALUE [,FILLVALUE]
@@ -565,35 +557,37 @@ static enum eos po_align(void)
 		fill = ALU_any_int();
 	else
 		fill = CPU_state.type->default_align_value;
-	while ((test++ & andresult.val.intval) != equalresult.val.intval)
+
+	// make sure PC is defined
+	vcpu_read_pc(&pc);
+	if (!(pc.flags & NUMBER_IS_DEFINED)) {
+		Throw_error(exception_pc_undefined);
+		return SKIP_REMAINDER;
+	}
+
+	while ((pc.val.intval++ & andresult.val.intval) != equalresult.val.intval)
 		output_8(fill);
 	return ENSURE_EOS;
 }
 
-
 static const char	Error_old_offset_assembly[]	=
 	"\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.";
 // start offset assembly
-// FIXME - split in two parts and move backend to output.c?
 // TODO - maybe add a label argument to assign the block size afterwards (for assemble-to-end-address) (or add another pseudo opcode)
 static enum eos po_pseudopc(void)
 {
-	// FIXME - read pc using a function call!
-	struct number	new_pc_result;
-	intval_t	new_offset;
-	int		outer_flags	= CPU_state.pc.flags;
+	struct pseudopc	buffer;
+	struct number	new_pc;
 
-	// set new
-	ALU_defined_int(&new_pc_result);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
-	new_offset = (new_pc_result.val.intval - CPU_state.pc.val.intval) & 0xffff;
-	CPU_state.pc.val.intval = new_pc_result.val.intval;
-	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
+	// get new value
+	ALU_defined_int(&new_pc);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
 	// TODO - accept ', name = "section name"'
+	// remember old state in buffer, set new state
+	pseudopc_start(&buffer, &new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
-		// restore old
-		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - new_offset) & 0xffff;
-		CPU_state.pc.flags = outer_flags;
+		// restore old state
+		pseudopc_end(&buffer);
 	} else {
 		// not using a block is no longer allowed
 		Throw_error(Error_old_offset_assembly);
