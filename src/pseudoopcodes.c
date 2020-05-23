@@ -116,7 +116,7 @@ static enum eos po_xor(void)
 	intval_t	change;
 
 	old_value = output_get_xor();
-	change = ALU_any_int();
+	ALU_any_int(&change);
 	if ((change > 0xff) || (change < -0x80)) {
 		Throw_error(exception_number_out_of_range);
 		change = 0;
@@ -176,9 +176,12 @@ static enum eos po_to(void)
 // helper function for !8, !16, !24 and !32 pseudo opcodes
 static enum eos iterate(void (*fn)(intval_t))
 {
-	do
-		fn(ALU_any_int());
-	while (Input_accept_comma());
+	intval_t	value;
+
+	do {
+		ALU_any_int(&value);
+		fn(value);
+	} while (Input_accept_comma());
 	return ENSURE_EOS;
 }
 
@@ -368,6 +371,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 {
 	const struct encoder	*outer_encoder	= encoder_current;	// buffer encoder
 	int			offset;
+	intval_t		value;
 
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
@@ -390,7 +394,8 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 			// Parse value. No problems with single characters
 			// because the current encoding is
 			// temporarily set to the given one.
-			output_8(ALU_any_int());
+			ALU_any_int(&value);
+			output_8(value);
 		}
 	} while (Input_accept_comma());
 	encoder_current = outer_encoder;	// reactivate buffered encoder
@@ -419,13 +424,14 @@ static enum eos po_scr(void)
 // insert screencode string, XOR'd
 static enum eos po_scrxor(void)
 {
-	intval_t	num	= ALU_any_int();
+	intval_t	xor;
 
+	ALU_any_int(&xor);
 	if (Input_accept_comma() == FALSE) {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
 	}
-	return encode_string(&encoder_scr, num);
+	return encode_string(&encoder_scr, xor);
 }
 
 // Include binary file ("!binary" pseudo opcode)
@@ -514,7 +520,7 @@ static enum eos po_fill(void)
 
 	ALU_defined_int(&sizeresult);	// FIXME - forbid addresses!
 	if (Input_accept_comma())
-		fill = ALU_any_int();	// FIXME - forbid addresses!
+		ALU_any_int(&fill);	// FIXME - forbid addresses!
 	while (sizeresult.val.intval--)
 		output_8(fill);
 	return ENSURE_EOS;
@@ -554,7 +560,7 @@ static enum eos po_align(void)
 		Throw_error(exception_syntax);
 	ALU_defined_int(&equalresult);	// ...allow addresses (unlikely, but possible)
 	if (Input_accept_comma())
-		fill = ALU_any_int();
+		ALU_any_int(&fill);
 	else
 		fill = CPU_state.type->default_align_value;
 

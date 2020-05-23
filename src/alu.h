@@ -65,8 +65,8 @@ extern void ALU_init(void);
 // do I need ACCEPT_NONADDR and/or ACCEPT_ADDRESS?
 */
 
-// returns int value (0 if result was undefined)
-extern intval_t ALU_any_int(void);
+// stores int value (0 if result was undefined)
+extern void ALU_any_int(intval_t *target);
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
 extern void ALU_defined_int(struct number *intresult);

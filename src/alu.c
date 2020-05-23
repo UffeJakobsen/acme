@@ -2017,13 +2017,13 @@ static int parse_expression(struct expression *expression)
 }
 
 
-// return int value (if undefined, return zero)
+// store int value (if undefined, store zero)
 // For empty expressions, an error is thrown.
 // OPEN_PARENTHESIS: complain
 // EMPTY: complain
 // UNDEFINED: allow
 // FLOAT: convert to int
-intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
+void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 {
 	struct expression	expression;
 
@@ -2033,13 +2033,13 @@ intval_t ALU_any_int(void)	// ACCEPT_UNDEFINED
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
 	if (expression.result.type == &type_int)
-		return expression.result.u.number.val.intval;
-
-	if (expression.result.type == &type_float)
-		return expression.result.u.number.val.fpval;
-
-	Throw_error("Expression did not return a number.");	// TODO - add to docs!
-	return 0;	// inhibit compiler warning
+		*target = expression.result.u.number.val.intval;
+	else if (expression.result.type == &type_float)
+		*target = expression.result.u.number.val.fpval;
+	else {
+		*target = 0;
+		Throw_error("Expression did not return a number.");	// TODO - add to docs!
+	}
 }
 
 
@@ -2150,7 +2150,7 @@ void ALU_defined_int(struct number *intresult)
 		when parsing loop conditions		make bool			serious
 	pseudoopcodes.c
 		*=					(FIXME, allow undefined)	needvalue!
-		!initmem								serious
+		!initmem								error
 		!fill (1st arg)				(maybe allow undefined?)	needvalue!
 		!skip					(maybe allow undefined?)	needvalue!
 		!align (1st + 2nd arg)			(maybe allow undefined?)	needvalue!
@@ -2160,8 +2160,8 @@ void ALU_defined_int(struct number *intresult)
 		twice for !binary			(maybe allow undefined?)	needvalue!
 		//!enum
 
-// returns int value (0 if result was undefined)
-intval_t ALU_any_int(void)
+// store int value (0 if result was undefined)
+void ALU_any_int(intval_t *target)
 	pseudoopcodes.c
 		!xor									needvalue!
 		iterator for !by, !wo, etc.						needvalue!
