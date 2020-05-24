@@ -201,52 +201,6 @@ void flow_do_while(struct do_while *loop)
 }
 
 
-// helper functions for "!if", "!ifdef" and "!ifndef"
-
-// parse or skip a block. returns with GotByte as '}'.
-// TODO - remove when ELSE IF is finished
-static void skip_or_parse_block(boolean parse)
-{
-	if (parse) {
-		Parse_until_eob_or_eof();
-		// if block isn't correctly terminated, complain and exit
-		if (GotByte != CHAR_EOB)
-			Throw_serious_error(exception_no_right_brace);
-	} else {
-		Input_skip_or_store_block(FALSE);
-	}
-}
-
-
-// parse {block} [else {block}]
-// TODO - remove when ELSE IF is finished
-void flow_parse_block_else_block(boolean parse_first)
-{
-	// Parse first block.
-	skip_or_parse_block(parse_first);
-	// now GotByte = '}'. Check for "else" part.
-	// If end of statement, return immediately.
-	NEXTANDSKIPSPACE();
-	if (GotByte == CHAR_EOS)
-		return;
-
-	// read keyword and check whether really "else"
-	if (Input_read_and_lower_keyword()) {
-		if (strcmp(GlobalDynaBuf->buffer, "else")) {
-			Throw_error(exception_syntax);
-		} else {
-			SKIPSPACE();
-			if (GotByte != CHAR_SOB)
-				Throw_serious_error(exception_no_left_brace);
-			skip_or_parse_block(!parse_first);
-			// now GotByte = '}'
-			GetByte();
-		}
-	}
-	Input_ensure_EOS();
-}
-
-
 // parse a whole source code file
 void flow_parse_and_close_file(FILE *fd, const char *filename)
 {

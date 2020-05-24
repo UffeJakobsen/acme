@@ -587,7 +587,25 @@ static enum eos po_pseudopc(void)
 
 	// get new value
 	ALU_defined_int(&new_pc);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
-	// TODO - accept ', name = "section name"'
+/* TODO - add this. check if code can be shared with "*="!
+	// check for modifiers
+	while (Input_accept_comma()) {
+		// parse modifier. if no keyword given, give up
+		if (Input_read_and_lower_keyword() == 0)
+			return SKIP_REMAINDER;
+
+		if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
+			skip '='
+			read memory limit
+		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
+			skip '='
+			read segment name (quoted string!)
+		} else {
+			Throw_error("Unknown !pseudopc segment modifier.");
+			return SKIP_REMAINDER;
+		}
+	}
+*/
 	// remember old state in buffer, set new state
 	pseudopc_start(&buffer, &new_pc);
 	// if there's a block, parse that and then restore old value!
@@ -974,69 +992,21 @@ static enum eos ifelse(enum ifmode mode)
 // conditional assembly ("!if"). has to be re-entrant.
 static enum eos po_if(void)	// now GotByte = illegal char
 {
-	struct number	cond_result;
-
-	if (config.test_new_features)
-		return ifelse(IFMODE_IF);
-
-	ALU_defined_int(&cond_result);
-	if (GotByte != CHAR_SOB)
-		Throw_serious_error(exception_no_left_brace);
-	flow_parse_block_else_block(!!cond_result.val.intval);
-	return ENSURE_EOS;
-}
-
-
-// conditional assembly ("!ifdef" and "!ifndef"). has to be re-entrant.
-// TODO - remove when new ifelse function is finished
-static enum eos ifdef_ifndef(boolean invert)	// now GotByte = illegal char
-{
-	struct rwnode	*node;
-	struct symbol	*symbol;
-	scope_t		scope;
-	int		defined	= FALSE;
-
-	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
-		return SKIP_REMAINDER;
-
-	Tree_hard_scan(&node, symbols_forest, scope, FALSE);
-	if (node) {
-		symbol = (struct symbol *) node->body;
-		// in first pass, count usage
-		if (FIRST_PASS)
-			symbol->usage++;
-		if (symbol->result.u.number.flags & NUMBER_IS_DEFINED)
-			defined = TRUE;
-	}
-	SKIPSPACE();
-	// if "ifndef", invert condition
-	if (invert)
-		defined = !defined;
-	if (GotByte != CHAR_SOB)
-		return defined ? PARSE_REMAINDER : SKIP_REMAINDER;
-
-	flow_parse_block_else_block(defined);
-	return ENSURE_EOS;
+	return ifelse(IFMODE_IF);
 }
 
 
 // conditional assembly ("!ifdef"). has to be re-entrant.
 static enum eos po_ifdef(void)	// now GotByte = illegal char
 {
-	if (config.test_new_features)
-		return ifelse(IFMODE_IFDEF);
-
-	return ifdef_ifndef(FALSE);
+	return ifelse(IFMODE_IFDEF);
 }
 
 
 // conditional assembly ("!ifndef"). has to be re-entrant.
 static enum eos po_ifndef(void)	// now GotByte = illegal char
 {
-	if (config.test_new_features)
-		return ifelse(IFMODE_IFNDEF);
-
-	return ifdef_ifndef(TRUE);
+	return ifelse(IFMODE_IFNDEF);
 }
 
 
