@@ -41,6 +41,7 @@
 static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
 static const char	exception_paren_open[]	= "Too many '('.";
+static const char	exception_not_number[]	= "Expression did not return a number.";
 #define s_or	(s_eor + 1)	// Yes, I know I'm sick
 #define s_xor	(s_scrxor + 3)	// Yes, I know I'm sick
 static const char	s_arcsin[]	= "arcsin";
@@ -336,7 +337,7 @@ static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_
 	}
 	DynaBuf_add_string(errormsg_dyna_buf, name);
 	if (errormsg_dyna_buf->size < length) {
-		Bug_found("Illegal symbol name length", errormsg_dyna_buf->size - length);
+		Bug_found("IllegalSymbolNameLength", errormsg_dyna_buf->size - length);
 	} else {
 		errormsg_dyna_buf->size = length;
 	}
@@ -465,7 +466,7 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		break;	// found illegal character
 	}
 	if (!digits)
-		Throw_warning("Binary literal without any digits");	// FIXME - make into error!
+		Throw_warning("Binary literal without any digits.");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
@@ -512,7 +513,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 		break;	// found illegal character
 	}
 	if (!digits)
-		Throw_warning("Hex literal without any digits");	// FIXME - make into error!
+		Throw_warning("Hex literal without any digits.");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -609,7 +610,7 @@ static void parse_octal_literal(void)	// Now GotByte = "&"
 		GetByte();
 	}
 	if (!digits)
-		Throw_warning("Octal literal without any digits");	// FIXME - make into error!
+		Throw_warning("Octal literal without any digits.");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 3) {
@@ -1027,13 +1028,13 @@ static void unsupported_operation(struct object *optional, struct op *op, struct
 {
 	if (optional) {
 		if (op->group != OPGROUP_DYADIC)
-			Bug_found("OperatorIsNotDyadic", op->id);	// FIXME - add to docs
+			Bug_found("OperatorIsNotDyadic", op->id);
 	} else {
 		if (op->group != OPGROUP_MONADIC)
-			Bug_found("OperatorIsNotMonadic", op->id);	// FIXME - add to docs
+			Bug_found("OperatorIsNotMonadic", op->id);
 	}
 	DYNABUF_CLEAR(errormsg_dyna_buf);
-	DynaBuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");	// FIXME - add to docs
+	DynaBuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");
 	DynaBuf_add_string(errormsg_dyna_buf, op->text_version);
 	DynaBuf_add_string(errormsg_dyna_buf, "\" to \"");
 	if (optional) {
@@ -1328,7 +1329,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 	// maybe put this into an extra "int_dyadic_int" function?
 	// sanity check, now "other" must be an int
 	if (other->type != &type_int)
-		Bug_found("SecondArgIsNotAnInt", op->id);	// FIXME - rename? then add to docs!
+		Bug_found("SecondArgIsNotAnInt", op->id);
 
 	// part 2: now we got rid of non-ints, perform actual operation:
 	switch (op->id) {
@@ -1582,7 +1583,7 @@ static int get_valid_index(int *target, int length, struct object *self, struct 
 		return 1;
 	}
 	if (!(other->u.number.flags & NUMBER_IS_DEFINED)) {
-		Throw_error("Index is undefined.");	// FIXME - add to docs
+		Throw_error("Index is undefined.");
 		return 1;
 	}
 	index = other->u.number.val.intval;
@@ -1821,11 +1822,10 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		// unmatched parenthesis, as in "lda ($80,x)"
 		++(expression->open_parentheses);	// count
 		return TRUE;	// caller can remove "OPID_LEFT_PARENTHESIS" operator from stack
-//		Throw_error("Too many ')'.");	// FIXME - remove from docs!
 
 	case OPID_START_LIST:
 		if (current != OPID_END_EXPRESSION)
-			Bug_found("StrangeListBracket", current);	// FIXME - add to docs!
+			Bug_found("StrangeListBracket", current);
 		if (GotByte == ',') {
 			GetByte();	// eat ','
 			op_stack[op_sp - 1] = &ops_list_append;	// change "end of expression" to "append"
@@ -1838,25 +1838,25 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
-		Throw_error("Unterminated list");	// FIXME - add to docs!
+		Throw_error("Unterminated list.");
 		alu_state = STATE_ERROR;
 		return TRUE;	// caller can remove LISTBUILDER operator from stack
 
 	case OPID_START_INDEX:
 		if (current != OPID_END_EXPRESSION)
-			Bug_found("StrangeIndexBracket", current);	// FIXME - add to docs!
+			Bug_found("StrangeIndexBracket", current);
 		if (GotByte == ']') {
 			GetByte();	// eat ']'
 			op_sp -= 2;	// remove both OPENINDEX and END_EXPRESSION
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
-		Throw_error("Unterminated index spec");	// FIXME - add to docs!
+		Throw_error("Unterminated index spec.");
 		alu_state = STATE_ERROR;
 		return TRUE;	// caller can remove START_INDEX operator from stack
 
 	default:
-		Bug_found("IllegalOperatorIdS", previous);
+		Bug_found("IllegalOperatorId", previous);
 	}
 	// this is unreachable
 	return FALSE;	// stack is done, so caller shouldn't touch it
@@ -1903,14 +1903,14 @@ static void try_to_reduce_stacks(struct expression *expression)
 	switch (previous_op->group) {
 	case OPGROUP_MONADIC:	// monadic operators
 		if (arg_sp < 1)
-			Bug_found("ArgStackEmpty", arg_sp);	// FIXME - add to docs!
+			Bug_found("ArgStackEmpty", arg_sp);
 		ARG_NOW.type->handle_monadic_operator(&ARG_NOW, previous_op);
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
 		if (arg_sp < 2)
-			Bug_found("NotEnoughArgs", arg_sp);	// FIXME - add to docs!
+			Bug_found("NotEnoughArgs", arg_sp);
 		ARG_PREV.type->handle_dyadic_operator(&ARG_PREV, previous_op, &ARG_NOW);
 		// decrement argument stack pointer because dyadic operator merged two arguments into one
 		--arg_sp;
@@ -1924,7 +1924,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
 		break;
 	default:
-		Bug_found("IllegalOperatorGroup", previous_op->group);	// FIXME - add to docs!
+		Bug_found("IllegalOperatorGroup", previous_op->group);
 	}
 // shared endings for "we did the operation indicated by previous operator":
 	// fix stack:
@@ -1978,7 +1978,7 @@ static int parse_expression(struct expression *expression)
 	if (alu_state == STATE_END) {
 		// check for bugs
 		if (arg_sp != 1)
-			Bug_found("OperandStackNotEmpty", arg_sp);
+			Bug_found("ArgStackNotEmpty", arg_sp);
 		if (op_sp != 1)
 			Bug_found("OperatorStackNotEmpty", op_sp);
 		// copy result
@@ -2039,7 +2039,7 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		*target = expression.result.u.number.val.fpval;
 	else {
 		*target = 0;
-		Throw_error("Expression did not return a number.");	// TODO - add to docs!
+		Throw_error(exception_not_number);
 	}
 }
 
@@ -2069,7 +2069,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	} else if (expression.result.type == &type_float) {
 		float_to_int(&expression.result);
 	} else {
-		Throw_serious_error("Expression did not return a number.");
+		Throw_serious_error(exception_not_number);
 	}
 	if (!(expression.result.u.number.flags & NUMBER_IS_DEFINED))
 		Throw_serious_error(exception_value_not_defined);
@@ -2092,7 +2092,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 	if (expression->result.type == &type_float)
 		float_to_int(&(expression->result));
 	if (expression->result.type != &type_int)
-		Throw_error("Expression did not return a number.");
+		Throw_error(exception_not_number);
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);

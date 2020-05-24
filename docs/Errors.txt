@@ -50,6 +50,12 @@ Assembling unstable LXA #NONZERO instruction
     Therefore ACME issues these warnings if it is about to generate
     these instructions with a non-zero argument.
 
+Binary literal without any digits.
+Hex literal without any digits.
+Octal literal without any digits.
+    A special literal was started, but then no digits followed. Expect
+    this to become an error in future!
+
 Bug in ACME, code follows
     A situation has been encountered implying there is a bug in ACME.
     See the last section in this file.
@@ -108,19 +114,21 @@ Output file already chosen.
 Segment reached another one, overwriting it.
     The program counter has just reached the start of another segment.
     Because some people might want to assemble "onto" a binary file
-    that was loaded before, this warning can be switched off using
-    modifier keywords when changing the program counter via "* =".
-    Future versions of ACME might throw an error instead of a warning
-    in this case.
+    that was loaded before, this warning can be inhibited using
+    modifier keywords when changing the program counter via "*=".
+    For extra safety you can also turn this warning into an error
+    using the "--strict-segments" CLI switch. In future versions of
+    ACME this might become the default.
 
 Segment starts inside another one, overwriting it.
-    The given value in a "* =" command is located inside another
+    The given value in a "*=" command is located inside another
     segment. Because some people might want to assemble "onto" a
-    binary file that was loaded before, this warning can be switched
-    off using modifier keywords when changing the program counter via
-    "* =".
-    Future versions of ACME might throw an error instead of a warning
-    in this case.
+    binary file that was loaded before, this warning can be inhibited
+    using modifier keywords when changing the program counter via
+    "*=".
+    For extra safety you can also turn this warning into an error
+    using the "--strict-segments" CLI switch. In future versions of
+    ACME this might become the default.
 
 Symbol list file name already chosen.
     The "!sl" command was given more than once (or in addition to the
@@ -193,6 +201,9 @@ Section:   Errors during assembly
     This is given when the pseudo opcode "!error" is executed. The
     actual message varies according to the pseudo opcode's arguments.
 
+Argument out of range.
+    You called arcsin/arccos with something not in the [-1, 1] range.
+
 Cannot open input file.
     ACME had problems opening an input file ("!bin", "!convtab" or
     "!src"). Maybe you mistyped its name.
@@ -208,6 +219,10 @@ Exponent is negative.
     Using negative exponents only give sensible results when using
     floating point maths.
 
+Expression did not return a number.
+    An expression returned a string or a list but a number (integer or
+    float) was expected.
+
 File name quotes not found ("" or <>).
     File names have to be given in quotes. Either "" quoting for files
     located in the current directory or <> quoting for library files.
@@ -216,8 +231,9 @@ Found '}' instead of end-of-file.
     ACME encountered a '}' character when it expected the file to end
     instead (because no blocks were open).
 
-Garbage data at end of statement.
-    There are still arguments when there should not be any more.
+Garbage data at end of statement (unexpected 'CHAR').
+    There are still arguments when there should not be any more. The
+    given character is the one where end-of-line was expected.
 
 Hex digits are not given in pairs.
     The two digits of a hex byte are separated by another character,
@@ -233,6 +249,12 @@ Illegal combination of command and postfix.
 
 Illegal postfix.
     You used a postfix other than "+1", "+2" or "+3".
+
+Index is undefined.
+    You attempted an indexing operation with some undefined symbol.
+
+Index out of range.
+    The value for an indexing operation wasn't in the allowed range.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
@@ -265,6 +287,13 @@ No string given.
 
 Number out of range.
     A value is too high or too low.
+    This can also mean the desired addressing mode is not available,
+    as in "ldy $e000, x".
+
+Operation not supported: Cannot apply "OP" to "TYPE".
+Operation not supported: Cannot apply "OP" to "TYPE" and "TYPE".
+    You tried to use an operator on the wrong type(s) of argument(s),
+    like indexing a float or negating a string.
 
 Program counter is unset.
     You didn't set the program counter, so ACME didn't know where to
@@ -305,11 +334,11 @@ Too late for postfix.
 Too many '('.
     A formula ends before all parentheses were closed.
 
-Too many ')'.
-    There are more closing than opening parentheses in a formula.
-
 Unknown encoding.
     You used the "!convtab" command with a keyword ACME does not know.
+
+Unknown function.
+    You used a mathematical function ACME does not know.
 
 Unknown operator.
     You used an arithmetic/logical operator ACME does not know.
@@ -325,6 +354,12 @@ Unknown pseudo opcode.
 
 Unknown "* =" segment modifier.
     You used a modifier keyword ACME does not know.
+
+Unterminated index spec.
+    An index was started with '[' but did not end with ']'.
+
+Unterminated list.
+    A list was started with '[' but did not end with ']'.
 
 Value not defined (SYMBOL NAME).
     A value could not be worked out. Maybe you mistyped a symbol name.
@@ -374,12 +409,15 @@ Syntax error.
 
 Too deeply nested. Recursive macro calls?
     The only reason for ACME to have a limit on macro call nesting
-    at all is to find infinite recursions. Current limit is 64.
+    at all is to find infinite recursions.
+    The default limit is 64, this can be changed using the
+    "--maxdepth" CLI switch.
 
 Too deeply nested. Recursive "!source"?
     The only reason for ACME to still have a limit on "!source"
-    nesting at all is to find infinite recursions. Current limit is
-    64.
+    nesting at all is to find infinite recursions.
+    The default limit is 64, this can be changed using the
+    "--maxdepth" CLI switch.
 
 Value not yet defined.
     A value could not be worked out. Maybe you mistyped a symbol name.
@@ -420,29 +458,49 @@ Section:   Bugs in ACME
     The hint messages are of no real interest to the end user, but here
     they are for completeness' sake.
 
+ArgStackEmpty
+    There was no data for a monadic operator to work on.
+
+ArgStackNotEmpty
+    The expression parser has finished though there are still
+    arguments left to process.
+
 IllegalGroupIndex
     The mnemonic tree contains a group that I didn't add.
 
 IllegalBlockTerminator
     A RAM block (macro or loop) was terminated incorrectly.
 
-IllegalOperatorHandle
+IllegalOperatorId
+IllegalOperatorGroup
     The expression parser found an operator that does not exist.
 
 IllegalImmediateMode
     The mnemonic tree contains invalid info about the size of immediate
     arguments.
 
-OperandStackNotEmpty
-    The expression parser has finished though there are still operands
-    left to parse.
+IllegalSymbolNameLength
+    A sanity check on string lengths failed.
+
+NotEnoughArgs
+    There was not enough data for a dyadic operator to work on.
+
+OperatorIsNotDyadic
+OperatorIsNotMonadic
+    A function was passed the wrong type of operator.
 
 OperatorStackNotEmpty
     The expression parser has finished though there are still
-    operators left to parse.
+    operators left to process.
+
+SecondArgIsNotAnInt
+    A sanity check failed: An argument should have been converted to
+    integer but wasn't.
 
 StrangeInputMode
     The input state machine has reached a state that does not exist.
 
+StrangeIndexBracket
+StrangeListBracket
 StrangeParenthesis
     The expression parser found a non-existing operator.
