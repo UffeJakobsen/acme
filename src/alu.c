@@ -103,8 +103,7 @@ enum op_id {
 	OPID_ATINDEX,		//	v[w]
 };
 struct op {
-#define IS_RIGHT_ASSOCIATIVE(prio)	((prio) & 1)
-	int		priority;	// lsb holds "is_right_associative" info!
+	int		priority;
 	enum op_group	group;
 	enum op_id	id;
 	const char	*text_version;
@@ -144,7 +143,8 @@ static struct op ops_intdiv		= {34, OPGROUP_DYADIC,	OPID_INTDIV,	"integer divisi
 static struct op ops_modulo		= {34, OPGROUP_DYADIC,	OPID_MODULO,	"modulo"	};
 	// highest "real" priorities
 static struct op ops_negate		= {36, OPGROUP_MONADIC,	OPID_NEGATE,	"negation"	};
-static struct op ops_powerof		= {37, OPGROUP_DYADIC,	OPID_POWEROF,	"power of"	};	// right-associative!
+#define PRIO_POWEROF			37	// the single right-associative operator, so this gets checked explicitly
+static struct op ops_powerof		= {PRIO_POWEROF, OPGROUP_DYADIC,	OPID_POWEROF,	"power of"	};
 static struct op ops_not		= {38, OPGROUP_MONADIC,	OPID_NOT,	"logical not"	};
 static struct op ops_atindex		= {40, OPGROUP_DYADIC,	OPID_ATINDEX,	"indexing"	};
 	// function calls act as if they were monadic operators.
@@ -1888,7 +1888,8 @@ static void try_to_reduce_stacks(struct expression *expression)
 
 	// previous operator has same priority as current one? then check associativity
 	if ((previous_op->priority == current_op->priority)
-	&& IS_RIGHT_ASSOCIATIVE(current_op->priority)) {
+	&& (current_op->priority == PRIO_POWEROF)
+	&& (config.right_associative_powerof)) {
 		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}

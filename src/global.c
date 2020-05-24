@@ -127,6 +127,7 @@ void config_default(struct config *conf)
 	conf->format_msvc		= FALSE;	// enabled by --msvc
 	conf->format_color		= FALSE;	// enabled by --color
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
+	conf->right_associative_powerof	= TRUE;		// TODO - add switch to disable
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
 	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
 	conf->test_new_features		= FALSE;	// enabled by --test

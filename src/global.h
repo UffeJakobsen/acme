@@ -72,6 +72,7 @@ struct config {
 	boolean		format_msvc;		// enabled by --msvc
 	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
+	boolean		right_associative_powerof;	// TRUE (TODO - add switch to disable)
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
