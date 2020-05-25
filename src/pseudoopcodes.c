@@ -356,13 +356,14 @@ static enum eos po_convtab(void)
 	FILE	*stream;
 
 	if ((GotByte == '<') || (GotByte == '"')) {
-		// if file name is missing, don't bother continuing
+		// encoding table from file
 		if (Input_read_filename(TRUE, &uses_lib))
-			return SKIP_REMAINDER;
+			return SKIP_REMAINDER;	// missing or unterminated file name
 
 		stream = includepaths_open_ro(uses_lib);
 		return user_defined_encoding(stream);
 	} else {
+		// one of the pre-defined encodings
 		return predefined_encoding();
 	}
 }
@@ -376,7 +377,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
 	do {
-		if (GotByte == '"') {
+		if (GotByte == '"') {	// FIXME - add "&& !config.backslash_escaping", otherwise stuff like "string"[index] will not work
 			DYNABUF_CLEAR(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error
@@ -396,6 +397,9 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 			// temporarily set to the given one.
 			ALU_any_int(&value);
 			output_8(value);
+			// FIXME - call ALU_any_result(FLOAT2INT) instead and support lists and strings:
+			// for lists, call some list_iter() fn to handle components
+			// for strings, do not forget to XOR!
 		}
 	} while (Input_accept_comma());
 	encoder_current = outer_encoder;	// reactivate buffered encoder
@@ -1170,7 +1174,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 	DYNABUF_CLEAR(user_message);
 	DynaBuf_add_string(user_message, prefix);
 	do {
-		if (GotByte == '"') {
+		if ((GotByte == '"') && !config.backslash_escaping) {
 			DYNABUF_CLEAR(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error

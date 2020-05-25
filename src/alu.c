@@ -392,8 +392,8 @@ static void string_init_string(struct object *self, const char *data, int len)
 	self->type = &type_string;
 	self->u.string = safe_malloc(sizeof(*(self->u.string)) + len);
 	memcpy(self->u.string->payload, data, len);
-	self->u.string->payload[len] = 0;	// terminate (just for easier printf-debugging)
-	self->u.string->length = len;
+	self->u.string->payload[len] = 0;	// terminate, to facilitate string_print()
+	self->u.string->length = len;	// length does not include the added terminator
 	self->u.string->refs = 1;
 }
 // parse string or character
@@ -1744,20 +1744,29 @@ static void float_print(struct object *self, struct dynabuf *db)
 // print value for user message
 static void list_print(struct object *self, struct dynabuf *db)
 {
-	char	buffer[64];	// 20 + 2*20 for 64-bit numbers, 64 bytes should be enough for anybody
+	struct listitem	*item;
+	int		length;
+	struct object	*obj;
+	const char	*prefix	= "";	// first item does not get a prefix
 
-	sprintf(buffer, "<LIST (len %ld, refs %ld)>", (long) self->u.listhead->length, (long) self->u.listhead->refs);
-	DynaBuf_add_string(db, buffer);
+	DynaBuf_append(db, '[');
+	length = self->u.listhead->length;
+	item = self->u.listhead->next;
+	while (length--) {
+		obj = &item->payload;
+		DynaBuf_add_string(db, prefix);
+		obj->type->print(obj, db);
+		item = item->next;
+		prefix = ", ";	// following items are prefixed
+	}
+	DynaBuf_append(db, ']');
 }
 
 // string:
 // print value for user message
 static void string_print(struct object *self, struct dynabuf *db)
 {
-	char	buffer[64];	// 20 + 2*20 for 64-bit numbers, 64 bytes should be enough for anybody
-
-	sprintf(buffer, "<STRING (len %ld, refs %ld)>", (long) self->u.string->length, (long) self->u.string->refs);
-	DynaBuf_add_string(db, buffer);
+	DynaBuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
 }
 
 struct type	type_int	= {

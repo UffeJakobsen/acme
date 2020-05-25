@@ -341,7 +341,7 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 		char	quote;		// character before and after
 
 		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
-		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);	// FIXME - change in docs!
+		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);
 		Throw_error(buf);
 		Input_skip_remainder();
 	}
@@ -556,8 +556,8 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	SKIPSPACE();
-	// check for library access
-	if (GotByte == '<') {
+	switch (GotByte) {
+	case '<':	// library access
 		if (uses_lib)
 			*uses_lib = TRUE;
 		// if library access forbidden, complain
@@ -578,14 +578,15 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		// copy lib path and set quoting char
 		DynaBuf_add_string(GlobalDynaBuf, lib_prefix);
 		terminator = '>';
-	} else {
+		break;
+	case '"':	// normal access
 		if (uses_lib)
 			*uses_lib = FALSE;
-		if (GotByte != '"') {
-			Throw_error("File name quotes not found (\"\" or <>).");
-			return 1;	// error
-		}
 		terminator = '"';
+		break;
+	default:	// none of the above
+		Throw_error("File name quotes not found (\"\" or <>).");
+		return 1;	// error
 	}
 	// remember border between optional library prefix and string from assembler source file
 	start_of_string = GlobalDynaBuf->size;
