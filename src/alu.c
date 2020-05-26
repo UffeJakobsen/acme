@@ -42,14 +42,6 @@ static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
 static const char	exception_paren_open[]	= "Too many '('.";
 static const char	exception_not_number[]	= "Expression did not return a number.";
-#define s_or	(s_eor + 1)	// Yes, I know I'm sick
-#define s_xor	(s_scrxor + 3)	// Yes, I know I'm sick
-static const char	s_arcsin[]	= "arcsin";
-#define s_sin	(s_arcsin + 3)	// Yes, I know I'm sick
-static const char	s_arccos[]	= "arccos";
-#define s_cos	(s_arccos + 3)	// Yes, I know I'm sick
-static const char	s_arctan[]	= "arctan";
-#define s_tan	(s_arctan + 3)	// Yes, I know I'm sick
 
 enum op_group {
 	OPGROUP_SPECIAL,	// start/end of expression, and parentheses
@@ -196,9 +188,9 @@ static struct ronode	op_list[]	= {
 	PREDEFNODE("div",	&ops_intdiv),
 	PREDEFNODE("mod",	&ops_modulo),
 	PREDEFNODE(s_and,	&ops_and),
-	PREDEFNODE(s_or,	&ops_or),
+	PREDEFNODE("or",	&ops_or),
 	PREDEFNODE(s_eor,	&ops_eor),		// FIXME - remove
-	PREDEFLAST(s_xor,	&ops_xor),
+	PREDEFLAST("xor",	&ops_xor),
 	//    ^^^^ this marks the last element
 };
 static struct ronode	*function_tree	= NULL;	// tree to hold functions
@@ -208,12 +200,12 @@ static struct ronode	function_list[]	= {
 	PREDEFNODE("int",	&ops_int),
 	PREDEFNODE("float",	&ops_float),
 	PREDEFNODE("len",	&ops_len),
-	PREDEFNODE(s_arcsin,	&ops_arcsin),
-	PREDEFNODE(s_arccos,	&ops_arccos),
-	PREDEFNODE(s_arctan,	&ops_arctan),
-	PREDEFNODE(s_sin,	&ops_sin),
-	PREDEFNODE(s_cos,	&ops_cos),
-	PREDEFLAST(s_tan,	&ops_tan),
+	PREDEFNODE("arcsin",	&ops_arcsin),
+	PREDEFNODE("arccos",	&ops_arccos),
+	PREDEFNODE("arctan",	&ops_arctan),
+	PREDEFNODE("sin",	&ops_sin),
+	PREDEFNODE("cos",	&ops_cos),
+	PREDEFLAST("tan",	&ops_tan),
 	//    ^^^^ this marks the last element
 };
 
@@ -387,11 +379,10 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 
 
 // make new string object
-static void string_init_string(struct object *self, const char *data, int len)
+static void string_prepare_string(struct object *self, int len)
 {
 	self->type = &type_string;
 	self->u.string = safe_malloc(sizeof(*(self->u.string)) + len);
-	memcpy(self->u.string->payload, data, len);
 	self->u.string->payload[len] = 0;	// terminate, to facilitate string_print()
 	self->u.string->length = len;	// length does not include the added terminator
 	self->u.string->refs = 1;
@@ -417,7 +408,9 @@ static void parse_quoted(char closing_quote)
 	// with backslash escaping, ' is for characters and " is for strings:
 	if ((closing_quote == '"') && (config.backslash_escaping)) {
 		// string //////////////////////////////////
-		string_init_string(&arg_stack[arg_sp++], GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// create string object and put on arg stack
+		string_prepare_string(&arg_stack[arg_sp], GlobalDynaBuf->size);	// create string object and put on arg stack
+		memcpy(arg_stack[arg_sp].u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// copy payload
+		++arg_sp;
 	} else {
 		// single character ////////////////////////
 		// too short?
@@ -1050,6 +1043,15 @@ static void unsupported_operation(struct object *optional, struct op *op, struct
 
 // int/float
 
+// int:
+// create byte-sized int object (for comparison results, converted characters, ...)
+static void int_create_byte(struct object *self, intval_t byte)
+{
+	self->type = &type_int;
+	self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;
+	self->u.number.val.intval = byte;
+	self->u.number.addr_refs = 0;
+}
 
 // int:
 // convert to float
@@ -1642,24 +1644,65 @@ static void string_handle_dyadic_operator(struct object *self, struct op *op, st
 	int		length;
 	int		index;
 	intval_t	character;
+	struct string	*arthur,
+			*ford;
 
 	length = self->u.string->length;
 	switch (op->id) {
 	case OPID_ATINDEX:
 		if (get_valid_index(&index, length, self, op, other))
-			return;	// error
+			return;	// error has already been reported
 
 		character = (intval_t) (unsigned char) encoding_encode_char(self->u.string->payload[index]);
 		self->u.string->refs--;	// FIXME - call a function for this...
-		self->type = &type_int;
-		self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;
-		self->u.number.val.intval = character;
-		self->u.number.addr_refs = 0;
-		break;
-	//case OPID_ADD:	TODO?
+		int_create_byte(self, character);
+		return;	// ok
+
+	case OPID_ADD:
+		if (other->type != &type_string)
+			break;	// complain
+		arthur = self->u.string;
+		ford = other->u.string;
+		string_prepare_string(self, arthur->length + ford->length);	// create string object and put on arg stack
+		memcpy(self->u.string->payload, arthur->payload, arthur->length);
+		memcpy(self->u.string->payload + arthur->length, ford->payload, ford->length);
+		arthur->refs--;	// FIXME - call a function for this...
+		ford->refs--;	// FIXME - call a function for this...
+		return;
+		
+	case OPID_EQUALS:
+		if (other->type != &type_string)
+			break;	// complain
+		arthur = self->u.string;
+		ford = other->u.string;
+		if (arthur->length != ford->length) {
+			int_create_byte(self, FALSE);
+		} else {
+			int_create_byte(self, !memcmp(arthur->payload, ford->payload, arthur->length));
+		}
+		arthur->refs--;	// FIXME - call a function for this...
+		ford->refs--;	// FIXME - call a function for this...
+		return;
+
+	case OPID_NOTEQUAL:
+		if (other->type != &type_string)
+			break;	// complain
+		arthur = self->u.string;
+		ford = other->u.string;
+		if (arthur->length != ford->length) {
+			int_create_byte(self, TRUE);
+		} else {
+			int_create_byte(self, !!memcmp(arthur->payload, ford->payload, arthur->length));
+		}
+		arthur->refs--;	// FIXME - call a function for this...
+		ford->refs--;	// FIXME - call a function for this...
+		return;
+
+	//case ...:	// maybe comparisons?
 	default:
-		unsupported_operation(self, op, other);
+		break;	// complain
 	}
+	unsupported_operation(self, op, other);
 }
 
 // int/float:
