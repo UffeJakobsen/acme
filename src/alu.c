@@ -345,11 +345,12 @@ static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_
 // their internal name is different (longer) than their displayed name.
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-// TODO - add int arg for number of pseudopc-de-refs via '&' prefix and act upon
-static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length)
+static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length, int derefs)
 {
 	struct symbol	*symbol;
 
+	if (derefs)
+		Bug_found("DerefsNotDoneYet", derefs);	// TODO - support!
 	// if the symbol gets created now, mark it as unsure
 	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
 	// if needed, output "value not defined" error
@@ -590,20 +591,17 @@ static void parse_number_literal(void)	// Now GotByte = first digit
 
 // Parse octal value. It accepts "0" to "7". The current value is stored as
 // soon as a character is read that is none of those given above.
-static void parse_octal_literal(void)	// Now GotByte = "&"
+static void parse_octal_literal(void)	// Now GotByte = first octal digit
 {
 	intval_t	value	= 0;
 	int		flags	= NUMBER_IS_DEFINED,
 			digits	= 0;	// digit counter
 
-	GetByte();
 	while ((GotByte >= '0') && (GotByte <= '7')) {
 		value = (value << 3) + (GotByte & 7);	// this works. it's ASCII.
 		++digits;
 		GetByte();
 	}
-	if (!digits)
-		Throw_warning("Octal literal without any digits.");	// FIXME - make into error!
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 3) {
@@ -672,7 +670,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->local_scope, 0, ugly_length_kluge);
+		get_symbol_value(section_now->local_scope, '\0', ugly_length_kluge, 0);	// no prefix, no derefs
 		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -686,14 +684,14 @@ static boolean expect_argument_or_monadic_operator(void)
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->local_scope, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			get_symbol_value(section_now->local_scope, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no derefs
 			goto now_expect_dyadic_op;
 		}
 
 		if (perform_negation)
 			PUSH_OP(&ops_negate);
 		// State doesn't change
-		break;
+		break;//goto done;
 // Real monadic operators (state doesn't change, still ExpectMonadic)
 	case '!':	// NOT operator
 		op = &ops_not;
@@ -726,7 +724,7 @@ static boolean expect_argument_or_monadic_operator(void)
 			// no need to TRY_TO_REDUCE_STACKS, because we know the one pushed first has a lower priority anyway
 			//stay in STATE_EXPECT_ARG_OR_MONADIC_OP
 		}
-		break;
+		break;//goto done;
 
 	case '(':	// left parenthesis
 		op = &ops_left_parenthesis;
@@ -746,6 +744,7 @@ static boolean expect_argument_or_monadic_operator(void)
 
 	case '&':	// Octal value
 		// TODO - count consecutive '&' and allow symbol afterward, for pseudopc-de-ref!
+		GetByte();	// this was moved here from parse_octal_literal to prepare for the TODO above
 		parse_octal_literal();	// Now GotByte = non-octal char
 		goto now_expect_dyadic_op;
 
@@ -771,25 +770,25 @@ static boolean expect_argument_or_monadic_operator(void)
 
 		if (Input_read_keyword()) {
 			// Now GotByte = illegal char
-			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no derefs
 			goto now_expect_dyadic_op;
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
 		alu_state = STATE_ERROR;
-		break;
+		break;//goto done;
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		GetByte();	// start after '@'
 		if (Input_read_keyword()) {
 			// Now GotByte = illegal char
-			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no derefs
 			goto now_expect_dyadic_op;
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
 		alu_state = STATE_ERROR;
-		break;
+		break;//goto done;
 	// decimal values and global symbols
 	default:	// all other characters
 		if ((GotByte >= '0') && (GotByte <= '9')) {
@@ -823,7 +822,7 @@ static boolean expect_argument_or_monadic_operator(void)
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					get_symbol_value(SCOPE_GLOBAL, 0, GlobalDynaBuf->size - 1);	// -1 to not count terminator
+					get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no derefs
 					goto now_expect_dyadic_op;
 				}
 			}
@@ -841,7 +840,7 @@ static boolean expect_argument_or_monadic_operator(void)
 			}
 			return FALSE;	// found delimiter
 		}
-		break;
+		break;//goto done;
 
 // no other possibilities, so here are the shared endings
 
@@ -857,6 +856,7 @@ now_expect_dyadic_op:
 			alu_state = STATE_EXPECT_DYADIC_OP;
 		break;
 	}
+//done:
 	return TRUE;	// parsed something
 }
 
@@ -939,7 +939,7 @@ static void expect_dyadic_operator(void)
 
 		Throw_error(exception_syntax);
 		alu_state = STATE_ERROR;
-		break;
+		break;//goto end;
 	case '<':	// "<", "<=", "<<" and "<>"
 		switch (GetByte()) {
 		case '=':	// "<=", less or equal
@@ -998,14 +998,15 @@ static void expect_dyadic_operator(void)
 
 			Throw_error("Unknown operator.");
 			alu_state = STATE_ERROR;
+			//goto end;
 		} else {
 			// we found end-of-expression when expecting an operator, that's ok.
 			op = &ops_end_expression;
 			goto push_dyadic_op;
 		}
-
 	}
-	return;	// TODO - check if anything goes here, then change that and add a Bug_found()
+//end:
+	return;	// TODO - change the two points that go here and add a Bug_found() instead
 
 // shared endings
 get_byte_and_push_dyadic:

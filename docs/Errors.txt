@@ -52,7 +52,6 @@ Assembling unstable LXA #NONZERO instruction
 
 Binary literal without any digits.
 Hex literal without any digits.
-Octal literal without any digits.
     A special literal was started, but then no digits followed. Expect
     this to become an error in future!
 
