@@ -377,7 +377,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
 	do {
-		if (GotByte == '"') {	// FIXME - add "&& !config.backslash_escaping", otherwise stuff like "string"[index] will not work
+		if (GotByte == '"') {	// FIXME - add "&& (config.wanted_version < VER_BACKSLASHESCAPING)", otherwise stuff like "string"[index] will not work
 			DYNABUF_CLEAR(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error
@@ -1039,7 +1039,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	loop.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
 		loop.use_old_algo = FALSE;	// new format - yay!
-		if (!config.warn_on_old_for)
+		if (config.wanted_version < VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
 		loop.counter.first = intresult.val.intval;	// use first argument
 		ALU_defined_int(&intresult);	// read second argument
@@ -1052,7 +1052,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		loop.counter.increment = (loop.counter.last < loop.counter.first) ? -1 : 1;
 	} else {
 		loop.use_old_algo = TRUE;	// old format - booo!
-		if (config.warn_on_old_for)
+		if (config.wanted_version >= VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)
 			Throw_serious_error("Loop count is negative.");
@@ -1174,7 +1174,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 	DYNABUF_CLEAR(user_message);
 	DynaBuf_add_string(user_message, prefix);
 	do {
-		if ((GotByte == '"') && !config.backslash_escaping) {
+		if ((GotByte == '"') && (config.wanted_version < VER_BACKSLASHESCAPING)) {
 			DYNABUF_CLEAR(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error

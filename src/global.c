@@ -121,17 +121,15 @@ void config_default(struct config *conf)
 	conf->pseudoop_prefix		= '!';	// can be changed to '.' by CLI switch
 	conf->process_verbosity		= 0;	// level of additional output
 	conf->warn_on_indented_labels	= TRUE;	// warn if indented label is encountered
-	conf->warn_on_old_for		= TRUE;	// warn if "!for" with old syntax is found
 	conf->warn_on_type_mismatch	= FALSE;	// use type-checking system
 	conf->max_errors		= MAXERRORS;	// errors before giving up
 	conf->format_msvc		= FALSE;	// enabled by --msvc
 	conf->format_color		= FALSE;	// enabled by --color
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
-	conf->right_associative_powerof	= TRUE;		// TODO - add switch to disable
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
 	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
 	conf->test_new_features		= FALSE;	// enabled by --test
-	conf->backslash_escaping	= FALSE;	// enabled by --test --test
+	conf->wanted_version		= VER_NEWFORSYNTAX;	// TODO - add switch to change
 }
 
 // memory allocation stuff

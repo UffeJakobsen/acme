@@ -406,7 +406,7 @@ static void parse_quoted(char closing_quote)
 	// without backslash escaping, both ' and " are used for single
 	// characters.
 	// with backslash escaping, ' is for characters and " is for strings:
-	if ((closing_quote == '"') && (config.backslash_escaping)) {
+	if ((closing_quote == '"') && (config.wanted_version >= VER_BACKSLASHESCAPING)) {
 		// string //////////////////////////////////
 		string_prepare_string(&arg_stack[arg_sp], GlobalDynaBuf->size);	// create string object and put on arg stack
 		memcpy(arg_stack[arg_sp].u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// copy payload
@@ -1941,7 +1941,7 @@ static void try_to_reduce_stacks(struct expression *expression)
 	// previous operator has same priority as current one? then check associativity
 	if ((previous_op->priority == current_op->priority)
 	&& (current_op->priority == PRIO_POWEROF)
-	&& (config.right_associative_powerof)) {
+	&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF)) {
 		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 		return;
 	}

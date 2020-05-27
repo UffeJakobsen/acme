@@ -66,17 +66,20 @@ struct config {
 	char		pseudoop_prefix;	// '!' or '.'
 	int		process_verbosity;	// level of additional output
 	boolean		warn_on_indented_labels;	// warn if indented label is encountered
-	boolean		warn_on_old_for;	// warn if "!for" with old syntax is found
 	boolean		warn_on_type_mismatch;	// use type-checking system
 	signed long	max_errors;	// errors before giving up
 	boolean		format_msvc;		// enabled by --msvc
 	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
-	boolean		right_associative_powerof;	// TRUE (TODO - add switch to disable)
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
-	boolean		backslash_escaping;	// FALSE, enabled by --test --test
+	int		wanted_version;
+#define VER_0_93			 9300	// v0.93
+#define VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
+#define VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
+#define VER_BACKSLASHESCAPING		10000	// not yet: backslash escaping
+#define VER_FUTURE			32767
 };
 extern struct config	config;
 

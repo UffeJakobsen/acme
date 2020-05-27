@@ -480,7 +480,7 @@ static const char *long_option(const char *string)
 		config.segment_warning_is_error = TRUE;
 	else if (strcmp(string, OPTION_TEST) == 0) {
 		if (config.test_new_features)
-			config.backslash_escaping = TRUE;
+			config.wanted_version = VER_FUTURE;	// giving "--test" twice enables every new feature
 		config.test_new_features = TRUE;
 	} PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
@@ -537,7 +537,7 @@ static char short_option(const char *argument)
 				config.warn_on_indented_labels = FALSE;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_OLD_FOR) == 0) {
-				config.warn_on_old_for = FALSE;
+				config.wanted_version = VER_NEWFORSYNTAX - 1;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWTYPE_MISMATCH) == 0) {
 				config.warn_on_type_mismatch = TRUE;
@@ -592,36 +592,27 @@ int main(int argc, const char *argv[])
 TODO - maybe add a "use version" switch to ease assembling old sources?
 relevant changes are:
 
-"0.05"
+v0.05:
 	...would be the syntax before any changes
 	(how was offset assembly ended? '*' in a line on its own?)
 	BIT without any arg would output $2c, masking the next two bytes
-"0.07"
+v0.07:
 	"leading zeroes" info is now stored in symbols as well
 	changed argument order of mvp/mvn
 	!cbm outputs warning to use !ct pet instead
 	!end changed to !eof
 	*= is now segment change instead of offset assembly
 	added !pseudopc/!realpc
-"0.86"
-	!pseudopc/!realpc gives a warning to use !pseudopc{} instead
-"0.89"
-	>> now does ASR everywhere, added >>> as LSR
-	numbers before mnemonics are no longer interpreted as labels
-"0.93"
-	*= no longer ends offset assembly
-"0.94.6"
-	powerof is now right-associative
-"0.94.8"
-	disabled !cbm
-	disabled !pseudopc/!realpc
-	disabled !subzone
-"0.94.12"
-	new !for syntax
-"0.95.2"
-	changed ANC#8 from 0x2b to 0x0b
-"future"
-	backslash escaping (= strings)
+
+config->wanted_version =
+				 8600	// v0.86 make !pseudopc/!realpc give a warning to use !pseudopc{} instead
+VER_0_93			 9300	// v0.93 allowed *= inside offset assembly blocks
+VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
+				 9408	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
+VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
+				 9502	// v0.95.2 changed ANC#8 from 0x2b to 0x0b
+VER_BACKSLASHESCAPING		?	// not yet: backslash escaping (and therefore strings)
+VER_FUTURE			32767
 	TODO: paths should be relative to file, not start dir
 	TODO: ignore leading zeroes?
 */
