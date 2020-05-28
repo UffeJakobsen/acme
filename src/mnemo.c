@@ -579,10 +579,8 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 
 	ALU_addrmode_int(&expression, 0);	// accept 0 parentheses still open (-> complain!)
 	if (expression.is_parenthesized && complain_about_indirect) {
-		if (config.test_new_features) {
-			// TODO - raise error and be done with it?
-			Throw_first_pass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase!
-		}
+		// TODO - raise error and be done with it?
+		Throw_first_pass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase? add to docs!
 	}
 	*result = expression.result.u.number;
 }

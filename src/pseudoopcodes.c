@@ -1110,10 +1110,6 @@ static enum eos po_while(void)	// now GotByte = illegal char
 {
 	struct do_while	loop;
 
-	if (!config.test_new_features) {
-		Throw_error(exception_unknown_pseudo_opcode);
-		return SKIP_REMAINDER;
-	}
 	// read condition to buffer
 	SKIPSPACE();
 	flow_store_while_condition(&loop.head_cond);	// must be freed!
