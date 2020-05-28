@@ -16,6 +16,7 @@ struct symbol {
 	int		usage;	// usage count
 	int		pass;	// pass of creation (for anon counters)
 	boolean		has_been_reported;	// indicates "has been reported as undefined"
+	struct pseudopc	*pseudopc;
 	// add file ref + line num of last definition
 };
 

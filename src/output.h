@@ -27,11 +27,6 @@ struct vcpu {
 	boolean			a_is_long;
 	boolean			xy_are_long;
 };
-// buffer to hold outer state while parsing "pseudopc" block
-struct pseudopc {
-	intval_t	offset;
-	int		flags;
-};
 
 
 // variables
@@ -103,10 +98,18 @@ extern void vcpu_read_pc(struct number *target);
 extern int vcpu_get_statement_size(void);
 // adjust program counter (called at end of each statement)
 extern void vcpu_end_statement(void);
+
+struct pseudopc;
 // start offset assembly
-extern void pseudopc_start(struct pseudopc *buffer, struct number *new_pc);
+extern void pseudopc_start(struct number *new_pc);
 // end offset assembly
-extern void pseudopc_end(struct pseudopc *buffer);
+extern void pseudopc_end(void);
+// un-pseudopc a label value by given number of levels
+// returns nonzero on error (if level too high)
+extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
+// return pointer to current "pseudopc" struct (may be NULL!)
+// this gets called when parsing label definitions
+extern struct pseudopc *pseudopc_get_context(void);
 
 
 #endif

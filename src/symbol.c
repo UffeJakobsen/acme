@@ -127,6 +127,7 @@ struct symbol *symbol_find(scope_t scope, int flags)
 		symbol->usage = 0;	// usage count
 		symbol->pass = pass.number;
 		symbol->has_been_reported = FALSE;
+		symbol->pseudopc = NULL;
 		node->body = symbol;
 	} else {
 		symbol = node->body;
@@ -194,6 +195,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
+// TODO - this is parsing, so move elsewhere
 void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
 {
 	struct number	pc;
@@ -211,6 +213,7 @@ void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
 	symbol_set_object(symbol, &result, change_allowed);
+	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
 		section_new_cheap_scope(section_now);
@@ -219,6 +222,7 @@ void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 
 // parse symbol definition (can be either global or local, may turn out to be a label).
 // name must be held in GlobalDynaBuf.
+// TODO - this is parsing, so move elsewhere
 void symbol_parse_definition(scope_t scope, int stat_flags)
 {
 	struct object	result;

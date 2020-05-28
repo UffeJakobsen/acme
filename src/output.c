@@ -53,6 +53,9 @@ struct output {
 	char		xor;		// output modifier
 };
 
+// for offset assembly:
+static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when not in pseudopc block)
+
 
 // variables
 static struct output	default_output;
@@ -496,6 +499,9 @@ void Output_passinit(void)
 	CPU_state.pc.flags = 0;	// not defined yet
 	CPU_state.pc.val.intval = 0;	// same as output's write_idx on pass init
 	CPU_state.add_to_pc = 0;	// increase PC by this at end of statement
+
+	// pseudopc stuff:
+	pseudopc_current_context = NULL;
 }
 
 
@@ -629,18 +635,60 @@ void vcpu_end_statement(void)
 	CPU_state.add_to_pc = 0;
 }
 
+
+// struct to describe a pseudopc context
+struct pseudopc {
+	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
+	intval_t	offset;	// inner minus outer pc
+	int		flags;	// flags of outer pc
+};
 // start offset assembly
-void pseudopc_start(struct pseudopc *buffer, struct number *new_pc)
+void pseudopc_start(struct number *new_pc)
 {
-	buffer->flags = CPU_state.pc.flags;
-	buffer->offset = (new_pc->val.intval - CPU_state.pc.val.intval) & 0xffff;
+	struct pseudopc	*new_context;
+
+	new_context = safe_malloc(sizeof(*new_context));	// create new struct (this must never be freed, as it gets linked to labels!)
+	new_context->outer = pseudopc_current_context;	// let it point to previous one
+	pseudopc_current_context = new_context;	// make it the current one
+
+	new_context->flags = CPU_state.pc.flags;
+	new_context->offset = new_pc->val.intval - CPU_state.pc.val.intval;
 	CPU_state.pc.val.intval = new_pc->val.intval;
 	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
 	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
-void pseudopc_end(struct pseudopc *buffer)
+void pseudopc_end(void)
 {
-	CPU_state.pc.val.intval = (CPU_state.pc.val.intval - buffer->offset) & 0xffff;
-	CPU_state.pc.flags = buffer->flags;
+	if (pseudopc_current_context == NULL) {
+		Bug_found("ClosingUnopenedPseudopcBlock", 0);
+	} else {
+		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & 0xffff;	// pc might have wrapped around
+		CPU_state.pc.flags = pseudopc_current_context->flags;
+		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
+	}
+}
+// un-pseudopc a label value by given number of levels
+// returns nonzero on error (if level too high)
+int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
+{
+	while (levels--) {
+		if ((target->flags & NUMBER_IS_DEFINED) == 0)
+			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anway)
+
+		if (context == NULL) {
+			Throw_error("Too many monadic '&' operators for this label.");	// TODO - add to docs
+			return 1;	// error
+		}
+		// FIXME - in future, check DEFINED flag of context!
+		target->val.intval = (target->val.intval - context->offset) & 0xffff;	// FIXME - is masking really needed?
+		context = context->outer;
+	}
+	return 0;	// ok
+}
+// return pointer to current "pseudopc" struct (may be NULL!)
+// this gets called when parsing label definitions
+struct pseudopc *pseudopc_get_context(void)
+{
+	return pseudopc_current_context;
 }

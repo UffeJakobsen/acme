@@ -345,23 +345,33 @@ static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_
 // their internal name is different (longer) than their displayed name.
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length, int derefs)
+static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length, unsigned int unpseudo_count)
 {
 	struct symbol	*symbol;
+	struct object	*arg;
 
-	if (derefs)
-		Bug_found("DerefsNotDoneYet", derefs);	// TODO - support!
 	// if the symbol gets created now, mark it as unsure
 	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
+	// first push on arg stack, so we have a local copy we can "unpseudopc"
+	arg = &arg_stack[arg_sp++];
+	*arg = symbol->result;
+	if (unpseudo_count) {
+		if (arg->type == &type_int) {
+			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
+			// TODO - check return value and enter error state if nonzero?
+		} else {
+			Throw_error("Monadic '&' operator can only be applied to labels.");	// TODO - add to docs
+			// TODO - enter error state?
+		}
+	}
 	// if needed, output "value not defined" error
-	if (!(symbol->result.type->is_defined(&symbol->result)))
+	// FIXME - in case of unpseudopc, error message should include the correct amount of '&' characters
+	if (!(arg->type->is_defined(arg)))
 		is_not_defined(symbol, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
-	// push argument, regardless of whether int or float
 	// FIXME - if arg is list, increment ref count!
-	arg_stack[arg_sp++] = symbol->result;
 }
 
 
@@ -651,6 +661,42 @@ static void list_init_list(struct object *self)
 // expression parser
 
 
+// helper function for "monadic &" (either octal value or "unpseudo" operator)
+// returns nonzero on error
+static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
+{
+	unsigned int	unpseudo_count	= 1;
+
+	while (GetByte() == '&')
+		++unpseudo_count;
+	if ((unpseudo_count == 1) && (GotByte >= '0') & (GotByte <= '7')) {
+		parse_octal_literal();	// now GotByte = non-octal char
+		return 0;	// ok
+	}
+
+	// TODO - support anonymous labels as well?
+	if (GotByte == '.') {
+		GetByte();
+		if (Input_read_keyword() == 0)	// now GotByte = illegal char
+			return 1;	// error (no string given)
+
+		get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
+	} else if (GotByte == CHEAP_PREFIX) {
+		GetByte();
+		if (Input_read_keyword() == 0)	// now GotByte = illegal char
+			return 1;	// error (no string given)
+
+		get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
+	} else if (BYTE_STARTS_KEYWORD(GotByte)) {
+		Input_read_keyword();	// now GotByte = illegal char
+		get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, unpseudo_count);	// no prefix, -1 to not count terminator
+	} else {
+                Throw_error(exception_missing_string);
+		return 1;	// error
+	}
+	return 0;	// ok
+}
+
 // Expect argument or monadic operator (hopefully inlined)
 // returns TRUE if it ate any non-space (-> so expression isn't empty)
 // returns FALSE if first non-space is delimiter (-> end of expression)
@@ -670,7 +716,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->local_scope, '\0', ugly_length_kluge, 0);	// no prefix, no derefs
+		get_symbol_value(section_now->local_scope, '\0', ugly_length_kluge, 0);	// no prefix, no unpseudo
 		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -684,7 +730,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->local_scope, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no derefs
+			get_symbol_value(section_now->local_scope, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;
 		}
 
@@ -742,12 +788,13 @@ static boolean expect_argument_or_monadic_operator(void)
 		parse_binary_literal();	// Now GotByte = non-binary char
 		goto now_expect_dyadic_op;
 
-	case '&':	// Octal value
-		// TODO - count consecutive '&' and allow symbol afterward, for pseudopc-de-ref!
-		GetByte();	// this was moved here from parse_octal_literal to prepare for the TODO above
-		parse_octal_literal();	// Now GotByte = non-octal char
-		goto now_expect_dyadic_op;
+	case '&':	// octal value or "unpseudo" operator applied to label
+		if (parse_octal_or_unpseudo() == 0)
+			goto now_expect_dyadic_op;
 
+		// if we're here, there was an error (like "no string given"):
+		alu_state = STATE_ERROR;
+		break;//goto done;
 	case '$':	// Hexadecimal value
 		parse_hex_literal();
 		// Now GotByte = non-hexadecimal char
@@ -763,15 +810,13 @@ static boolean expect_argument_or_monadic_operator(void)
 		GetByte();	// start after '.'
 		// check for fractional part of float value
 		if ((GotByte >= '0') && (GotByte <= '9')) {
-			parse_frac_part(0);
-			// Now GotByte = non-decimal char
+			parse_frac_part(0);	// now GotByte = non-decimal char
 			goto now_expect_dyadic_op;
 		}
 
-		if (Input_read_keyword()) {
-			// Now GotByte = illegal char
-			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no derefs
-			goto now_expect_dyadic_op;
+		if (Input_read_keyword()) {	// now GotByte = illegal char
+			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+			goto now_expect_dyadic_op;	// ok
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
@@ -780,10 +825,9 @@ static boolean expect_argument_or_monadic_operator(void)
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		GetByte();	// start after '@'
-		if (Input_read_keyword()) {
-			// Now GotByte = illegal char
-			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no derefs
-			goto now_expect_dyadic_op;
+		if (Input_read_keyword()) {	// now GotByte = illegal char
+			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+			goto now_expect_dyadic_op;	// ok
 		}
 
 		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
@@ -822,7 +866,7 @@ static boolean expect_argument_or_monadic_operator(void)
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no derefs
+					get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 					goto now_expect_dyadic_op;
 				}
 			}

@@ -586,7 +586,6 @@ static const char	Error_old_offset_assembly[]	=
 // TODO - maybe add a label argument to assign the block size afterwards (for assemble-to-end-address) (or add another pseudo opcode)
 static enum eos po_pseudopc(void)
 {
-	struct pseudopc	buffer;
 	struct number	new_pc;
 
 	// get new value
@@ -610,12 +609,11 @@ static enum eos po_pseudopc(void)
 		}
 	}
 */
-	// remember old state in buffer, set new state
-	pseudopc_start(&buffer, &new_pc);
+	pseudopc_start(&new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
 		// restore old state
-		pseudopc_end(&buffer);
+		pseudopc_end();
 	} else {
 		// not using a block is no longer allowed
 		Throw_error(Error_old_offset_assembly);
