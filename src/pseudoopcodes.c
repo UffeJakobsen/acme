@@ -296,9 +296,14 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 
 
 // "!cbm" pseudo opcode (now obsolete)
-static enum eos obsolete_po_cbm(void)
+static enum eos po_cbm(void)
 {
-	Throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
+	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF) {
+		Throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
+	} else {
+		encoder_current = &encoder_pet;
+		Throw_first_pass_warning("\"!cbm\" is deprecated; use \"!ct pet\" instead.");
+	}
 	return ENSURE_EOS;
 }
 
@@ -580,8 +585,16 @@ static enum eos po_align(void)
 	return ENSURE_EOS;
 }
 
-static const char	Error_old_offset_assembly[]	=
-	"\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.";
+
+// not using a block is no longer allowed
+static void old_offset_assembly(void)
+{
+	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
+		Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");
+	else
+		Throw_first_pass_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
+}
+
 // start offset assembly
 // TODO - maybe add a label argument to assign the block size afterwards (for assemble-to-end-address) (or add another pseudo opcode)
 static enum eos po_pseudopc(void)
@@ -612,20 +625,19 @@ static enum eos po_pseudopc(void)
 	pseudopc_start(&new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
-		// restore old state
-		pseudopc_end();
+		pseudopc_end(TRUE);	// restore old state
 	} else {
-		// not using a block is no longer allowed
-		Throw_error(Error_old_offset_assembly);
+		old_offset_assembly();
 	}
 	return ENSURE_EOS;
 }
 
 
 // "!realpc" pseudo opcode (now obsolete)
-static enum eos obsolete_po_realpc(void)
+static enum eos po_realpc(void)
 {
-	Throw_error(Error_old_offset_assembly);
+	old_offset_assembly();
+	pseudopc_end(FALSE);	// restore old state, if possible
 	return ENSURE_EOS;
 }
 
@@ -810,15 +822,18 @@ static enum eos po_zone(void)
 	} else {
 		// no block found, so it's a normal zone change
 		section_finalize(&entry_values);	// end outer zone
-		section_now->type = s_Zone;	// change type to "Zone"
+		section_now->type = "Zone";	// fix type
 	}
 	return ENSURE_EOS;
 }
 
 // "!subzone" or "!sz" pseudo opcode (now obsolete)
-static enum eos obsolete_po_subzone(void)
+static enum eos po_subzone(void)
 {
-	Throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
+	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
+		Throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
+	else
+		Throw_first_pass_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
 	// call "!zone" instead
 	return po_zone();
 }
@@ -1262,7 +1277,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("le32",		po_le32),
 	PREDEFNODE("h",			po_hex),
 	PREDEFNODE("hex",		po_hex),
-	PREDEFNODE(s_cbm,		obsolete_po_cbm),
+	PREDEFNODE("cbm",		po_cbm),	// obsolete
 	PREDEFNODE("ct",		po_convtab),
 	PREDEFNODE("convtab",		po_convtab),
 	PREDEFNODE("tx",		po_text),
@@ -1278,7 +1293,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("skip",		po_skip),
 	PREDEFNODE("align",		po_align),
 	PREDEFNODE("pseudopc",		po_pseudopc),
-	PREDEFNODE("realpc",		obsolete_po_realpc),
+	PREDEFNODE("realpc",		po_realpc),	// obsolete
 	PREDEFNODE("cpu",		po_cpu),
 	PREDEFNODE("al",		po_al),
 	PREDEFNODE("as",		po_as),
@@ -1291,9 +1306,9 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE(s_sl,		po_symbollist),
 	PREDEFNODE("symbollist",	po_symbollist),
 	PREDEFNODE("zn",		po_zone),
-	PREDEFNODE(s_zone,		po_zone),
-	PREDEFNODE("sz",		obsolete_po_subzone),
-	PREDEFNODE(s_subzone,		obsolete_po_subzone),
+	PREDEFNODE("zone",		po_zone),
+	PREDEFNODE("sz",		po_subzone),	// obsolete
+	PREDEFNODE("subzone",		po_subzone),	// obsolete
 	PREDEFNODE("src",		po_source),
 	PREDEFNODE("source",		po_source),
 	PREDEFNODE("if",		po_if),

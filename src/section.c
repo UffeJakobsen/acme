@@ -73,7 +73,7 @@ void section_passinit(void)
 {
 	//printf("[old maxima: locals=%d, cheap=%d]\n", local_scope_max, cheap_scope_max);
 	local_scope_max = 0;	// will be incremented by 2 by next line
-	section_new(&outer_section, s_Zone, s_untitled, FALSE);
+	section_new(&outer_section, "Zone", s_untitled, FALSE);
 	cheap_scope_max = -1;	// will be incremented by 2 by next line
 	section_new_cheap_scope(&outer_section);
 }

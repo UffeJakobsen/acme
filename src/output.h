@@ -102,8 +102,8 @@ extern void vcpu_end_statement(void);
 struct pseudopc;
 // start offset assembly
 extern void pseudopc_start(struct number *new_pc);
-// end offset assembly
-extern void pseudopc_end(void);
+// end offset assembly (use FALSE for old, deprecated, obsolete, non-nesting !realpc)
+extern void pseudopc_end(boolean choke_outside);
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)
 extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);

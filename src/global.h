@@ -26,15 +26,11 @@ extern const char	s_asl[];
 extern const char	s_asr[];
 extern const char	s_bra[];
 extern const char	s_brl[];
-extern const char	s_cbm[];
 extern const char	s_eor[];
 extern const char	s_error[];
 extern const char	s_lsr[];
 extern const char	s_scrxor[];
 extern char		s_untitled[];
-extern const char	s_Zone[];
-#define s_zone	(s_subzone + 3)	// Yes, I know I'm sick
-extern const char	s_subzone[];
 extern const char	s_pet[];
 extern const char	s_raw[];
 extern const char	s_scr[];
@@ -74,14 +70,34 @@ struct config {
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
-	int		wanted_version;
-#define VER_0_93			 9300	// v0.93
-#define VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
-#define VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
-#define VER_BACKSLASHESCAPING		10000	// not yet: backslash escaping
-#define VER_FUTURE			32767
+	int		wanted_version;	// TODO - add switch to set this (in addition to "--test --test")
 };
 extern struct config	config;
+/* versions that could be supported by "wanted_version":
+v0.05:
+	...would be the syntax before any changes
+	(how was offset assembly ended? '*' in a line on its own?)
+	BIT without any arg would output $2c, masking the next two bytes
+v0.07:
+	"leading zeroes" info is now stored in symbols as well
+	changed argument order of mvp/mvn
+	!cbm outputs warning to use !ct pet instead
+	!end changed to !eof
+	*= is now segment change instead of offset assembly
+	added !pseudopc/!realpc
+*/
+//#define VER_				 8500	// v0.85 looks like the oldest version it makes sense to actually support
+//#define VER_				 8600	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
+//#define VER_				 9300	// v0.93 allowed *= inside offset assembly blocks
+#define VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
+#define VER_DISABLED_OBSOLETE_STUFF	 9408	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
+#define VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
+//					 9502	// v0.95.2 changed ANC#8 from 0x2b to 0x0b
+#define VER_BACKSLASHESCAPING		10000	// not yet: backslash escaping (and therefore strings)		FIXME - value is bogus!
+#define VER_FUTURE			32767
+// possible changes in future versions:
+//	paths should be relative to file, not start dir
+//	ignore leading zeroes?
 
 struct pass {
 	int	number;	// counts up from zero

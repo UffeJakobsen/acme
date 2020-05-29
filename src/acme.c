@@ -587,32 +587,3 @@ int main(int argc, const char *argv[])
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted
 }
-
-/*
-TODO - maybe add a "use version" switch to ease assembling old sources?
-relevant changes are:
-
-v0.05:
-	...would be the syntax before any changes
-	(how was offset assembly ended? '*' in a line on its own?)
-	BIT without any arg would output $2c, masking the next two bytes
-v0.07:
-	"leading zeroes" info is now stored in symbols as well
-	changed argument order of mvp/mvn
-	!cbm outputs warning to use !ct pet instead
-	!end changed to !eof
-	*= is now segment change instead of offset assembly
-	added !pseudopc/!realpc
-
-config->wanted_version =
-				 8600	// v0.86 make !pseudopc/!realpc give a warning to use !pseudopc{} instead
-VER_0_93			 9300	// v0.93 allowed *= inside offset assembly blocks
-VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
-				 9408	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
-VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
-				 9502	// v0.95.2 changed ANC#8 from 0x2b to 0x0b
-VER_BACKSLASHESCAPING		?	// not yet: backslash escaping (and therefore strings)
-VER_FUTURE			32767
-	TODO: paths should be relative to file, not start dir
-	TODO: ignore leading zeroes?
-*/

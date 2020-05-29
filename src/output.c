@@ -76,7 +76,7 @@ static struct ronode	*file_format_tree	= NULL;	// tree to hold output formats (F
 static struct ronode	file_format_list[]	= {
 #define KNOWN_FORMATS	"'plain', 'cbm', 'apple'"	// shown in CLI error message for unknown formats
 	PREDEFNODE("apple",	OUTPUT_FORMAT_APPLE),
-	PREDEFNODE(s_cbm,	OUTPUT_FORMAT_CBM),
+	PREDEFNODE("cbm",	OUTPUT_FORMAT_CBM),
 //	PREDEFNODE("o65",	OUTPUT_FORMAT_O65),
 	PREDEFLAST("plain",	OUTPUT_FORMAT_PLAIN),
 	//    ^^^^ this marks the last element
@@ -657,11 +657,12 @@ void pseudopc_start(struct number *new_pc)
 	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
 	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
-// end offset assembly
-void pseudopc_end(void)
+// end offset assembly (use FALSE for old, deprecated, obsolete, non-nesting !realpc)
+void pseudopc_end(boolean choke_outside)
 {
 	if (pseudopc_current_context == NULL) {
-		Bug_found("ClosingUnopenedPseudopcBlock", 0);
+		if (choke_outside)
+			Bug_found("ClosingUnopenedPseudopcBlock", 0);
 	} else {
 		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & 0xffff;	// pc might have wrapped around
 		CPU_state.pc.flags = pseudopc_current_context->flags;
