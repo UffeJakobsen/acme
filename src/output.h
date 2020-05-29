@@ -57,19 +57,19 @@ extern int output_initmem(char content);
 // move elsewhere:
 
 // Output 8-bit value with range check
-extern void output_8(intval_t);
+extern void output_8(intval_t value);
 // Output 16-bit value with range check big-endian
-extern void output_be16(intval_t);
+extern void output_be16(intval_t value);
 // Output 16-bit value with range check little-endian
-extern void output_le16(intval_t);
+extern void output_le16(intval_t value);
 // Output 24-bit value with range check big-endian
-extern void output_be24(intval_t);
+extern void output_be24(intval_t value);
 // Output 24-bit value with range check little-endian
-extern void output_le24(intval_t);
+extern void output_le24(intval_t value);
 // Output 32-bit value (without range check) big-endian
-extern void output_be32(intval_t);
+extern void output_be32(intval_t value);
 // Output 32-bit value (without range check) little-endian
-extern void output_le32(intval_t);
+extern void output_le32(intval_t value);
 
 // outfile stuff:
 

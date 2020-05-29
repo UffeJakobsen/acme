@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // pseudo opcode stuff
@@ -7,7 +7,7 @@
 #define pseudoopcodes_H
 
 
-// call when "* = EXPRESSION" is parsed
+// call when "*= EXPRESSION" is parsed
 extern void notreallypo_setpc(void);
 // register pseudo opcodes
 extern void pseudoopcodes_init(void);

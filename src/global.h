@@ -125,7 +125,7 @@ do {				\
 // set configuration to default values
 extern void config_default(struct config *conf);
 // allocate memory and die if not available
-extern void *safe_malloc(size_t);
+extern void *safe_malloc(size_t amount);
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.
@@ -140,22 +140,22 @@ extern int Throw_get_counter(void);
 // This means the produced code looks as expected. But there has been a
 // situation that should be reported to the user, for example ACME may have
 // assembled a 16-bit parameter with an 8-bit value.
-extern void Throw_warning(const char *);
+extern void Throw_warning(const char *msg);
 // Output a warning if in first pass. See above.
-extern void Throw_first_pass_warning(const char *);
+extern void Throw_first_pass_warning(const char *msg);
 // Output an error.
 // This means something went wrong in a way that implies that the output
 // almost for sure won't look like expected, for example when there was a
 // syntax error. The assembler will try to go on with the assembly though, so
 // the user gets to know about more than one of his typos at a time.
-extern void Throw_error(const char *);
+extern void Throw_error(const char *msg);
 // Output a serious error, stopping assembly.
 // Serious errors are those that make it impossible to go on with the
 // assembly. Example: "!fill" without a parameter - the program counter cannot
 // be set correctly in this case, so proceeding would be of no use at all.
-extern void Throw_serious_error(const char *);
+extern void Throw_serious_error(const char *msg);
 // handle bugs
-extern void Bug_found(const char *, int);
+extern void Bug_found(const char *msg, int code);
 
 
 #endif

@@ -330,7 +330,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 // FIXME - add a possibility to symbol_find to make it possible to find out
 // whether symbol was just created. Then check for the same error message here
 // as above ("Macro parameter twice.").
-					symbol->result = arg_table[arg_count].result;
+					symbol->object = arg_table[arg_count].result;
 				}
 				++arg_count;
 			} while (Input_accept_comma());

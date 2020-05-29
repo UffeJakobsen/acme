@@ -15,7 +15,7 @@
 #define PLATFORM_INIT			RISCOS_entry()
 
 // convert UNIX-style pathname to RISC OS-style pathname
-#define PLATFORM_CONVERTPATH(p)	RISCOS_convert_path(p)
+#define PLATFORM_CONVERTPATH(path)	RISCOS_convert_path(path)
 
 // directory separator for include paths
 #define DIRECTORY_SEPARATOR	'\0'	// actually '.', but paths ending on ':' are ok, so auto-adding '.' is bad)
@@ -66,7 +66,7 @@ extern int	RISCOS_flags;	// Holds platform-specific flags
 // used as PLATFORM_INIT: registers exit handler
 extern void RISCOS_entry(void);
 // convert UNIX-style pathname to RISC OS-style pathname
-extern void RISCOS_convert_path(char *p);
+extern void RISCOS_convert_path(char *path);
 // setting the created files' types
 extern void RISCOS_set_filetype(const char *, int);
 // use DDEUtils module's "Throwback" protocol

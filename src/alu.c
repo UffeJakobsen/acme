@@ -354,7 +354,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
 	// first push on arg stack, so we have a local copy we can "unpseudopc"
 	arg = &arg_stack[arg_sp++];
-	*arg = symbol->result;
+	*arg = symbol->object;
 	if (unpseudo_count) {
 		if (arg->type == &type_int) {
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
@@ -1158,7 +1158,7 @@ static void int_handle_monadic_operator(struct object *self, struct op *op)
 	case OPID_ARCTAN:
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
-		type_float.handle_monadic_operator(self, op);	// TODO - put recursion check around this?
+		type_float.monadic_op(self, op);	// TODO - put recursion check around this?
 		return;	// float handler has done everything
 
 	case OPID_NOT:
@@ -1253,7 +1253,7 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 	case OPID_BANKBYTEOF:
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
-		type_int.handle_monadic_operator(self, op);	// TODO - put recursion check around this?
+		type_int.monadic_op(self, op);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
 // add new monadic operators here
@@ -1341,7 +1341,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		case OPID_NOTEQUAL:
 			// become float, delegate to float handler
 			int_to_float(self);
-			type_float.handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
+			type_float.dyadic_op(self, op, other);	// TODO - put recursion check around this?
 			return;	// float handler has done everything
 
 		case OPID_MODULO:
@@ -1560,7 +1560,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 	case OPID_MODULO:
 		float_to_int(self);
 		// int handler will check other and, if needed, convert to int
-		type_int.handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
+		type_int.dyadic_op(self, op, other);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
 	case OPID_ADD:
@@ -2001,14 +2001,14 @@ static void try_to_reduce_stacks(struct expression *expression)
 	case OPGROUP_MONADIC:	// monadic operators
 		if (arg_sp < 1)
 			Bug_found("ArgStackEmpty", arg_sp);
-		ARG_NOW.type->handle_monadic_operator(&ARG_NOW, previous_op);
+		ARG_NOW.type->monadic_op(&ARG_NOW, previous_op);
 		// operation was something other than parentheses
 		expression->is_parenthesized = FALSE;
 		break;
 	case OPGROUP_DYADIC:	// dyadic operators
 		if (arg_sp < 2)
 			Bug_found("NotEnoughArgs", arg_sp);
-		ARG_PREV.type->handle_dyadic_operator(&ARG_PREV, previous_op, &ARG_NOW);
+		ARG_PREV.type->dyadic_op(&ARG_PREV, previous_op, &ARG_NOW);
 		// decrement argument stack pointer because dyadic operator merged two arguments into one
 		--arg_sp;
 		// operation was something other than parentheses

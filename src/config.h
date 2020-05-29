@@ -29,17 +29,17 @@ struct number {
 	} val;
 	int	addr_refs;	// address reference count (only look at this if value is DEFINED)
 };
-// structure for ints/floats/lists/strings (TODO)
+
 struct type;
 struct string;
 struct listitem;
+// structure for ints/floats/lists/strings (anything that can be assigned to symbol)
 struct object {
 	struct type	*type;
 	union {
 		struct number	number;
 		struct string	*string;
 		struct listitem	*listhead;
-		// TODO - add string struct
 	} u;
 };
 struct string {

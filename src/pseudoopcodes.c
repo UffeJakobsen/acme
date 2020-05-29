@@ -735,11 +735,11 @@ static enum eos po_set(void)	// now GotByte = illegal char
 	ALU_any_result(&result);
 	// clear symbol's force bits and set new ones
 	// (but only do this for numbers!)
-	if (((symbol->result.type == &type_int) || (symbol->result.type == &type_float))
+	if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
 	&& ((result.type == &type_int) || (result.type == &type_float))) {
-		symbol->result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+		symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
 		if (force_bit) {
-			symbol->result.u.number.flags |= force_bit;
+			symbol->object.u.number.flags |= force_bit;
 			result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
 		}
 	}
@@ -843,6 +843,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	// if file could be opened, parse it. otherwise, complain
 	stream = includepaths_open_ro(uses_lib);
 	if (stream) {
+// FIXME - just use safe_malloc and never free! this also saves us making a copy if defining macros down the road...
 #ifdef __GNUC__
 		char	filename[GlobalDynaBuf->size];	// GCC can do this
 #else
@@ -885,7 +886,7 @@ static boolean check_ifdef_condition(void)
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
-	return symbol->result.type->is_defined(&symbol->result);
+	return symbol->object.type->is_defined(&symbol->object);
 }
 // new if/ifdef/ifndef/else function, to be able to do ELSE IF
 enum ifmode {

@@ -31,16 +31,16 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// if symbol is neither int nor float, skip
-	if ((symbol->result.type != &type_int)
-	&& (symbol->result.type != &type_float))
+	if ((symbol->object.type != &type_int)
+	&& (symbol->object.type != &type_float))
 		return;
 
 	// output name
 	if (config.warn_on_type_mismatch
-	&& symbol->result.u.number.addr_refs == 1)
+	&& symbol->object.u.number.addr_refs == 1)
 		fprintf(fd, "!addr");
 	fprintf(fd, "\t%s", node->id_string);
-	switch (symbol->result.u.number.flags & NUMBER_FORCEBITS) {
+	switch (symbol->object.u.number.flags & NUMBER_FORCEBITS) {
 	case NUMBER_FORCES_16:
 		fprintf(fd, "+2\t= ");
 		break;
@@ -52,17 +52,17 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	default:
 		fprintf(fd, "\t= ");
 	}
-	if (symbol->result.u.number.flags & NUMBER_IS_DEFINED) {
-		if (symbol->result.type == &type_int)
-			fprintf(fd, "$%x", (unsigned) symbol->result.u.number.val.intval);
-		else if (symbol->result.type == &type_float)
-			fprintf(fd, "%.30f", symbol->result.u.number.val.fpval);	//FIXME %g
+	if (symbol->object.u.number.flags & NUMBER_IS_DEFINED) {
+		if (symbol->object.type == &type_int)
+			fprintf(fd, "$%x", (unsigned) symbol->object.u.number.val.intval);
+		else if (symbol->object.type == &type_float)
+			fprintf(fd, "%.30f", symbol->object.u.number.val.fpval);	//FIXME %g
 		else
 			Bug_found("BogusType", 0);	// FIXME - put in docs!
 	} else {
 		fprintf(fd, " ?");	// TODO - maybe write "UNDEFINED" instead? then the file could at least be parsed without errors
 	}
-	if (symbol->result.u.number.flags & NUMBER_EVER_UNDEFINED)
+	if (symbol->object.u.number.flags & NUMBER_EVER_UNDEFINED)
 		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
 	if (symbol->usage == 0)
 		fprintf(fd, "\t; unused");
@@ -76,10 +76,10 @@ static void dump_vice_address(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// dump address symbols even if they are not used
-	if ((symbol->result.type == &type_int)
-	&& (symbol->result.u.number.flags & NUMBER_IS_DEFINED)
-	&& (symbol->result.u.number.addr_refs == 1))
-		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->result.u.number.val.intval, node->id_string);
+	if ((symbol->object.type == &type_int)
+	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	&& (symbol->object.u.number.addr_refs == 1))
+		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
 static void dump_vice_usednonaddress(struct rwnode *node, FILE *fd)
 {
@@ -87,10 +87,10 @@ static void dump_vice_usednonaddress(struct rwnode *node, FILE *fd)
 
 	// dump non-addresses that are used
 	if (symbol->usage
-	&& (symbol->result.type == &type_int)
-	&& (symbol->result.u.number.flags & NUMBER_IS_DEFINED)
-	&& (symbol->result.u.number.addr_refs != 1))
-		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->result.u.number.val.intval, node->id_string);
+	&& (symbol->object.type == &type_int)
+	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	&& (symbol->object.u.number.addr_refs != 1))
+		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
 static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 {
@@ -98,10 +98,10 @@ static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 
 	// dump non-addresses that are unused
 	if (!symbol->usage
-	&& (symbol->result.type == &type_int)
-	&& (symbol->result.u.number.flags & NUMBER_IS_DEFINED)
-	&& (symbol->result.u.number.addr_refs != 1))
-		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->result.u.number.val.intval, node->id_string);
+	&& (symbol->object.type == &type_int)
+	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	&& (symbol->object.u.number.addr_refs != 1))
+		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
 
 
@@ -120,10 +120,10 @@ struct symbol *symbol_find(scope_t scope, int flags)
 		// create new symbol structure
 		symbol = safe_malloc(sizeof(*symbol));
 		// finish empty symbol item
-		symbol->result.type = &type_int;
-		symbol->result.u.number.flags = flags;
-		symbol->result.u.number.addr_refs = 0;
-		symbol->result.u.number.val.intval = 0;
+		symbol->object.type = &type_int;
+		symbol->object.u.number.flags = flags;
+		symbol->object.u.number.addr_refs = 0;
+		symbol->object.u.number.val.intval = 0;
 		symbol->usage = 0;	// usage count
 		symbol->pass = pass.number;
 		symbol->has_been_reported = FALSE;
@@ -132,11 +132,11 @@ struct symbol *symbol_find(scope_t scope, int flags)
 	} else {
 		symbol = node->body;
 		// make sure the force bits don't clash
-		if ((symbol->result.type == &type_int)
-		|| (symbol->result.type == &type_float)) {
+		if ((symbol->object.type == &type_int)
+		|| (symbol->object.type == &type_float)) {
 			new_force_bits = flags & NUMBER_FORCEBITS;
 			if (new_force_bits)
-				if ((symbol->result.u.number.flags & NUMBER_FORCEBITS) != new_force_bits)
+				if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != new_force_bits)
 					Throw_error("Too late for postfix.");
 		}
 	}
@@ -151,11 +151,11 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 	int	flags;	// for int/float re-definitions
 
 	// any new type?
-	if (((symbol->result.type != &type_int) && (symbol->result.type != &type_float))
+	if (((symbol->object.type != &type_int) && (symbol->object.type != &type_float))
 	|| ((new_value->type != &type_int) && (new_value->type != &type_float))) {
 		// changing value is ok, changing type needs extra flag:
-		if (change_allowed || (symbol->result.type == new_value->type))
-			symbol->result = *new_value;
+		if (change_allowed || (symbol->object.type == new_value->type))
+			symbol->object = *new_value;
 		else
 			Throw_error("Symbol already defined.");
 		return;
@@ -164,15 +164,15 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 	// both old and new are either int or float, so keep old algo:
 
 	// value stuff
-	flags = symbol->result.u.number.flags;
+	flags = symbol->object.u.number.flags;
 	if (change_allowed || !(flags & NUMBER_IS_DEFINED)) {
 		// symbol is not defined yet OR redefinitions are allowed
-		symbol->result = *new_value;
+		symbol->object = *new_value;
 	} else {
 		// symbol is already defined, so compare new and old values
 		// if different type OR same type but different value, complain
-		if ((symbol->result.type != new_value->type)
-		|| ((symbol->result.type == &type_float) ? (symbol->result.u.number.val.fpval != new_value->u.number.val.fpval) : (symbol->result.u.number.val.intval != new_value->u.number.val.intval)))
+		if ((symbol->object.type != new_value->type)
+		|| ((symbol->object.type == &type_float) ? (symbol->object.u.number.val.fpval != new_value->u.number.val.fpval) : (symbol->object.u.number.val.intval != new_value->u.number.val.intval)))
 			Throw_error("Symbol already defined.");
 	}
 	// flags stuff
@@ -189,7 +189,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 				flags |= new_value->u.number.flags & NUMBER_FORCEBITS;
 		flags |= new_value->u.number.flags & ~NUMBER_FORCEBITS;
 	}
-	symbol->result.u.number.flags = flags;
+	symbol->object.u.number.flags = flags;
 }
 
 
@@ -302,14 +302,14 @@ void symbol_fix_forward_anon_name(boolean increment)
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	counter_symbol = symbol_find(section_now->local_scope, 0);
 	// sanity check: it must be an int!
-	if (counter_symbol->result.type != &type_int)
+	if (counter_symbol->object.type != &type_int)
 		Bug_found("ForwardAnonCounterNotInt", 0);
 	// make sure it gets reset to zero in each new pass
 	if (counter_symbol->pass != pass.number) {
 		counter_symbol->pass = pass.number;
-		counter_symbol->result.u.number.val.intval = 0;
+		counter_symbol->object.u.number.val.intval = 0;
 	}
-	number = (unsigned long) counter_symbol->result.u.number.val.intval;
+	number = (unsigned long) counter_symbol->object.u.number.val.intval;
 	// now append to the name to make it unique
 	GlobalDynaBuf->size--;	// forget terminator, we want to append
 	do {
@@ -318,5 +318,5 @@ void symbol_fix_forward_anon_name(boolean increment)
 	} while (number);
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	if (increment)
-		counter_symbol->result.u.number.val.intval++;
+		counter_symbol->object.u.number.val.intval++;
 }
