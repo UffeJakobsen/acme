@@ -164,6 +164,7 @@ static int first_label_of_statement(int *statement_flags)
 
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
+// called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
 static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
 {
 	struct number	pc;
@@ -241,6 +242,7 @@ static void parse_local_symbol_def(int *statement_flags, scope_t scope)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
+
 	GetByte();	// start after '.'/'@'
 	if (Input_read_keyword())
 		parse_symbol_definition(scope, *statement_flags);

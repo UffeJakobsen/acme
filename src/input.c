@@ -325,6 +325,7 @@ static char GetQuotedByte(void)
 }
 
 // Skip remainder of statement, for example on error
+// FIXME - check for quotes, otherwise this might treat a quoted colon like EOS!
 void Input_skip_remainder(void)
 {
 	while (GotByte)

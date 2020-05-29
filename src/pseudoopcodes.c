@@ -888,14 +888,14 @@ static boolean check_ifdef_condition(void)
 		symbol->usage++;
 	return symbol->object.type->is_defined(&symbol->object);
 }
-// new if/ifdef/ifndef/else function, to be able to do ELSE IF
+// if/ifdef/ifndef/else function, to be able to do ELSE IF
 enum ifmode {
 	IFMODE_IF,	// parse expression, then block
 	IFMODE_IFDEF,	// check symbol, then parse block or line
 	IFMODE_IFNDEF,	// check symbol, then parse block or line
 	IFMODE_ELSE	// unconditional last block
 };
-// new function for if/ifdef/ifndef/else. has to be re-entrant.
+// function for if/ifdef/ifndef/else. has to be re-entrant.
 static enum eos ifelse(enum ifmode mode)
 {
 	boolean		nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met
