@@ -68,9 +68,9 @@ extern void RISCOS_entry(void);
 // convert UNIX-style pathname to RISC OS-style pathname
 extern void RISCOS_convert_path(char *path);
 // setting the created files' types
-extern void RISCOS_set_filetype(const char *, int);
+extern void RISCOS_set_filetype(const char *filename, int type);
 // use DDEUtils module's "Throwback" protocol
-extern void RISCOS_throwback(const char *, int);
+extern void RISCOS_throwback(const char *msg, int type);
 
 
 #endif

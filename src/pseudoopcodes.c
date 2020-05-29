@@ -866,7 +866,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	return ENSURE_EOS;
 }
 
-
+// FIXME - move this to flow.c!
 static boolean check_ifdef_condition(void)
 {
 	scope_t		scope;

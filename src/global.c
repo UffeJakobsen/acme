@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include "platform.h"
 #include "acme.h"
+#include "alu.h"
 #include "cpu.h"
 #include "dynabuf.h"
 #include "input.h"
@@ -161,6 +162,63 @@ static int first_label_of_statement(int *statement_flags)
 }
 
 
+// parse label definition (can be either global or local).
+// name must be held in GlobalDynaBuf.
+static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
+{
+	struct number	pc;
+	struct object	result;
+	struct symbol	*symbol;
+
+	symbol = symbol_find(scope, force_bit);
+	// label definition
+	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
+		Throw_first_pass_warning("Label name not in leftmost column.");
+	vcpu_read_pc(&pc);
+	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
+	result.type = &type_int;
+	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
+	result.u.number.val.intval = pc.val.intval;
+	result.u.number.addr_refs = pc.addr_refs;
+	symbol_set_object(symbol, &result, change_allowed);
+	symbol->pseudopc = pseudopc_get_context();
+	// global labels must open new scope for cheap locals
+	if (scope == SCOPE_GLOBAL)
+		section_new_cheap_scope(section_now);
+}
+
+
+// parse symbol definition (can be either global or local, may turn out to be a label).
+// name must be held in GlobalDynaBuf.
+static void parse_symbol_definition(scope_t scope, int stat_flags)
+{
+	struct object	result;
+	struct symbol	*symbol;
+	int		force_bit	= Input_get_force_bit();	// skips spaces after
+	// FIXME - force bit is allowed for label definitions?!
+
+	if (GotByte == '=') {
+		// explicit symbol definition (symbol = <something>)
+		symbol = symbol_find(scope, force_bit);
+		// symbol = parsed value
+		GetByte();	// skip '='
+		ALU_any_result(&result);
+		// if wanted, mark as address reference
+		if (typesystem_says_address()) {
+			// FIXME - checking types explicitly is ugly...
+			if ((result.type == &type_int)
+			|| (result.type == &type_float))
+				result.u.number.addr_refs = 1;
+		}
+		symbol_set_object(symbol, &result, FALSE);
+		Input_ensure_EOS();
+	} else {
+		// implicit symbol definition (label)
+		set_label(scope, stat_flags, force_bit, FALSE);
+	}
+}
+
+
 // Parse global symbol definition or assembler mnemonic
 static void parse_mnemo_or_global_symbol_def(int *statement_flags)
 {
@@ -173,7 +231,7 @@ static void parse_mnemo_or_global_symbol_def(int *statement_flags)
 		if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
 		|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0)))
 			Throw_first_pass_warning("Label name starts with a shift-space character.");
-		symbol_parse_definition(SCOPE_GLOBAL, *statement_flags);
+		parse_symbol_definition(SCOPE_GLOBAL, *statement_flags);
 	}
 }
 
@@ -185,7 +243,7 @@ static void parse_local_symbol_def(int *statement_flags, scope_t scope)
 		return;
 	GetByte();	// start after '.'/'@'
 	if (Input_read_keyword())
-		symbol_parse_definition(scope, *statement_flags);
+		parse_symbol_definition(scope, *statement_flags);
 }
 
 
@@ -199,7 +257,7 @@ static void parse_backward_anon_def(int *statement_flags)
 		DYNABUF_APPEND(GlobalDynaBuf, '-');
 	while (GetByte() == '-');
 	DynaBuf_append(GlobalDynaBuf, '\0');
-	symbol_set_label(section_now->local_scope, *statement_flags, 0, TRUE);	// this "TRUE" is the whole secret
+	set_label(section_now->local_scope, *statement_flags, 0, TRUE);	// this "TRUE" is the whole secret
 }
 
 
@@ -217,7 +275,7 @@ static void parse_forward_anon_def(int *statement_flags)
 	symbol_fix_forward_anon_name(TRUE);	// TRUE: increment counter
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	//printf("[%d, %s]\n", section_now->local_scope, GlobalDynaBuf->buffer);
-	symbol_set_label(section_now->local_scope, *statement_flags, 0, FALSE);
+	set_label(section_now->local_scope, *statement_flags, 0, FALSE);
 }
 
 

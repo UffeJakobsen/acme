@@ -193,65 +193,6 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 }
 
 
-// parse label definition (can be either global or local).
-// name must be held in GlobalDynaBuf.
-// TODO - this is parsing, so move elsewhere
-void symbol_set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
-{
-	struct number	pc;
-	struct object	result;
-	struct symbol	*symbol;
-
-	symbol = symbol_find(scope, force_bit);
-	// label definition
-	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
-		Throw_first_pass_warning("Label name not in leftmost column.");
-	vcpu_read_pc(&pc);
-	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
-	result.type = &type_int;
-	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
-	result.u.number.val.intval = pc.val.intval;
-	result.u.number.addr_refs = pc.addr_refs;
-	symbol_set_object(symbol, &result, change_allowed);
-	symbol->pseudopc = pseudopc_get_context();
-	// global labels must open new scope for cheap locals
-	if (scope == SCOPE_GLOBAL)
-		section_new_cheap_scope(section_now);
-}
-
-
-// parse symbol definition (can be either global or local, may turn out to be a label).
-// name must be held in GlobalDynaBuf.
-// TODO - this is parsing, so move elsewhere
-void symbol_parse_definition(scope_t scope, int stat_flags)
-{
-	struct object	result;
-	struct symbol	*symbol;
-	int		force_bit	= Input_get_force_bit();	// skips spaces after
-	// FIXME - force bit is allowed for label definitions?!
-
-	if (GotByte == '=') {
-		// explicit symbol definition (symbol = <something>)
-		symbol = symbol_find(scope, force_bit);
-		// symbol = parsed value
-		GetByte();	// skip '='
-		ALU_any_result(&result);
-		// if wanted, mark as address reference
-		if (typesystem_says_address()) {
-			// FIXME - checking types explicitly is ugly...
-			if ((result.type == &type_int)
-			|| (result.type == &type_float))
-				result.u.number.addr_refs = 1;
-		}
-		symbol_set_object(symbol, &result, FALSE);
-		Input_ensure_EOS();
-	} else {
-		// implicit symbol definition (label)
-		symbol_set_label(scope, stat_flags, force_bit, FALSE);
-	}
-}
-
-
 // set global symbol to value, no questions asked (for "-D" switch)
 // Name must be held in GlobalDynaBuf.
 void symbol_define(intval_t value)
