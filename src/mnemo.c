@@ -87,7 +87,7 @@ enum mnemogroup {
 // column to use here. The row depends on the used addressing mode. A zero
 // entry in these tables means that the combination of mnemonic and addressing
 // mode is illegal.
-//                  |                           6502/65c02/65816/65ce02/4502/m65                                                                                                                                                                                                                                                                                                                                                | 65816  |                             6510 illegals                             |
+//                  |                           6502/65c02/65816/65ce02/4502/m65                                                                                                                                                                                                                                                                                                                                                | 65816  |                    NMOS 6502 undocumented opcodes                     |
 enum {               IDX_ORA,IDXcORA,IDX16ORA,IDXeORA,IDXmORA,IDXmORQ,IDX_AND,IDXcAND,IDX16AND,IDXeAND,IDXmAND,IDXmANDQ,IDX_EOR,IDXcEOR,IDX16EOR,IDXeEOR,IDXmEOR,IDXmEORQ,IDX_ADC,IDXcADC,IDX16ADC,IDXeADC,IDXmADC,IDXmADCQ,IDX_STA,IDXcSTA,IDX16STA,IDXeSTA,IDXmSTA,IDXmSTQ,IDX_LDA,IDXcLDA,IDX16LDA,IDXeLDA,IDXmLDA,IDXmLDQ,IDX_CMP,IDXcCMP,IDX16CMP,IDXeCMP,IDXmCMP,IDXmCPQ,IDX_SBC,IDXcSBC,IDX16SBC,IDXeSBC,IDXmSBC,IDXmSBCQ,IDX16PEI,IDX_SLO,IDX_RLA,IDX_SRE,IDX_RRA,IDX_SAX,IDX_LAX,IDX_DCP,IDX_ISC,IDX_SHA};
 SCB accu_imm[]    = {   0x09,   0x09,    0x09,   0x09,   0x09,      0,   0x29,   0x29,    0x29,   0x29,   0x29,       0,   0x49,   0x49,    0x49,   0x49,   0x49,       0,   0x69,   0x69,    0x69,   0x69,   0x69,       0,      0,      0,       0,      0,      0,      0,   0xa9,   0xa9,    0xa9,   0xa9,   0xa9,      0,   0xc9,   0xc9,    0xc9,   0xc9,   0xc9,      0,   0xe9,   0xe9,    0xe9,   0xe9,   0xe9,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// #$ff     #$ffff
 SCL accu_abs[]    = { 0x0d05, 0x0d05,0x0f0d05, 0x0d05, 0x0d05, 0x0d05, 0x2d25, 0x2d25,0x2f2d25, 0x2d25, 0x2d25,  0x2d25, 0x4d45, 0x4d45,0x4f4d45, 0x4d45, 0x4d45,  0x4d45, 0x6d65, 0x6d65,0x6f6d65, 0x6d65, 0x6d65,  0x6d65, 0x8d85, 0x8d85,0x8f8d85, 0x8d85, 0x8d85, 0x8d85, 0xada5, 0xada5,0xafada5, 0xada5, 0xada5, 0xada5, 0xcdc5, 0xcdc5,0xcfcdc5, 0xcdc5, 0xcdc5, 0xcdc5, 0xede5, 0xede5,0xefede5, 0xede5, 0xede5,  0xede5,       0, 0x0f07, 0x2f27, 0x4f47, 0x6f67, 0x8f87, 0xafa7, 0xcfc7, 0xefe7,      0};	// $ff      $ffff    $ffffff
@@ -109,7 +109,7 @@ SCB accu_lindz8[] = {      0,      0,       0,      0,   0x12,      0,      0,  
 // mnemotable), the assembler finds out the column to use here. The row
 // depends on the used addressing mode. A zero entry in these tables means
 // that the combination of mnemonic and addressing mode is illegal.
-//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                                         65ce02                        |               65816               |                                             6510 illegals                                             |    C64DTV2    |
+//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                                         65ce02                        |               65816               |                                    NMOS 6502 undocumented opcodes                                     |    C64DTV2    |
 enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeDEW,IDXeINW,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDX_ANC,IDX_ASR,IDX_ARR,IDX_SBX,IDX_DOP,IDX_TOP,IDX_JAM,IDX_LXA,IDX_ANE,IDX_LAS,IDX_TAS,IDX_SHX,IDX_SHY,IDX_SAC,IDX_SIR};
 SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0x80,   0x0c,   0x02,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
 SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,      0,      0,   0xa3,   0xf4,      0,   0x62,       0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,      0,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
@@ -988,7 +988,7 @@ static void group_misc(int index, int immediate_mode)
 		// CAUTION - do not incorporate the line above into the line
 		// below - "force_bit" might be undefined (depends on compiler).
 		make_command(force_bit, &result, immediate_opcodes);
-		// check whether to warn about 6510's unstable ANE/LXA
+		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
 		if ((CPU_state.type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
 		&& ((result.val.intval & 0xff) != 0x00)
 		&& (result.flags & NUMBER_IS_DEFINED)) {
@@ -1171,8 +1171,8 @@ boolean keyword_is_6502_mnemo(int length)
 	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf) ? TRUE : FALSE;
 }
 
-// check whether mnemonic in GlobalDynaBuf is supported by 6510 cpu.
-boolean keyword_is_6510_mnemo(int length)
+// check whether mnemonic in GlobalDynaBuf is supported by NMOS 6502 cpu.
+boolean keyword_is_nmos6502_mnemo(int length)
 {
 	if (length != 3)
 		return FALSE;
