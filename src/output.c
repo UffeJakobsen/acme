@@ -677,7 +677,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anway)
 
 		if (context == NULL) {
-			Throw_error("Too many monadic '&' operators for this label.");	// TODO - add to docs
+			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error
 		}
 		// FIXME - in future, check DEFINED flag of context!

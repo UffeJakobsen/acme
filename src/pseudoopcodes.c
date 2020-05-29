@@ -921,7 +921,7 @@ static enum eos ifelse(enum ifmode mode)
 			condition_met = TRUE;
 			break;
 		default:
-			Bug_found("IllegalIfMode", mode);	// FIXME - put in docs!
+			Bug_found("IllegalIfMode", mode);
 			condition_met = TRUE;	// inhibit compiler warning ;)
 		}
 		SKIPSPACE();
@@ -949,7 +949,7 @@ static enum eos ifelse(enum ifmode mode)
 		if (mode == IFMODE_ELSE) {
 			// we could just return ENSURE_EOS, but checking here allows for better error message
 			if (GotByte != CHAR_EOS)
-				Throw_error("Expected end-of-statement after ELSE block");	// FIXME - put in docs!
+				Throw_error("Expected end-of-statement after ELSE block.");
 			return SKIP_REMAINDER;	// normal exit after ELSE {...}
 		}
 
@@ -963,7 +963,7 @@ static enum eos ifelse(enum ifmode mode)
 
 		// make sure it's "else"
 		if (strcmp(GlobalDynaBuf->buffer, "else")) {
-			Throw_error("Expected ELSE or end-of-statement");	// FIXME - put in docs!
+			Throw_error("Expected ELSE or end-of-statement.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 		// anything more?
@@ -986,7 +986,7 @@ static enum eos ifelse(enum ifmode mode)
 		} else if (strcmp(GlobalDynaBuf->buffer, "ifndef") == 0) {
 			mode = IFMODE_IFNDEF;
 		} else {
-			Throw_error("After ELSE, expected block or IF/IFDEF/IFNDEF");	// FIXME - put in docs!
+			Throw_error("After ELSE, expected block or IF/IFDEF/IFNDEF.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 	}

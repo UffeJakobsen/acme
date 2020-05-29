@@ -200,6 +200,10 @@ Section:   Errors during assembly
     This is given when the pseudo opcode "!error" is executed. The
     actual message varies according to the pseudo opcode's arguments.
 
+After ELSE, expected block or IF/IFDEF/IFNDEF.
+    There is something strange after ELSE: It must be "if", "ifdef",
+    "ifndef" or an opening brace.
+
 Argument out of range.
     You called arcsin/arccos with something not in the [-1, 1] range.
 
@@ -213,6 +217,13 @@ Conversion table incomplete.
 
 Division by zero.
     Guess what - you attempted to divide by zero.
+
+Expected ELSE or end-of-statement.
+    There is something after the closing brace of an IF block that is
+    not an ELSE.
+
+Expected end-of-statement after ELSE block.
+    There is something after the closing brace of an ELSE block.
 
 Exponent is negative.
     Using negative exponents only give sensible results when using
@@ -333,6 +344,17 @@ Too late for postfix.
 Too many '('.
     A formula ends before all parentheses were closed.
 
+Un-pseudopc operator '&' can only be applied to labels.
+    You tried to apply the operator '&' to something that is not a
+    label. This operator only works on labels, it cannot be used on
+    the results of calculations.
+
+Un-pseudopc operator '&' has no !pseudopc context.
+    You tried to apply the operator '&' to a label that wasn't defined
+    in a !pseudopc block.
+    Or, more generally, you used more '&' characters on the label than
+    there were !pseudopc blocks around it.
+
 Unknown encoding.
     You used the "!convtab" command with a keyword ACME does not know.
 
@@ -441,21 +463,21 @@ No output file specified (use the "-o" option or the "!to" pseudo opcode).
 Section:   Bugs in ACME
 ----------------------------------------------------------------------
 
-    The warning "Bug in ACME, code follows" is always followed by a
-    serious error message, stopping assembly. The second message
-    actually gives a hint about the bug's location in the source code.
-    If you ever get this combination of warning and serious error,
-    please send me an e-mail and tell me about it. If possible,
-    include a piece of source code that triggers it.
+The warning "Bug in ACME, code follows" is always followed by a
+serious error message, stopping assembly. The second message actually
+gives a hint about the bug's location in the source code.
+If you ever get this combination of warning and serious error, please
+send me an e-mail and tell me about it. If possible, include a piece
+of source code that triggers it.
+Please don't get this wrong - there are no known bugs. I just left
+some debugging code in place in case there is a bug I failed to notice
+during testing. In practice, this warning is not expected to be given
+at all. That's the reason why I want to be notified if it *does*
+decide to show up.
 
-    Please don't get this wrong - there are no known bugs. I just left
-    some debugging code in place in case there is a bug I failed to
-    notice during testing. In practice, this warning is not expected
-    to be given at all. That's the reason why I want to be notified if
-    it *does* decide to show up.
+The hint messages are of no real interest to the end user, but here
+they are for completeness' sake:
 
-    The hint messages are of no real interest to the end user, but here
-    they are for completeness' sake.
 
 ArgStackEmpty
     There was no data for a monadic operator to work on.
@@ -464,19 +486,22 @@ ArgStackNotEmpty
     The expression parser has finished though there are still
     arguments left to process.
 
-IllegalGroupIndex
-    The mnemonic tree contains a group that I didn't add.
-
 IllegalBlockTerminator
     A RAM block (macro or loop) was terminated incorrectly.
 
-IllegalOperatorId
-IllegalOperatorGroup
-    The expression parser found an operator that does not exist.
+IllegalGroupIndex
+    The mnemonic tree contains a group that I didn't add.
+
+IllegalIfMode
+    A sanity check in the if/ifdef/ifndef/else code failed.
 
 IllegalImmediateMode
     The mnemonic tree contains invalid info about the size of immediate
     arguments.
+
+IllegalOperatorId
+IllegalOperatorGroup
+    The expression parser found an operator that does not exist.
 
 IllegalSymbolNameLength
     A sanity check on string lengths failed.

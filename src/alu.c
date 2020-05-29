@@ -360,7 +360,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
 			// TODO - check return value and enter error state if nonzero?
 		} else {
-			Throw_error("Monadic '&' operator can only be applied to labels.");	// TODO - add to docs
+			Throw_error("Un-pseudopc operator '&' can only be applied to labels.");
 			// TODO - enter error state?
 		}
 	}
@@ -1638,7 +1638,7 @@ static int get_valid_index(int *target, int length, struct object *self, struct 
 	if (index < 0)
 		index += length;
 	if ((index < 0) || (index >= length)) {
-		Throw_error("Index out of range.");	// FIXME - add to docs
+		Throw_error("Index out of range.");
 		return 1;
 	}
 	*target = index;
