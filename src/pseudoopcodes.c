@@ -44,7 +44,7 @@ static struct ronode	*pseudo_opcode_tree	= NULL;	// tree to hold pseudo opcodes
 
 
 // this is not really a pseudo opcode, but similar enough to be put here:
-// called when "* = EXPRESSION" is parsed, to set the program counter
+// called when "*= EXPRESSION" is parsed, to set the program counter
 void notreallypo_setpc(void)	// GotByte is '*'
 {
 	int		segment_flags	= 0;
@@ -76,7 +76,7 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			skip '='
 			read segment name (quoted string!)	*/
 		} else {
-			Throw_error("Unknown \"* =\" segment modifier.");
+			Throw_error("Unknown \"*=\" segment modifier.");
 			goto fail;
 		}
 	}

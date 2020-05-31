@@ -899,8 +899,9 @@ static unsigned int imm_ops(int *force_bit, unsigned char opcode, int immediate_
 // helper function to warn if zp pointer wraps around
 static void check_zp_wraparound(struct number *result)
 {
-	if ((result->val.intval == 0xff)
-	&& (result->flags & NUMBER_IS_DEFINED))
+	if ((result->flags & NUMBER_IS_DEFINED)
+	&& (result->val.intval == 0xff)
+	&& (CPU_state.type->flags & CPUFLAG_WARN_ABOUT_FF_PTR))
 		Throw_warning("Zeropage pointer wraps around from $ff to $00");
 }
 

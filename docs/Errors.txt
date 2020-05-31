@@ -373,7 +373,7 @@ Unknown processor.
 Unknown pseudo opcode.
     You have mistyped a "!" command.
 
-Unknown "* =" segment modifier.
+Unknown "*=" segment modifier.
     You used a modifier keyword ACME does not know.
 
 Unterminated index spec.

@@ -572,7 +572,7 @@ void output_set_xor(char xor)
 
 // set program counter to defined value (FIXME - allow for undefined!)
 // if start address was given on command line, main loop will call this before each pass.
-// in addition to that, it will be called on each "* = VALUE".
+// in addition to that, it will be called on each "*= VALUE".
 void vcpu_set_pc(intval_t new_pc, int segment_flags)
 {
 	intval_t	new_offset;
@@ -599,7 +599,7 @@ when encountering "!pseudopc VALUE { BLOCK }":
 	remember difference between current and new value
 	set PC to new value
 	after BLOCK, use remembered difference to change PC back
-when encountering "* = VALUE":
+when encountering "*= VALUE":
 	parse new value (NEW: might be undefined!)
 	calculate difference between current PC and new value
 	set PC to new value
@@ -608,7 +608,7 @@ when encountering "* = VALUE":
 Problem: always check for "undefined"; there are some problematic combinations.
 I need a way to return the size of a generated code block even if PC undefined.
 Maybe like this:
-	* = new_address [, invisible] [, overlay] [, &size_symbol_ref {]
+	*= new_address [, invisible] [, overlay] [, &size_symbol_ref {]
 		...code...
 	[} ; at end of block, size is written to size symbol given above!]
 */

@@ -23,7 +23,7 @@ struct cpu_type {
 #define CPUFLAG_8B_AND_AB_NEED_0_ARG	(1u << 2)	// warn if "ane/lxa #$xx" uses non-zero arg
 #define CPUFLAG_ISBIGENDIAN		(1u << 3)	// for 16/24/32-bit values, output msb first
 #define CPUFLAG_DECIMALSUBTRACTBUGGY	(1u << 4)	// warn if "sed" is assembled
-
+#define CPUFLAG_WARN_ABOUT_FF_PTR	(1u << 5)	// warn if MNEMO($ff) is assembled
 
 // if cpu type and value match, set register length variable to value.
 // if cpu type and value don't match, complain instead.

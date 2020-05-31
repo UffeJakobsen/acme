@@ -17,36 +17,37 @@
 // constants
 static struct cpu_type	cpu_type_6502	= {
 	keyword_is_6502_mnemo,
-	CPUFLAG_INDIRECTJMPBUGGY,	// JMP ($xxFF) is buggy
+	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY,	// warn about "XYZ ($ff),y" and "jmp ($XYff)"
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_nmos6502	= {
 	keyword_is_nmos6502_mnemo,
-	CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,	// JMP ($xxFF) is buggy, ANE/LXA #$xx are unstable unless arg is $00
+	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,	// ANE/LXA #$xx are unstable unless arg is $00
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_c64dtv2	= {
 	keyword_is_c64dtv2_mnemo,
-	CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,	// JMP ($xxFF) is buggy, ANE/LXA #$xx are unstable unless arg is $00
+	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65c02	= {
 	keyword_is_65c02_mnemo,
-	0,	// no flags
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_r65c02	= {
 	keyword_is_r65c02_mnemo,
-	0,	// no flags
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_w65c02	= {
 	keyword_is_w65c02_mnemo,
-	0,	// no flags
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65816	= {
 	keyword_is_65816_mnemo,
+	// TODO - what about CPUFLAG_WARN_ABOUT_FF_PTR? does this depend on native/emulation mode?
 	CPUFLAG_SUPPORTSLONGREGS,	// allows A and XY to be 16bits wide
 	234	// !align fills with "NOP"
 };
