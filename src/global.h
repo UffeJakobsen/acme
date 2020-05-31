@@ -86,10 +86,11 @@ v0.07:
 	*= is now segment change instead of offset assembly
 	added !pseudopc/!realpc
 */
-//#define VER_				 8500	// v0.85 looks like the oldest version it makes sense to actually support
-//#define VER_				 8600	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
-//#define VER_				 9300	// v0.93 allowed *= inside offset assembly blocks
+#define VER_OLDEST_SUPPORTED		 8500	// v0.85 looks like the oldest version it makes sense to actually support
+#define VER_DEPRECATE_REALPC		 8600	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
+#define VER_ALLOW_SETPC_IN_PSEUDOPC	 9300	// v0.93 allowed *= inside !pseudopc blocks
 #define VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
+//					 9407	// v0.94.7 fixed a bug: empty code segments no longer included in output file
 #define VER_DISABLED_OBSOLETE_STUFF	 9408	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
 #define VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
 //					 9502	// v0.95.2 changed ANC#8 from 0x2b to 0x0b

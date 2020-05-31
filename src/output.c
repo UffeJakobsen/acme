@@ -577,6 +577,12 @@ void vcpu_set_pc(intval_t new_pc, int segment_flags)
 {
 	intval_t	new_offset;
 
+	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
+	if ((config.wanted_version < VER_ALLOW_SETPC_IN_PSEUDOPC)
+	&& (pseudopc_current_context != NULL)) {
+		Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+		pseudopc_end();
+	}
 	new_offset = (new_pc - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc;
 	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
@@ -657,11 +663,17 @@ void pseudopc_start(struct number *new_pc)
 	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
 	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
-// end offset assembly (use FALSE for old, deprecated, obsolete, non-nesting !realpc)
-void pseudopc_end(boolean choke_outside)
+// end offset assembly
+void pseudopc_end(void)
 {
 	if (pseudopc_current_context == NULL) {
-		if (choke_outside)
+		// trying to end offset assembly though it isn't active:
+		// in current versions this cannot happen and so must be a bug.
+		// but in versions older than 0.94.8 this was possible using
+		// !realpc, and before v0.93 offset assembly got automatically
+		// disabled when encountering "*=".
+		// so only choke if wanted version is new enough:
+		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
 			Bug_found("ClosingUnopenedPseudopcBlock", 0);
 	} else {
 		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & 0xffff;	// pc might have wrapped around

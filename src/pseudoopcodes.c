@@ -81,7 +81,7 @@ void notreallypo_setpc(void)	// GotByte is '*'
 		}
 	}
 	vcpu_set_pc(intresult.val.intval, segment_flags);
-	// TODO - allow block syntax, so it is possible to put data "somewhere else" and then return to old position
+	// TODO - allow block syntax, so it is possible to put data "somewhere else" and then return to old position?
 	Input_ensure_EOS();
 	return;
 
@@ -153,8 +153,9 @@ static enum eos po_to(void)
 	// if no comma found, use default file format
 	if (Input_accept_comma() == FALSE) {
 		if (outputfile_prefer_cbm_format()) {
-			// output deprecation warning
-			Throw_warning("Used \"!to\" without file format indicator. Defaulting to \"cbm\".");
+			// output deprecation warning (unless user requests really old behaviour)
+			if (config.wanted_version > VER_DEPRECATE_REALPC)
+				Throw_warning("Used \"!to\" without file format indicator. Defaulting to \"cbm\".");
 		}
 		return ENSURE_EOS;
 	}
@@ -589,10 +590,18 @@ static enum eos po_align(void)
 // not using a block is no longer allowed
 static void old_offset_assembly(void)
 {
-	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
-		Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");
-	else
+	// really old versions allowed it
+	if (config.wanted_version < VER_DEPRECATE_REALPC)
+		return;
+
+	// then it was deprecated
+	if (config.wanted_version < VER_DISABLED_OBSOLETE_STUFF) {
 		Throw_first_pass_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
+		return;
+	}
+
+	// now it's obsolete
+	Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
 }
 
 // start offset assembly
@@ -625,7 +634,7 @@ static enum eos po_pseudopc(void)
 	pseudopc_start(&new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (Parse_optional_block()) {
-		pseudopc_end(TRUE);	// restore old state
+		pseudopc_end();	// restore old state
 	} else {
 		old_offset_assembly();
 	}
@@ -637,7 +646,7 @@ static enum eos po_pseudopc(void)
 static enum eos po_realpc(void)
 {
 	old_offset_assembly();
-	pseudopc_end(FALSE);	// restore old state, if possible
+	pseudopc_end();	// restore old state
 	return ENSURE_EOS;
 }
 
