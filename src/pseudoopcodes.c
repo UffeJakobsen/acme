@@ -154,7 +154,7 @@ static enum eos po_to(void)
 	if (Input_accept_comma() == FALSE) {
 		if (outputfile_prefer_cbm_format()) {
 			// output deprecation warning (unless user requests really old behaviour)
-			if (config.wanted_version > VER_DEPRECATE_REALPC)
+			if (config.wanted_version >= VER_DEPRECATE_REALPC)
 				Throw_warning("Used \"!to\" without file format indicator. Defaulting to \"cbm\".");
 		}
 		return ENSURE_EOS;

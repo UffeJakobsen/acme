@@ -57,6 +57,23 @@ extern const char	global_byte_flags[];
 
 // TODO - put in runtime struct:
 extern char	GotByte;	// Last byte read (processed)
+
+enum version {
+	VER_OLDEST_SUPPORTED,		// v0.85 looks like the oldest version it makes sense to actually support
+	VER_DEPRECATE_REALPC,		// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
+	VER_ALLOW_SETPC_IN_PSEUDOPC,	// v0.93 allowed *= inside !pseudopc blocks
+	VER_RIGHTASSOCIATIVEPOWEROF,	// v0.94.6 made "power of" operator right-associative
+					// v0.94.7 fixed a bug: empty code segments no longer included in output file
+	VER_DISABLED_OBSOLETE_STUFF,	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
+	VER_NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
+					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
+	VER_CURRENT,			// "RELEASE"
+	VER_BACKSLASHESCAPING,		// backslash escaping (and therefore strings)
+					// possible changes in future versions:
+					//	paths should be relative to file, not start dir
+					//	ignore leading zeroes?
+	VER_FUTURE			// far future
+};
 // configuration
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
@@ -70,35 +87,9 @@ struct config {
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
-	int		wanted_version;	// TODO - add switch to set this (in addition to "--test --test")
+	enum version	wanted_version;	// TODO - add switch to set this (in addition to "--test --test")
 };
 extern struct config	config;
-/* versions that could be supported by "wanted_version":
-v0.05:
-	...would be the syntax before any changes
-	(how was offset assembly ended? '*' in a line on its own?)
-	BIT without any arg would output $2c, masking the next two bytes
-v0.07:
-	"leading zeroes" info is now stored in symbols as well
-	changed argument order of mvp/mvn
-	!cbm outputs warning to use !ct pet instead
-	!end changed to !eof
-	*= is now segment change instead of offset assembly
-	added !pseudopc/!realpc
-*/
-#define VER_OLDEST_SUPPORTED		 8500	// v0.85 looks like the oldest version it makes sense to actually support
-#define VER_DEPRECATE_REALPC		 8600	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
-#define VER_ALLOW_SETPC_IN_PSEUDOPC	 9300	// v0.93 allowed *= inside !pseudopc blocks
-#define VER_RIGHTASSOCIATIVEPOWEROF	 9406	// v0.94.6 made "power of" operator right-associative
-//					 9407	// v0.94.7 fixed a bug: empty code segments no longer included in output file
-#define VER_DISABLED_OBSOLETE_STUFF	 9408	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
-#define VER_NEWFORSYNTAX		 9412	// v0.94.12 introduced the new "!for" syntax
-//					 9502	// v0.95.2 changed ANC#8 from 0x2b to 0x0b
-#define VER_BACKSLASHESCAPING		10000	// not yet: backslash escaping (and therefore strings)		FIXME - value is bogus!
-#define VER_FUTURE			32767
-// possible changes in future versions:
-//	paths should be relative to file, not start dir
-//	ignore leading zeroes?
 
 struct pass {
 	int	number;	// counts up from zero

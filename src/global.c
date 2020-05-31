@@ -127,7 +127,7 @@ void config_default(struct config *conf)
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
 	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
 	conf->test_new_features		= FALSE;	// enabled by --test
-	conf->wanted_version		= VER_NEWFORSYNTAX;	// TODO - add switch to change
+	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
 }
 
 // memory allocation stuff

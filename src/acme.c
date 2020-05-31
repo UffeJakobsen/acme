@@ -65,6 +65,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_FULLSTOP		"fullstop"
 #define OPTION_IGNORE_ZEROES	"ignore-zeroes"
 #define OPTION_STRICT_SEGMENTS	"strict-segments"
+#define OPTION_DIALECT		"dialect"
 #define OPTION_TEST		"test"
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
@@ -147,6 +148,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_MSVC "             output errors in MS VS format\n"
 "      --" OPTION_COLOR "            uses ANSI color codes for error output\n"
 "      --" OPTION_FULLSTOP "         use '.' as pseudo opcode prefix\n"
+"      --" OPTION_DIALECT " VERSION  behave like different version\n"
 "      --" OPTION_TEST "             enable experimental features\n"
 PLATFORM_OPTION_HELP
 "  -V, --" OPTION_VERSION "          show version and exit\n");
@@ -439,6 +441,57 @@ static void define_symbol(const char definition[])
 }
 
 
+struct dialect {
+	enum version	dialect;
+	const char	*version;
+	const char	*description;
+};
+struct dialect	dialects[]	= {
+	{VER_OLDEST_SUPPORTED,		"0.85",		"(the oldest version supported)"},
+	{VER_DEPRECATE_REALPC,		"0.86",		"\"!realpc\" gives a warning, \"!to\" wants a file format"},
+	{VER_ALLOW_SETPC_IN_PSEUDOPC,	"0.93",		"\"*=\" no longer ends offset assembly"},
+	{VER_RIGHTASSOCIATIVEPOWEROF,	"0.94.6",	"\"power of\" is now right-associative"},
+//	{VER_,				"0.94.7",	"empty code segments are no longer included in output file"},
+	{VER_DISABLED_OBSOLETE_STUFF,	"0.94.8",	"disabled \"!cbm\", \"!realpc\" and \"!subzone\""},
+	{VER_NEWFORSYNTAX,		"0.94.12",	"new \"!for\" syntax"},
+//	{VER_,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
+//	{VER_CURRENT,			"default",	"default"},
+//	{VER_BACKSLASHESCAPING,		"",		"backslash escaping and strings"},
+	{VER_FUTURE,			"future",	"enable all experimental features"},
+	{0,				NULL,		NULL}	// NULLs terminate
+};
+
+// choose dialect (mimic behaviour of different version)
+static void set_dialect(const char version[])
+{
+	struct dialect	*dia;
+
+	// caution, version may be NULL!
+	if (version) {
+		// scan array
+		for (dia = dialects; dia->version; ++dia) {
+			if (strcmp(version, dia->version) == 0) {
+				config.wanted_version = dia->dialect;
+				return;	// found
+			}
+		}
+		fputs("Error: Unknown dialect specifier.\n", stderr);
+	} else {
+		fputs("Error: No dialect specified.\n", stderr);
+	}
+	// output table of possible versions and die
+	fputs(
+"Supported dialects are:\n"
+"\n"
+"\tdialect\t\tdescription\n"
+"\t-------\t\t-----------\n", stderr);
+	for (dia = dialects; dia->version; ++dia)
+		fprintf(stderr, "\t%s\t\t%s\n", dia->version, dia->description);
+	fputc('\n', stderr);
+	exit(EXIT_FAILURE);
+}
+
+
 // handle long options (like "--example"). Return unknown string.
 static const char *long_option(const char *string)
 {
@@ -478,6 +531,8 @@ static const char *long_option(const char *string)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
 		config.segment_warning_is_error = TRUE;
+	else if (strcmp(string, OPTION_DIALECT) == 0)
+		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_TEST) == 0) {
 		if (config.test_new_features)
 			config.wanted_version = VER_FUTURE;	// giving "--test" twice enables every new feature
