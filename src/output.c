@@ -578,10 +578,18 @@ void vcpu_set_pc(intval_t new_pc, int segment_flags)
 	intval_t	new_offset;
 
 	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
-	if ((config.wanted_version < VER_ALLOW_SETPC_IN_PSEUDOPC)
-	&& (pseudopc_current_context != NULL)) {
-		Throw_warning("Offset assembly still active at end of segment. Switched it off.");
-		pseudopc_end();
+	if (pseudopc_current_context != NULL) {
+		if (config.wanted_version < VER_SHORTER_SETPC_WARNING) {
+			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+			pseudopc_end_all();
+		} else if (config.wanted_version < VER_DISABLED_OBSOLETE_STUFF) {
+			Throw_warning("Offset assembly still active at end of segment.");
+			pseudopc_end_all();	// warning no longer said it
+			// would switch off, but still did. nevertheless, there
+			// is something different to older versions: when the
+			// closing '}' or !realpc is encountered, _really_ weird
+			// stuff happens! i see no reason to try to mimic that.
+		}
 	}
 	new_offset = (new_pc - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc;
@@ -670,9 +678,9 @@ void pseudopc_end(void)
 		// trying to end offset assembly though it isn't active:
 		// in current versions this cannot happen and so must be a bug.
 		// but in versions older than 0.94.8 this was possible using
-		// !realpc, and before v0.93 offset assembly got automatically
-		// disabled when encountering "*=".
-		// so only choke if wanted version is new enough:
+		// !realpc, and offset assembly got automatically disabled when
+		// encountering "*=".
+		// so if wanted version is new enough, choke on bug!
 		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
 			Bug_found("ClosingUnopenedPseudopcBlock", 0);
 	} else {
@@ -680,6 +688,12 @@ void pseudopc_end(void)
 		CPU_state.pc.flags = pseudopc_current_context->flags;
 		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	}
+}
+// this is only for old, deprecated, obsolete, stupid "realpc":
+void pseudopc_end_all(void)
+{
+	while (pseudopc_current_context)
+		pseudopc_end();
 }
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)

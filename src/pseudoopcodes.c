@@ -646,7 +646,7 @@ static enum eos po_pseudopc(void)
 static enum eos po_realpc(void)
 {
 	old_offset_assembly();
-	pseudopc_end();	// restore old state
+	pseudopc_end_all();	// restore outermost state
 	return ENSURE_EOS;
 }
 

@@ -449,10 +449,10 @@ struct dialect {
 struct dialect	dialects[]	= {
 	{VER_OLDEST_SUPPORTED,		"0.85",		"(the oldest version supported)"},
 	{VER_DEPRECATE_REALPC,		"0.86",		"\"!realpc\" gives a warning, \"!to\" wants a file format"},
-	{VER_ALLOW_SETPC_IN_PSEUDOPC,	"0.93",		"\"*=\" no longer ends offset assembly"},
+//	{VER_SHORTER_SETPC_WARNING,	"0.93",		"\"*=\" in offset assembly gives shorter warning but still switches off"},
 	{VER_RIGHTASSOCIATIVEPOWEROF,	"0.94.6",	"\"power of\" is now right-associative"},
 //	{VER_,				"0.94.7",	"empty code segments are no longer included in output file"},
-	{VER_DISABLED_OBSOLETE_STUFF,	"0.94.8",	"disabled \"!cbm\", \"!realpc\" and \"!subzone\""},
+	{VER_DISABLED_OBSOLETE_STUFF,	"0.94.8",	"\"*=\" works inside \"!pseudopc\", disabled \"!cbm/!realpc/!subzone\""},
 	{VER_NEWFORSYNTAX,		"0.94.12",	"new \"!for\" syntax"},
 //	{VER_,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
 //	{VER_CURRENT,			"default",	"default"},

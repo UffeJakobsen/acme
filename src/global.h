@@ -61,10 +61,10 @@ extern char	GotByte;	// Last byte read (processed)
 enum version {
 	VER_OLDEST_SUPPORTED,		// v0.85 looks like the oldest version it makes sense to actually support
 	VER_DEPRECATE_REALPC,		// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
-	VER_ALLOW_SETPC_IN_PSEUDOPC,	// v0.93 allowed *= inside !pseudopc blocks
+	VER_SHORTER_SETPC_WARNING,	// v0.93 claimed to allow *= inside !pseudopc blocks, but didn't! It only shortened the warning!
 	VER_RIGHTASSOCIATIVEPOWEROF,	// v0.94.6 made "power of" operator right-associative
 					// v0.94.7 fixed a bug: empty code segments no longer included in output file
-	VER_DISABLED_OBSOLETE_STUFF,	// v0.94.8 disabled !cbm, !pseudopc/!realpc, !subzone
+	VER_DISABLED_OBSOLETE_STUFF,	// v0.94.8 made *= work inside !pseudopc, disabled !cbm/!realpc/!subzone
 	VER_NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
 					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
 	VER_CURRENT,			// "RELEASE"

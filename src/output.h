@@ -104,6 +104,8 @@ struct pseudopc;
 extern void pseudopc_start(struct number *new_pc);
 // end offset assembly
 extern void pseudopc_end(void);
+// this is only for old, deprecated, obsolete, stupid "realpc":
+extern void pseudopc_end_all(void);
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)
 extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
