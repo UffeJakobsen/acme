@@ -88,7 +88,7 @@ enum mnemogroup {
 // entry in these tables means that the combination of mnemonic and addressing
 // mode is illegal.
 //                  |                           6502/65c02/65816/65ce02/4502/m65                                                                                                                                                                                                                                                                                                                                                | 65816  |                    NMOS 6502 undocumented opcodes                     |
-enum {               IDX_ORA,IDXcORA,IDX16ORA,IDXeORA,IDXmORA,IDXmORQ,IDX_AND,IDXcAND,IDX16AND,IDXeAND,IDXmAND,IDXmANDQ,IDX_EOR,IDXcEOR,IDX16EOR,IDXeEOR,IDXmEOR,IDXmEORQ,IDX_ADC,IDXcADC,IDX16ADC,IDXeADC,IDXmADC,IDXmADCQ,IDX_STA,IDXcSTA,IDX16STA,IDXeSTA,IDXmSTA,IDXmSTQ,IDX_LDA,IDXcLDA,IDX16LDA,IDXeLDA,IDXmLDA,IDXmLDQ,IDX_CMP,IDXcCMP,IDX16CMP,IDXeCMP,IDXmCMP,IDXmCPQ,IDX_SBC,IDXcSBC,IDX16SBC,IDXeSBC,IDXmSBC,IDXmSBCQ,IDX16PEI,IDX_SLO,IDX_RLA,IDX_SRE,IDX_RRA,IDX_SAX,IDX_LAX,IDX_DCP,IDX_ISC,IDX_SHA};
+enum {               IDX_ORA,IDXcORA,IDX16ORA,IDXeORA,IDXmORA,IDXmORQ,IDX_AND,IDXcAND,IDX16AND,IDXeAND,IDXmAND,IDXmANDQ,IDX_EOR,IDXcEOR,IDX16EOR,IDXeEOR,IDXmEOR,IDXmEORQ,IDX_ADC,IDXcADC,IDX16ADC,IDXeADC,IDXmADC,IDXmADCQ,IDX_STA,IDXcSTA,IDX16STA,IDXeSTA,IDXmSTA,IDXmSTQ,IDX_LDA,IDXcLDA,IDX16LDA,IDXeLDA,IDXmLDA,IDXmLDQ,IDX_CMP,IDXcCMP,IDX16CMP,IDXeCMP,IDXmCMP,IDXmCPQ,IDX_SBC,IDXcSBC,IDX16SBC,IDXeSBC,IDXmSBC,IDXmSBCQ,IDX16PEI,IDXuSLO,IDXuRLA,IDXuSRE,IDXuRRA,IDXuSAX,IDXuLAX,IDXuDCP,IDXuISC,IDXuSHA};
 SCB accu_imm[]    = {   0x09,   0x09,    0x09,   0x09,   0x09,      0,   0x29,   0x29,    0x29,   0x29,   0x29,       0,   0x49,   0x49,    0x49,   0x49,   0x49,       0,   0x69,   0x69,    0x69,   0x69,   0x69,       0,      0,      0,       0,      0,      0,      0,   0xa9,   0xa9,    0xa9,   0xa9,   0xa9,      0,   0xc9,   0xc9,    0xc9,   0xc9,   0xc9,      0,   0xe9,   0xe9,    0xe9,   0xe9,   0xe9,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// #$ff     #$ffff
 SCL accu_abs[]    = { 0x0d05, 0x0d05,0x0f0d05, 0x0d05, 0x0d05, 0x0d05, 0x2d25, 0x2d25,0x2f2d25, 0x2d25, 0x2d25,  0x2d25, 0x4d45, 0x4d45,0x4f4d45, 0x4d45, 0x4d45,  0x4d45, 0x6d65, 0x6d65,0x6f6d65, 0x6d65, 0x6d65,  0x6d65, 0x8d85, 0x8d85,0x8f8d85, 0x8d85, 0x8d85, 0x8d85, 0xada5, 0xada5,0xafada5, 0xada5, 0xada5, 0xada5, 0xcdc5, 0xcdc5,0xcfcdc5, 0xcdc5, 0xcdc5, 0xcdc5, 0xede5, 0xede5,0xefede5, 0xede5, 0xede5,  0xede5,       0, 0x0f07, 0x2f27, 0x4f47, 0x6f67, 0x8f87, 0xafa7, 0xcfc7, 0xefe7,      0};	// $ff      $ffff    $ffffff
 SCL accu_xabs[]   = { 0x1d15, 0x1d15,0x1f1d15, 0x1d15, 0x1d15, 0x1d15, 0x3d35, 0x3d35,0x3f3d35, 0x3d35, 0x3d35,  0x3d35, 0x5d55, 0x5d55,0x5f5d55, 0x5d55, 0x5d55,  0x5d55, 0x7d75, 0x7d75,0x7f7d75, 0x7d75, 0x7d75,  0x7d75, 0x9d95, 0x9d95,0x9f9d95, 0x9d95, 0x9d95, 0x9d95, 0xbdb5, 0xbdb5,0xbfbdb5, 0xbdb5, 0xbdb5, 0xbdb5, 0xddd5, 0xddd5,0xdfddd5, 0xddd5, 0xddd5, 0xddd5, 0xfdf5, 0xfdf5,0xfffdf5, 0xfdf5, 0xfdf5,  0xfdf5,       0, 0x1f17, 0x3f37, 0x5f57, 0x7f77,      0,      0, 0xdfd7, 0xfff7,      0};	// $ff,x    $ffff,x  $ffffff,x
@@ -109,13 +109,13 @@ SCB accu_lindz8[] = {      0,      0,       0,      0,   0x12,      0,      0,  
 // mnemotable), the assembler finds out the column to use here. The row
 // depends on the used addressing mode. A zero entry in these tables means
 // that the combination of mnemonic and addressing mode is illegal.
-//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                                         65ce02                        |               65816               |                                    NMOS 6502 undocumented opcodes                                     |    C64DTV2    |
-enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeDEW,IDXeINW,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDX_ANC,IDX_ASR,IDX_ARR,IDX_SBX,IDX_DOP,IDX_TOP,IDX_JAM,IDX_LXA,IDX_ANE,IDX_LAS,IDX_TAS,IDX_SHX,IDX_SHY,IDX_SAC,IDX_SIR};
-SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0x80,   0x0c,   0x02,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
-SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,      0,      0,   0xa3,   0xf4,      0,   0x62,       0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,      0,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
-SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4,   0xc3,   0xe3, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,      0,      0,      0,      0,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
-SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0,      0,      0, 0xbb00,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0x14, 0x1c00,      0,      0,      0,      0,      0,      0, 0x9c00,      0,      0};	// $ff,x    $ffff,x
-SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0,      0,      0};	// $ff,y    $ffff,y
+//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                                         65ce02                        |               65816               |                                        NMOS 6502 undocumented opcodes                                         |    C64DTV2    |
+enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeDEW,IDXeINW,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANC,IDXuASR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuJAM,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
+SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0xea,   0x80,   0x0c,   0x02,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
+SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,      0,      0,   0xa3,   0xf4,      0,   0x62,       0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,   0x80,      0,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
+SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4,   0xc3,   0xe3, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,      0,      0,      0,      0, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
+SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0,      0,      0, 0xbb00,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0, 0x1c14,   0x14, 0x1c00,      0,      0,      0,      0,      0,      0, 0x9c00,      0,      0};	// $ff,x    $ffff,x
+SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0,      0,      0};	// $ff,y    $ffff,y
 
 // Code tables for group GROUP_ALLJUMPS:
 // These tables are needed for finding out the correct code when the mnemonic
@@ -238,33 +238,34 @@ static struct ronode	mnemos_6502[]	= {
 
 // undocumented opcodes of the NMOS 6502 that are also supported by c64dtv2:
 static struct ronode	mnemos_6502undoc1[]	= {
-	PREDEFNODE("slo", MERGE(GROUP_ACCU, IDX_SLO)),	// ASL + ORA (aka ASO)
-	PREDEFNODE("rla", MERGE(GROUP_ACCU, IDX_RLA)),	// ROL + AND
-	PREDEFNODE("sre", MERGE(GROUP_ACCU, IDX_SRE)),	// LSR + EOR (aka LSE)
-	PREDEFNODE("rra", MERGE(GROUP_ACCU, IDX_RRA)),	// ROR + ADC
-	PREDEFNODE("sax", MERGE(GROUP_ACCU, IDX_SAX)),	// STX + STA (aka AXS aka AAX)
-	PREDEFNODE("lax", MERGE(GROUP_ACCU, IDX_LAX)),	// LDX + LDA
-	PREDEFNODE("dcp", MERGE(GROUP_ACCU, IDX_DCP)),	// DEC + CMP (aka DCM)
-	PREDEFNODE("isc", MERGE(GROUP_ACCU, IDX_ISC)),	// INC + SBC (aka ISB aka INS)
-	PREDEFNODE("las", MERGE(GROUP_MISC, IDX_LAS)),	// A,X,S = {addr} & S (aka LAR aka LAE)
-	PREDEFNODE("tas", MERGE(GROUP_MISC, IDX_TAS)),	// S = A & X	{addr} = A&X& {H+1} (aka SHS aka XAS)
-	PREDEFNODE("sha", MERGE(GROUP_ACCU, IDX_SHA)),	// {addr} = A & X & {H+1} (aka AXA aka AHX)
-	PREDEFNODE("shx", MERGE(GROUP_MISC, IDX_SHX)),	// {addr} = X & {H+1} (aka XAS aka SXA)
-	PREDEFNODE("shy", MERGE(GROUP_MISC, IDX_SHY)),	// {addr} = Y & {H+1} (aka SAY aka SYA)
-	PREDEFNODE(s_asr, MERGE(GROUP_MISC, IDX_ASR)),	// LSR + EOR (aka ALR)
-	PREDEFNODE("arr", MERGE(GROUP_MISC, IDX_ARR)),	// ROR + ADC
-	PREDEFNODE("sbx", MERGE(GROUP_MISC, IDX_SBX)),	// DEX + CMP (aka AXS aka SAX)
-	PREDEFNODE("dop", MERGE(GROUP_MISC, IDX_DOP)),	// skip next byte
-	PREDEFNODE("top", MERGE(GROUP_MISC, IDX_TOP)),	// skip next word
-	PREDEFNODE("jam", MERGE(GROUP_MISC, IDX_JAM)),	// jam/crash/kill/halt-and-catch-fire
-	PREDEFNODE("ane", MERGE(GROUP_MISC, IDX_ANE)),	// A = (A | ??) & X & arg (aka XAA)
-	PREDEFLAST("lxa", MERGE(GROUP_MISC, IDX_LXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
+	PREDEFNODE("slo", MERGE(GROUP_ACCU, IDXuSLO)),	// ASL + ORA (aka ASO)
+	PREDEFNODE("rla", MERGE(GROUP_ACCU, IDXuRLA)),	// ROL + AND
+	PREDEFNODE("sre", MERGE(GROUP_ACCU, IDXuSRE)),	// LSR + EOR (aka LSE)
+	PREDEFNODE("rra", MERGE(GROUP_ACCU, IDXuRRA)),	// ROR + ADC
+	PREDEFNODE("sax", MERGE(GROUP_ACCU, IDXuSAX)),	// STX + STA (aka AXS aka AAX)
+	PREDEFNODE("lax", MERGE(GROUP_ACCU, IDXuLAX)),	// LDX + LDA
+	PREDEFNODE("dcp", MERGE(GROUP_ACCU, IDXuDCP)),	// DEC + CMP (aka DCM)
+	PREDEFNODE("isc", MERGE(GROUP_ACCU, IDXuISC)),	// INC + SBC (aka ISB aka INS)
+	PREDEFNODE("las", MERGE(GROUP_MISC, IDXuLAS)),	// A,X,S = {addr} & S (aka LAR aka LAE)
+	PREDEFNODE("tas", MERGE(GROUP_MISC, IDXuTAS)),	// S = A & X	{addr} = A&X& {H+1} (aka SHS aka XAS)
+	PREDEFNODE("sha", MERGE(GROUP_ACCU, IDXuSHA)),	// {addr} = A & X & {H+1} (aka AXA aka AHX)
+	PREDEFNODE("shx", MERGE(GROUP_MISC, IDXuSHX)),	// {addr} = X & {H+1} (aka XAS aka SXA)
+	PREDEFNODE("shy", MERGE(GROUP_MISC, IDXuSHY)),	// {addr} = Y & {H+1} (aka SAY aka SYA)
+	PREDEFNODE(s_asr, MERGE(GROUP_MISC, IDXuASR)),	// LSR + EOR (aka ALR)
+	PREDEFNODE("arr", MERGE(GROUP_MISC, IDXuARR)),	// ROR + ADC
+	PREDEFNODE("sbx", MERGE(GROUP_MISC, IDXuSBX)),	// DEX + CMP (aka AXS aka SAX)
+	PREDEFNODE("nop", MERGE(GROUP_MISC, IDXuNOP)),	// combines documented $ea and the undocumented dop/top below
+	PREDEFNODE("dop", MERGE(GROUP_MISC, IDXuDOP)),	// "double nop" (skip next byte)
+	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
+	PREDEFNODE("jam", MERGE(GROUP_MISC, IDXuJAM)),	// jam/crash/kill/halt-and-catch-fire
+	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA)
+	PREDEFLAST("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
 	//    ^^^^ this marks the last element
 };
 
 // undocumented opcodes of the NMOS 6502 that are _not_ supported by c64dtv2:
 static struct ronode	mnemos_6502undoc2[]	= {
-	PREDEFLAST("anc", MERGE(GROUP_MISC, IDX_ANC)),	// ROL + AND, ASL + ORA (aka AAC)
+	PREDEFLAST("anc", MERGE(GROUP_MISC, IDXuANC)),	// ROL + AND, ASL + ORA (aka AAC)
 	//    ^^^^ this marks the last element
 };
 
