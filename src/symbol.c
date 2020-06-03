@@ -112,17 +112,16 @@ FIXME - to get lists/strings to work, this can no longer create an int by defaul
 maybe get rid of "int flags" and use some "struct object *default" instead?
 called by;
 alu.c
-	get_symbol_value
+	get_symbol_value (here it's okay to create an undefined int)
 global.c
-	set_label		implicit symbol definition (gets assigned pc)
+	set_label		implicit symbol definition (gets assigned pc, so int is ok)
 	parse_symbol_definition	explicit symbol definition
 macro.c
 	Macro_parse_call	early to build array of outer refs in case of call-by-ref
 	Macro_parse_call	later to lookup inner symbols in case of call-by-value
-pseudoopcodes.c
+symbol.c
 	symbol_define
 	symbol_fix_forward_anon_name
-symbol.c
 */
 struct symbol *symbol_find(scope_t scope, int flags)
 {

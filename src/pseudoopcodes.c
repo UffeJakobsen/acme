@@ -72,6 +72,10 @@ void notreallypo_setpc(void)	// GotByte is '*'
 /*TODO		} else if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
 			skip '='
 			read memory limit
+		} else if (strcmp(GlobalDynaBuf->buffer, "stay" or "same" or something like that) == 0) {
+			mutually exclusive with all other arguments!
+			this would mean to keep all previous segment data,
+			so it could be used with "*=*-5" or "*=*+3"
 		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
 			skip '='
 			read segment name (quoted string!)	*/

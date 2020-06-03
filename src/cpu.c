@@ -63,7 +63,7 @@ static struct cpu_type	cpu_type_4502	= {
 };
 static struct cpu_type	cpu_type_m65	= {
 	keyword_is_m65_mnemo,
-	CPUFLAG_DECIMALSUBTRACTBUGGY,	// SBC does not work reliably in decimal mode		FIXME - is this correct? has this been fixed?
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
 	234	// !align fills with "NOP"
 };
 
