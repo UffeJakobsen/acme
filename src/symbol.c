@@ -105,6 +105,31 @@ static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 }
 
 
+// temporary helper function to properly refactor this mess
+static struct symbol *temp_find(scope_t scope)
+{
+	struct rwnode	*node;
+	struct symbol	*symbol;
+	boolean		node_created;
+
+	node_created = Tree_hard_scan(&node, symbols_forest, scope, TRUE);
+	// if node has just been created, create symbol as well
+	if (node_created) {
+		// create new symbol structure
+		symbol = safe_malloc(sizeof(*symbol));
+		node->body = symbol;
+		// finish empty symbol item
+		symbol->object.type = NULL;	// no object yet (CAUTION!)
+		symbol->usage = 0;	// usage count
+		symbol->pass = pass.number;
+		symbol->has_been_reported = FALSE;
+		symbol->pseudopc = NULL;
+	} else {
+		symbol = node->body;
+	}
+	return symbol;	// now symbol->object.type can be tested to see if this was freshly created.
+	// CAUTION: this only works if caller always sets a type pointer after checking! if NULL is kept, the struct still looks new later on...
+}
 // search for symbol. create if nonexistant. if created, give it flags "flags".
 // the symbol name must be held in GlobalDynaBuf.
 /*
@@ -125,28 +150,18 @@ symbol.c
 */
 struct symbol *symbol_find(scope_t scope, int flags)
 {
-	struct rwnode	*node;
 	struct symbol	*symbol;
-	boolean		node_created;
 	int		new_force_bits;
 
-	node_created = Tree_hard_scan(&node, symbols_forest, scope, TRUE);
-	// if node has just been created, create symbol as well
-	if (node_created) {
-		// create new symbol structure
-		symbol = safe_malloc(sizeof(*symbol));
+	symbol = temp_find(scope);
+	// if symbol has no object assigned to it, make it an int
+	if (symbol->object.type == NULL) {
 		// finish empty symbol item
 		symbol->object.type = &type_int;
 		symbol->object.u.number.flags = flags;
 		symbol->object.u.number.addr_refs = 0;
 		symbol->object.u.number.val.intval = 0;
-		symbol->usage = 0;	// usage count
-		symbol->pass = pass.number;
-		symbol->has_been_reported = FALSE;
-		symbol->pseudopc = NULL;
-		node->body = symbol;
 	} else {
-		symbol = node->body;
 		// make sure the force bits don't clash
 		if ((symbol->object.type == &type_int)
 		|| (symbol->object.type == &type_float)) {

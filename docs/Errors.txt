@@ -347,13 +347,16 @@ Too many '('.
 Un-pseudopc operator '&' can only be applied to labels.
     You tried to apply the operator '&' to something that is not a
     label. This operator only works on labels, it cannot be used on
-    the results of calculations.
+    other objects.
 
 Un-pseudopc operator '&' has no !pseudopc context.
-    You tried to apply the operator '&' to a label that wasn't defined
-    in a !pseudopc block.
-    Or, more generally, you used more '&' characters on the label than
-    there were !pseudopc blocks around it.
+    You either tried to apply the operator '&' to something that is
+    not an implicitly defined label, but the result of an explicit
+    symbol assignment (like the result of a calculation).
+    Or you applied the operator to a label that was defined outside of
+    a !pseudopc block, or, more generally, the number of '&'
+    characters used was larger than the number of !pseudopc blocks
+    around the definition.
 
 Unknown encoding.
     You used the "!convtab" command with a keyword ACME does not know.
