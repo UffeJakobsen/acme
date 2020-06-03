@@ -73,7 +73,8 @@ enum mnemogroup {
 	GROUP_REL16_2,		// 16bit relative to pc+2			Byte value = opcode
 	GROUP_REL16_3,		// 16bit relative to pc+3			Byte value = opcode
 	GROUP_BOTHMOVES,	// the "move" commands MVP and MVN		Byte value = opcode
-	GROUP_ZPONLY		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - use for IDX16COP,IDXeDEW,IDXeINW as well!
+	GROUP_ZPONLY,		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - use for IDX16COP,IDXeDEW,IDXeINW as well!
+	GROUP_PREFIX,		// NOP on m65 (throws error)			Byte value = opcode
 };
 
 // save some space
@@ -507,7 +508,9 @@ static struct ronode	mnemos_m65[]	= {
 	PREDEFNODE("rolq", MERGE(GROUP_MISC,	IDX_ROL  | PREFIX_NEGNEG)),
 	PREDEFNODE("rorq", MERGE(GROUP_MISC,	IDX_ROR  | PREFIX_NEGNEG)),
 	PREDEFNODE("inq", MERGE(GROUP_MISC,	IDXcINC  | PREFIX_NEGNEG)),
-	PREDEFLAST("deq", MERGE(GROUP_MISC,	IDXcDEC  | PREFIX_NEGNEG)),
+	PREDEFNODE("deq", MERGE(GROUP_MISC,	IDXcDEC  | PREFIX_NEGNEG)),
+	// because the NOP opcode is used as a prefix code, the mnemonic was disabled:
+	PREDEFLAST("nop", MERGE(GROUP_PREFIX,	0xea)),
 	//    ^^^^ this marks the last element
 };
 
@@ -1079,6 +1082,15 @@ static void group_only_zp(int opcode)
 	Input_ensure_EOS();
 }
 
+// NOP on m65 cpu (FIXME - "!align" outputs NOPs, what about that? what if user writes NEG:NEG?)
+static void group_prefix(int opcode)
+{
+	char	buffer[100];	// 640K should be enough for anybody
+
+	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);	// FIXME - add to docs!
+	Throw_error(buffer);
+}
+
 // The jump instructions.
 static void group_jump(int index)
 {
@@ -1155,6 +1167,9 @@ static int check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 		break;
 	case GROUP_ZPONLY:	// "rmb0..7" and "smb0..7"
 		group_only_zp(code);
+		break;
+	case GROUP_PREFIX:	// NOP for m65 cpu
+		group_prefix(code);
 		break;
 	default:	// others indicate bugs
 		Bug_found("IllegalGroupIndex", code);
