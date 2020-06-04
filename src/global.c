@@ -162,13 +162,13 @@ static int first_label_of_statement(int *statement_flags)
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
 // called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
-static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)
+static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)	// "change_allowed" is used by backward anons!
 {
 	struct number	pc;
 	struct object	result;
 	struct symbol	*symbol;
 
-	symbol = symbol_find(scope, force_bit);
+	symbol = symbol_find(scope, force_bit);	// TODO - split into "find", "forcebit handling", "if NULL object, make int" and "if not int, complain"
 	// label definition
 	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
@@ -178,7 +178,7 @@ static void set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
-	symbol_set_object(symbol, &result, change_allowed);
+	symbol_set_object(symbol, &result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
 	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
@@ -197,7 +197,7 @@ static void parse_symbol_definition(scope_t scope, int stat_flags)
 
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
-		symbol = symbol_find(scope, force_bit);
+		symbol = symbol_find(scope, force_bit);	// FIXME - split into "find", "forcebit handling", "if not NULL object, types must be equal"...
 		// symbol = parsed value
 		GetByte();	// skip '='
 		ALU_any_result(&result);
@@ -251,6 +251,7 @@ static void parse_backward_anon_def(int *statement_flags)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
+
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	do
 		DYNABUF_APPEND(GlobalDynaBuf, '-');
@@ -265,6 +266,7 @@ static void parse_forward_anon_def(int *statement_flags)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
+
 	DYNABUF_CLEAR(GlobalDynaBuf);
 	DynaBuf_append(GlobalDynaBuf, '+');
 	while (GotByte == '+') {

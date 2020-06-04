@@ -35,6 +35,8 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	&& (symbol->object.type != &type_float))
 		return;
 
+	// CAUTION: if more types are added, check for NULL before using type pointer!
+
 	// output name
 	if (config.warn_on_type_mismatch
 	&& symbol->object.u.number.addr_refs == 1)
@@ -148,7 +150,7 @@ symbol.c
 	symbol_define
 	symbol_fix_forward_anon_name
 */
-struct symbol *symbol_find(scope_t scope, int flags)
+struct symbol *symbol_find(scope_t scope, int flags)	// FIXME - "flags" is either 0 or UNDEFINED or a forcebit, right? move UNDEFINED and forcebit stuff elsewhere!
 {
 	struct symbol	*symbol;
 	int		new_force_bits;
@@ -177,7 +179,8 @@ struct symbol *symbol_find(scope_t scope, int flags)
 
 // assign value to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
-void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)
+// TODO - split checks into two parts: first deal with object type. in case of number, then check value/flags/whatever
+void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)	// FIXME - does "change_allowed" refer to type change or number value change?
 {
 	int	flags;	// for int/float re-definitions
 
@@ -224,7 +227,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 }
 
 
-// set global symbol to value, no questions asked (for "-D" switch)
+// set global symbol to integer value, no questions asked (for "-D" switch)
 // Name must be held in GlobalDynaBuf.
 void symbol_define(intval_t value)
 {

@@ -351,7 +351,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	struct object	*arg;
 
 	// if the symbol gets created now, mark it as unsure
-	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);
+	symbol = symbol_find(scope, NUMBER_EVER_UNDEFINED);	// TODO - split into "find" and "if NULL object, make into undefined int"
 	// first push on arg stack, so we have a local copy we can "unpseudopc"
 	arg = &arg_stack[arg_sp++];
 	*arg = symbol->object;

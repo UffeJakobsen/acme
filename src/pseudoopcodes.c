@@ -749,7 +749,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;
 
 	force_bit = Input_get_force_bit();	// skips spaces after
-	symbol = symbol_find(scope, force_bit);
+	symbol = symbol_find(scope, force_bit);	// FIXME - split into "find" and "handle forcebits", remove the "default to undefined int" part!
 	if (GotByte != '=') {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
@@ -914,6 +914,7 @@ static boolean check_ifdef_condition(void)
 	// in first pass, count usage
 	if (FIRST_PASS)
 		symbol->usage++;
+	// TODO - if object type is NULL, return FALSE!
 	return symbol->object.type->is_defined(&symbol->object);
 }
 // if/ifdef/ifndef/else function, to be able to do ELSE IF
@@ -1056,7 +1057,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 
 	// now GotByte = illegal char
 	force_bit = Input_get_force_bit();	// skips spaces after
-	loop.symbol = symbol_find(scope, force_bit);
+	loop.symbol = symbol_find(scope, force_bit);	// FIXME - split into "find" and "handle force bit". if type is not NULL, complain if not number!
 	if (!Input_accept_comma()) {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
