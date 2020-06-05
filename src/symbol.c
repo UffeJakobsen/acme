@@ -136,7 +136,7 @@ struct symbol *symbol_find(scope_t scope)
 
 
 // FIXME - temporary helper function during refactoring
-void symbol_forcebit(struct symbol *symbol, int force_bit)
+static void symbol_forcebit(struct symbol *symbol, int force_bit)
 {
 	// if symbol has no object assigned to it, make it an int
 	if (symbol->object.type == NULL) {
@@ -157,7 +157,7 @@ void symbol_forcebit(struct symbol *symbol, int force_bit)
 // assign value to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
 // TODO - split checks into two parts: first deal with object type. in case of number, then check value/flags/whatever
-void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)	// FIXME - does "change_allowed" refer to type change or number value change?
+static void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)	// FIXME - does "change_allowed" refer to type change or number value change?
 {
 	int	flags;	// for int/float re-definitions
 
@@ -171,6 +171,8 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 			Throw_error("Symbol already defined.");
 		return;
 	}
+
+// FIXME - force bits assigned via !for or !set are lost, because due to "change_allowed", the new object struct is copied and that's it!
 
 	// both old and new are either int or float, so keep old algo:
 
@@ -203,13 +205,19 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 	symbol->object.u.number.flags = flags;
 }
 // FIXME - temporary helper function during refactoring
+// used for:
+//	(implicit!) label definitions, including anons	(FIXME - anons cannot have force bits. handle them elsewhere? change backward anons directly, no questions asked?)
+//	setting up loop counter for "!for" (actual incrementing is then done directly!)
 // "change_allowed" is used by backward anons, but then force_bit is 0
+// "change_allowed" is also used by "!for", then force_bit may be nonzero
 void symbol_set_object2(struct symbol *symbol, struct object *result, int force_bit, boolean change_allowed)
 {
 	symbol_forcebit(symbol, force_bit);	// TODO - "if NULL object, make int" and "if not int, complain"
 	symbol_set_object(symbol, result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
 }
 // FIXME - temporary helper function during refactoring
+// used for:
+//	explicit assignments, including "!set"
 // "po_set" means "!set", so changes are allowed
 void symbol_set_object3(struct symbol *symbol, struct object *result, int force_bit, boolean po_set)
 {

@@ -1030,17 +1030,15 @@ static enum eos po_ifndef(void)	// now GotByte = illegal char
 static enum eos po_for(void)	// now GotByte = illegal char
 {
 	scope_t		scope;
-	int		force_bit;
-	struct number	intresult;
 	struct for_loop	loop;
+	struct number	intresult;
 
 	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
 		return SKIP_REMAINDER;	// zero length
 
 	// now GotByte = illegal char
-	force_bit = Input_get_force_bit();	// skips spaces after
+	loop.force_bit = Input_get_force_bit();	// skips spaces after
 	loop.symbol = symbol_find(scope);	// FIXME - if type is not NULL, complain if not number!
-	symbol_forcebit(loop.symbol, force_bit);
 	if (!Input_accept_comma()) {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;

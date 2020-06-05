@@ -29,15 +29,13 @@ struct symbol {
 extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 
-// FIXME - temporary helper function during refactoring
-extern void symbol_forcebit(struct symbol *symbol, int force_bit);
 // function acts upon the symbol's flag bits and produces an error if needed.
-extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, boolean change_allowed);
+//extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, boolean change_allowed);
 // FIXME - temporary helper function during refactoring
 extern void symbol_set_object2(struct symbol *symbol, struct object *new_obj, int force_bit, boolean change_allowed);
 // FIXME - temporary helper function during refactoring
 extern void symbol_set_object3(struct symbol *symbol, struct object *new_obj, int force_bit, boolean change_allowed);
-// search for symbol. if it does not exist, create with NULL object (CAUTION!).
+// search for symbol. if it does not exist, create with NULL type object (CAUTION!).
 // the symbol name must be held in GlobalDynaBuf.
 extern struct symbol *symbol_find(scope_t scope);
 // set global symbol to value, no questions asked (for "-D" switch)
