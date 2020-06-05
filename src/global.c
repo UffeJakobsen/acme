@@ -228,9 +228,7 @@ void parse_assignment(scope_t scope, int force_bit, boolean po_set)
 // name must be held in GlobalDynaBuf.
 static void parse_symbol_definition(scope_t scope, int stat_flags)
 {
-	struct object	result;
-	struct symbol	*symbol;
-	int		force_bit;
+	int	force_bit;
 
 	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
