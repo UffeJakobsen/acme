@@ -31,9 +31,11 @@ extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 // function acts upon the symbol's flag bits and produces an error if needed.
 extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, boolean change_allowed);
-// search for symbol. create if nonexistant. if created, assign flags.
-// name must be held in GlobalDynaBuf.
-extern struct symbol *symbol_find(scope_t, int flags);
+// search for symbol. if it does not exist, create with NULL object (CAUTION!).
+// the symbol name must be held in GlobalDynaBuf.
+extern struct symbol *symbol_find(scope_t scope);
+// FIXME
+extern void symbol_forcebit(struct symbol *symbol, int force_bit);
 // set global symbol to value, no questions asked (for "-D" switch)
 // name must be held in GlobalDynaBuf.
 extern void symbol_define(intval_t value);

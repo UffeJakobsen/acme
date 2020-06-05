@@ -168,21 +168,59 @@ static void set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 	struct object	result;
 	struct symbol	*symbol;
 
-	symbol = symbol_find(scope, force_bit);	// TODO - split into "find", "forcebit handling", "if NULL object, make int" and "if not int, complain"
-	// label definition
 	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
+	symbol = symbol_find(scope);
+	// label definition
 	vcpu_read_pc(&pc);
 	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
 	result.type = &type_int;
 	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
+	symbol_forcebit(symbol, force_bit);	// TODO - "if NULL object, make int" and "if not int, complain"
 	symbol_set_object(symbol, &result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
 	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
 		section_new_cheap_scope(section_now);
+}
+
+
+// call with symbol name in GlobalDynaBuf and GotByte == '='
+// "po_set" is for "!set" pseudo opcode, so changes are allowed
+void parse_assignment(scope_t scope, int force_bit, boolean po_set)
+{
+	struct symbol	*symbol;
+	struct object	result;
+
+	GetByte();	// eat '='
+	symbol = symbol_find(scope);
+	ALU_any_result(&result);
+	// if wanted, mark as address reference
+	if (typesystem_says_address()) {
+		// FIXME - checking types explicitly is ugly...
+		if ((result.type == &type_int)
+		|| (result.type == &type_float))
+			result.u.number.addr_refs = 1;
+	}
+	// FIXME - force bit can only be used if result is number! check!
+	symbol_forcebit(symbol, force_bit);
+	// if this was called by !set, new force bit replaces old one:
+	if (po_set) {
+		// clear symbol's force bits and set new ones
+		// (but only do this for numbers!)
+		if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
+		&& ((result.type == &type_int) || (result.type == &type_float))) {
+			symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+			if (force_bit) {
+				symbol->object.u.number.flags |= force_bit;
+				result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+			}
+		}
+		// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
+	}
+	symbol_set_object(symbol, &result, po_set);
 }
 
 
@@ -192,23 +230,12 @@ static void parse_symbol_definition(scope_t scope, int stat_flags)
 {
 	struct object	result;
 	struct symbol	*symbol;
-	int		force_bit	= Input_get_force_bit();	// skips spaces after
-	// FIXME - force bit is allowed for label definitions?!
+	int		force_bit;
 
+	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
-		symbol = symbol_find(scope, force_bit);	// FIXME - split into "find", "forcebit handling", "if not NULL object, types must be equal"...
-		// symbol = parsed value
-		GetByte();	// skip '='
-		ALU_any_result(&result);
-		// if wanted, mark as address reference
-		if (typesystem_says_address()) {
-			// FIXME - checking types explicitly is ugly...
-			if ((result.type == &type_int)
-			|| (result.type == &type_float))
-				result.u.number.addr_refs = 1;
-		}
-		symbol_set_object(symbol, &result, FALSE);
+		parse_assignment(scope, force_bit, FALSE);
 		Input_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
@@ -220,8 +247,11 @@ static void parse_symbol_definition(scope_t scope, int stat_flags)
 // Parse global symbol definition or assembler mnemonic
 static void parse_mnemo_or_global_symbol_def(int *statement_flags)
 {
+	boolean	is_mnemonic;
+
+	is_mnemonic = CPU_state.type->keyword_is_mnemonic(Input_read_keyword());
 	// It is only a label if it isn't a mnemonic
-	if ((CPU_state.type->keyword_is_mnemonic(Input_read_keyword()) == FALSE)
+	if ((!is_mnemonic)
 	&& first_label_of_statement(statement_flags)) {
 		// Now GotByte = illegal char
 		// 04 Jun 2005: this fix should help to explain "strange" error messages.
@@ -297,7 +327,7 @@ void Parse_until_eob_or_eof(void)
 		statement_flags = 0;	// no "label = pc" definition yet
 		typesystem_force_address_statement(FALSE);
 		// Parse until end of statement. Only loops if statement
-		// contains "label = pc" definition and something else; or
+		// contains implicit label definition (=pc) and something else; or
 		// if "!ifdef/ifndef" is true/false, or if "!addr" is used without block.
 		do {
 			// check for pseudo opcodes was moved out of switch,

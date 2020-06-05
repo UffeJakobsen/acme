@@ -107,8 +107,9 @@ static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 }
 
 
-// temporary helper function to properly refactor this mess
-static struct symbol *temp_find(scope_t scope)
+// search for symbol. if it does not exist, create with NULL object (CAUTION!).
+// the symbol name must be held in GlobalDynaBuf.
+struct symbol *symbol_find(scope_t scope)
 {
 	struct rwnode	*node;
 	struct symbol	*symbol;
@@ -132,51 +133,27 @@ static struct symbol *temp_find(scope_t scope)
 	return symbol;	// now symbol->object.type can be tested to see if this was freshly created.
 	// CAUTION: this only works if caller always sets a type pointer after checking! if NULL is kept, the struct still looks new later on...
 }
-// search for symbol. create if nonexistant. if created, give it flags "flags".
-// the symbol name must be held in GlobalDynaBuf.
-/*
-FIXME - to get lists/strings to work, this can no longer create an int by default!
-maybe get rid of "int flags" and use some "struct object *default" instead?
-called by;
-alu.c
-	get_symbol_value (here it's okay to create an undefined int)
-global.c
-	set_label		implicit symbol definition (gets assigned pc, so int is ok)
-	parse_symbol_definition	explicit symbol definition
-macro.c
-	Macro_parse_call	early to build array of outer refs in case of call-by-ref
-	Macro_parse_call	later to lookup inner symbols in case of call-by-value
-symbol.c
-	symbol_define
-	symbol_fix_forward_anon_name
-*/
-struct symbol *symbol_find(scope_t scope, int flags)	// FIXME - "flags" is either 0 or UNDEFINED or a forcebit, right? move UNDEFINED and forcebit stuff elsewhere!
-{
-	struct symbol	*symbol;
-	int		new_force_bits;
 
-	symbol = temp_find(scope);
+
+// FIXME - merge with function below!
+void symbol_forcebit(struct symbol *symbol, int force_bit)
+{
 	// if symbol has no object assigned to it, make it an int
 	if (symbol->object.type == NULL) {
 		// finish empty symbol item
 		symbol->object.type = &type_int;
-		symbol->object.u.number.flags = flags;
+		symbol->object.u.number.flags = force_bit;
 		symbol->object.u.number.addr_refs = 0;
 		symbol->object.u.number.val.intval = 0;
 	} else {
 		// make sure the force bits don't clash
 		if ((symbol->object.type == &type_int)
 		|| (symbol->object.type == &type_float)) {
-			new_force_bits = flags & NUMBER_FORCEBITS;
-			if (new_force_bits)
-				if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != new_force_bits)
-					Throw_error("Too late for postfix.");
+			if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != force_bit)
+				Throw_error("Too late for postfix.");
 		}
 	}
-	return symbol;
 }
-
-
 // assign value to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
 // TODO - split checks into two parts: first deal with object type. in case of number, then check value/flags/whatever
@@ -237,8 +214,8 @@ void symbol_define(intval_t value)
 	result.type = &type_int;
 	result.u.number.flags = NUMBER_IS_DEFINED;
 	result.u.number.val.intval = value;
-	symbol = symbol_find(SCOPE_GLOBAL, 0);
-	symbol_set_object(symbol, &result, TRUE);
+	symbol = symbol_find(SCOPE_GLOBAL);
+	symbol->object = result;
 }
 
 
@@ -268,6 +245,12 @@ void symbols_vicelabels(FILE *fd)
 // references the *next* anonymous forward label definition. The tricky bit is,
 // each name length would need its own counter. But hey, ACME's real quick in
 // finding symbols, so I'll just abuse the symbol system to store those counters.
+// example:
+//	forward anon name is "+++"
+//	we look up that symbol's value in the current local scope -> $12
+//	we attach hex digits to name -> "+++21"
+//	that's the name of the symbol that _actually_ contains the address
+// caller sets "increment" to TRUE for writing, FALSE for reading
 void symbol_fix_forward_anon_name(boolean increment)
 {
 	struct symbol	*counter_symbol;
@@ -275,10 +258,17 @@ void symbol_fix_forward_anon_name(boolean increment)
 
 	// terminate name, find "counter" symbol and read value
 	DynaBuf_append(GlobalDynaBuf, '\0');
-	counter_symbol = symbol_find(section_now->local_scope, 0);
-	// sanity check: it must be an int!
-	if (counter_symbol->object.type != &type_int)
+	counter_symbol = symbol_find(section_now->local_scope);
+	if (counter_symbol->object.type == NULL) {
+		// finish freshly created symbol item
+		counter_symbol->object.type = &type_int;
+		counter_symbol->object.u.number.flags = NUMBER_IS_DEFINED;
+		counter_symbol->object.u.number.addr_refs = 0;
+		counter_symbol->object.u.number.val.intval = 0;
+	} else if (counter_symbol->object.type != &type_int) {
+		// sanity check: it must be an int!
 		Bug_found("ForwardAnonCounterNotInt", 0);
+	}
 	// make sure it gets reset to zero in each new pass
 	if (counter_symbol->pass != pass.number) {
 		counter_symbol->pass = pass.number;

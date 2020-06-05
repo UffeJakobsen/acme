@@ -739,37 +739,19 @@ Throw_serious_error("Not yet");	// FIXME
 // (re)set symbol
 static enum eos po_set(void)	// now GotByte = illegal char
 {
-	struct object	result;
-	int		force_bit;
-	struct symbol	*symbol;
-	scope_t		scope;
+	scope_t	scope;
+	int	force_bit;
 
 	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
-		// now GotByte = illegal char
-		return SKIP_REMAINDER;
+		return SKIP_REMAINDER;	// zero length
 
 	force_bit = Input_get_force_bit();	// skips spaces after
-	symbol = symbol_find(scope, force_bit);	// FIXME - split into "find" and "handle forcebits", remove the "default to undefined int" part!
 	if (GotByte != '=') {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
 	}
 
-	// symbol = parsed value
-	GetByte();	// proceed with next char
-	ALU_any_result(&result);
-	// clear symbol's force bits and set new ones
-	// (but only do this for numbers!)
-	if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
-	&& ((result.type == &type_int) || (result.type == &type_float))) {
-		symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-		if (force_bit) {
-			symbol->object.u.number.flags |= force_bit;
-			result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-		}
-	}
-	// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
-	symbol_set_object(symbol, &result, TRUE);
+	parse_assignment(scope, force_bit, TRUE);
 	return ENSURE_EOS;
 }
 
@@ -1053,11 +1035,12 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	struct for_loop	loop;
 
 	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
-		return SKIP_REMAINDER;
+		return SKIP_REMAINDER;	// zero length
 
 	// now GotByte = illegal char
 	force_bit = Input_get_force_bit();	// skips spaces after
-	loop.symbol = symbol_find(scope, force_bit);	// FIXME - split into "find" and "handle force bit". if type is not NULL, complain if not number!
+	loop.symbol = symbol_find(scope);	// FIXME - if type is not NULL, complain if not number!
+	symbol_forcebit(loop.symbol, force_bit);
 	if (!Input_accept_comma()) {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
@@ -1066,7 +1049,8 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	ALU_defined_int(&intresult);	// read first argument
 	loop.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
-		loop.use_old_algo = FALSE;	// new format - yay!
+		// new format - yay!
+		loop.use_old_algo = FALSE;
 		if (config.wanted_version < VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
 		loop.counter.first = intresult.val.intval;	// use first argument
@@ -1079,7 +1063,8 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		}
 		loop.counter.increment = (loop.counter.last < loop.counter.first) ? -1 : 1;
 	} else {
-		loop.use_old_algo = TRUE;	// old format - booo!
+		// old format - booo!
+		loop.use_old_algo = TRUE;
 		if (config.wanted_version >= VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)

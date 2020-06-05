@@ -250,8 +250,8 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 	// internal_name = MacroTitle ARG_SEPARATOR (grows to signature)
 	// Accept n>=0 comma-separated arguments before CHAR_EOS.
 	// Valid argument formats are:
-	// EXPRESSION (everything that does NOT start with '~'
-	// ~SYMBOL
+	//	~SYMBOL		call by ref
+	//	EXPRESSION	call by value (everything that does NOT start with '~')
 	// now GotByte = non-space
 	if (GotByte != CHAR_EOS) {	// any at all?
 		do {
@@ -263,10 +263,10 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 			if (GotByte == REFERENCE_CHAR) {
 				// read call-by-reference arg
 				DynaBuf_append(internal_name, ARGTYPE_REF);
-				GetByte();	// skip '~' character
+				GetByte();	// eat '~'
 				Input_read_scope_and_keyword(&symbol_scope);
 				// GotByte = illegal char
-				arg_table[arg_count].symbol = symbol_find(symbol_scope, 0);	// FIXME - do not default to undefined int!
+				arg_table[arg_count].symbol = symbol_find(symbol_scope);	// CAUTION, object type may be NULL!
 			} else {
 				// read call-by-value arg
 				DynaBuf_append(internal_name, ARGTYPE_VALUE);
@@ -317,22 +317,21 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 				// In both cases, GlobalDynaBuf may be used.
 				if (GotByte == REFERENCE_CHAR) {
 					// assign call-by-reference arg
-					GetByte();	// skip '~' character
+					GetByte();	// eat '~'
 					Input_read_scope_and_keyword(&symbol_scope);
 					// create new tree node and link existing symbol struct from arg list to it
 					if ((Tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
 					&& (FIRST_PASS))
 						Throw_error("Macro parameter twice.");
-					symbol_node->body = arg_table[arg_count].symbol;
+					symbol_node->body = arg_table[arg_count].symbol;	// CAUTION, object type may be NULL
 				} else {
 					// assign call-by-value arg
 					Input_read_scope_and_keyword(&symbol_scope);
-					symbol = symbol_find(symbol_scope, 0);	// FIXME - split into "find", "ensure freshly created"
-// FIXME - add a possibility to symbol_find to make it possible to find out
-// whether symbol was just created. Then check for the same error message here
-// as above ("Macro parameter twice.").
+					symbol = symbol_find(symbol_scope);
+// FIXME - find out if symbol was just created.
+// Then check for the same error message here as above ("Macro parameter twice.").
 // TODO - on the other hand, this would rule out globals as args (stupid anyway, but not illegal yet!)
-					symbol->object = arg_table[arg_count].result;	// FIXME - this assignment redefines globals without throwing errors!
+					symbol->object = arg_table[arg_count].result;	// FIXME - this assignment redefines globals/whatever without throwing errors!
 				}
 				++arg_count;
 			} while (Input_accept_comma());

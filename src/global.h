@@ -134,6 +134,9 @@ do {				\
 extern void config_default(struct config *conf);
 // allocate memory and die if not available
 extern void *safe_malloc(size_t amount);
+// call with symbol name in GlobalDynaBuf and GotByte == '='
+// "po_set" is for "!set" pseudo opcode, so changes are allowed
+extern void parse_assignment(scope_t scope, int force_bit, boolean po_set);
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.
