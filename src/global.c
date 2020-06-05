@@ -164,22 +164,19 @@ static int first_label_of_statement(int *statement_flags)
 // called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
 static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)	// "change_allowed" is used by backward anons!
 {
+	struct symbol	*symbol;
 	struct number	pc;
 	struct object	result;
-	struct symbol	*symbol;
 
 	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
 	symbol = symbol_find(scope);
-	// label definition
-	vcpu_read_pc(&pc);
-	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
+	vcpu_read_pc(&pc);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
 	result.type = &type_int;
 	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
-	symbol_forcebit(symbol, force_bit);	// TODO - "if NULL object, make int" and "if not int, complain"
-	symbol_set_object(symbol, &result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
+	symbol_set_object2(symbol, &result, force_bit, change_allowed);
 	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
@@ -204,23 +201,7 @@ void parse_assignment(scope_t scope, int force_bit, boolean po_set)
 		|| (result.type == &type_float))
 			result.u.number.addr_refs = 1;
 	}
-	// FIXME - force bit can only be used if result is number! check!
-	symbol_forcebit(symbol, force_bit);
-	// if this was called by !set, new force bit replaces old one:
-	if (po_set) {
-		// clear symbol's force bits and set new ones
-		// (but only do this for numbers!)
-		if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
-		&& ((result.type == &type_int) || (result.type == &type_float))) {
-			symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-			if (force_bit) {
-				symbol->object.u.number.flags |= force_bit;
-				result.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-			}
-		}
-		// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
-	}
-	symbol_set_object(symbol, &result, po_set);
+	symbol_set_object3(symbol, &result, force_bit, po_set);
 }
 
 

@@ -135,7 +135,7 @@ struct symbol *symbol_find(scope_t scope)
 }
 
 
-// FIXME - merge with function below!
+// FIXME - temporary helper function during refactoring
 void symbol_forcebit(struct symbol *symbol, int force_bit)
 {
 	// if symbol has no object assigned to it, make it an int
@@ -201,6 +201,35 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean 
 		flags |= new_value->u.number.flags & ~NUMBER_FORCEBITS;
 	}
 	symbol->object.u.number.flags = flags;
+}
+// FIXME - temporary helper function during refactoring
+// "change_allowed" is used by backward anons, but then force_bit is 0
+void symbol_set_object2(struct symbol *symbol, struct object *result, int force_bit, boolean change_allowed)
+{
+	symbol_forcebit(symbol, force_bit);	// TODO - "if NULL object, make int" and "if not int, complain"
+	symbol_set_object(symbol, result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
+}
+// FIXME - temporary helper function during refactoring
+// "po_set" means "!set", so changes are allowed
+void symbol_set_object3(struct symbol *symbol, struct object *result, int force_bit, boolean po_set)
+{
+	// FIXME - force bit can only be used if result is number! check!
+	symbol_forcebit(symbol, force_bit);
+	// if this was called by !set, new force bit replaces old one:
+	if (po_set) {
+		// clear symbol's force bits and set new ones
+		// (but only do this for numbers!)
+		if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
+		&& ((result->type == &type_int) || (result->type == &type_float))) {
+			symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+			if (force_bit) {
+				symbol->object.u.number.flags |= force_bit;
+				result->u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
+			}
+		}
+		// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
+	}
+	symbol_set_object(symbol, result, po_set);
 }
 
 
