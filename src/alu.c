@@ -663,6 +663,32 @@ static void list_init_list(struct object *self)
 	self->u.listhead->length = 0;
 	self->u.listhead->refs = 1;
 }
+// extend list by appending a single object
+static void list_append_object(struct listitem *head, struct object *obj)
+{
+	struct listitem	*item;
+
+	item = safe_malloc(sizeof(*item));
+	item->payload = *obj;
+	item->next = head;
+	item->prev = head->prev;
+	item->next->prev = item;
+	item->prev->next = item;
+	head->length++;
+}
+// extend list by appending all items of a list
+static void list_append_list(struct listitem *selfhead, struct listitem *otherhead)
+{
+	struct listitem	*item;
+
+	if (selfhead == otherhead)
+		Bug_found("ExtendingListWithItself", 0);	// TODO - add to docs!
+	item = otherhead->next;
+	while (item != otherhead) {
+		list_append_object(selfhead, &item->payload);
+		item = item->next;
+	}
+}
 
 
 // expression parser
@@ -1663,13 +1689,7 @@ static void list_handle_dyadic_operator(struct object *self, struct op *op, stru
 	length = self->u.listhead->length;
 	switch (op->id) {
 	case OPID_LIST_APPEND:
-		item = safe_malloc(sizeof(*item));
-		item->payload = *other;
-		item->next = self->u.listhead;
-		item->prev = self->u.listhead->prev;
-		item->next->prev = item;
-		item->prev->next = item;
-		self->u.listhead->length++;
+		list_append_object(self->u.listhead, other);
 		// no need to check/update ref count of "other": it loses the ref on the stack and gains one in the list
 		break;
 	case OPID_ATINDEX:
@@ -1681,9 +1701,23 @@ static void list_handle_dyadic_operator(struct object *self, struct op *op, stru
 			item = item->next;
 			--index;
 		}
-		self->u.listhead->refs--;	// FIXME - call some fn for this
+		self->u.listhead->refs--;	// FIXME - call some fn for this (and do _after_ next line)
 		*self = item->payload;	// FIXME - if item is a list, it would gain a ref by this...
 		break;
+	case OPID_ADD:
+		if (other->type != &type_list) {
+			unsupported_operation(self, op, other);
+			return;	// error
+		}
+		item = self->u.listhead;	// get ref to first list
+		list_init_list(self);	// replace first list on arg stack with new one
+		list_append_list(self->u.listhead, item);
+		item->refs--;	// FIXME - call a function for this...
+		item = other->u.listhead;
+		list_append_list(self->u.listhead, item);
+		item->refs--;	// FIXME - call a function for this...
+		return;
+		
 	default:
 		unsupported_operation(self, op, other);
 	}
