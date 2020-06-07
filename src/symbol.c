@@ -149,7 +149,8 @@ static void symbol_forcebit(struct symbol *symbol, int force_bit)
 		// make sure the force bits don't clash
 		if ((symbol->object.type == &type_int)
 		|| (symbol->object.type == &type_float)) {
-			if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != force_bit)
+			if (force_bit
+			&& force_bit != (symbol->object.u.number.flags & NUMBER_FORCEBITS))
 				Throw_error("Too late for postfix.");
 		}
 	}
