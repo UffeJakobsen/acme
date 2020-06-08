@@ -350,14 +350,17 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	struct symbol	*symbol;
 	struct object	*arg;
 
-	// if the symbol gets created now, mark it as unsure
 	symbol = symbol_find(scope);
+	symbol->has_been_read = TRUE;
 	if (symbol->object.type == NULL) {
 		// finish symbol item by making it an undefined int
 		symbol->object.type = &type_int;
-		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;
+		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;	// reading undefined taints it
 		symbol->object.u.number.addr_refs = 0;
 		symbol->object.u.number.val.intval = 0;
+	} else {
+		// FIXME - add sanity check for int/float where DEFINED is false and EVER_UNDEFINED is false -> Bug_found()!
+		// (because the only way to have DEFINED clear is the block above, and EVER_UNDEFINED taints everything it touches)
 	}
 	// first push on arg stack, so we have a local copy we can "unpseudopc"
 	arg = &arg_stack[arg_sp++];
@@ -375,9 +378,6 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	// FIXME - in case of unpseudopc, error message should include the correct amount of '&' characters
 	if (!(arg->type->is_defined(arg)))
 		is_not_defined(symbol, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
-	// in first pass, count usage
-	if (FIRST_PASS)
-		symbol->usage++;
 	// FIXME - if arg is list, increment ref count!
 }
 

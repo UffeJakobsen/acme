@@ -13,8 +13,8 @@
 
 struct symbol {
 	struct object	object;	// number/list/string
-	int		usage;	// usage count
 	int		pass;	// pass of creation (for anon counters)
+	boolean		has_been_read;	// to find out if actually used
 	boolean		has_been_reported;	// indicates "has been reported as undefined"
 	struct pseudopc	*pseudopc;	// NULL when defined outside of !pseudopc block
 	// add file ref + line num of last definition

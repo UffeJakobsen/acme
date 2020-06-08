@@ -893,10 +893,9 @@ static boolean check_ifdef_condition(void)
 		return FALSE;	// not found -> no, not defined
 
 	symbol = (struct symbol *) node->body;
-	// in first pass, count usage
-	if (FIRST_PASS)
-		symbol->usage++;
-	// TODO - if object type is NULL, return FALSE!
+	symbol->has_been_read = TRUE;	// we did not really read the symbol's value, but checking for its existence still counts as "used it"
+	if (symbol->object.type == NULL)
+		Bug_found("ObjectHasNullType", 0);	// FIXME - add to docs!
 	return symbol->object.type->is_defined(&symbol->object);
 }
 // if/ifdef/ifndef/else function, to be able to do ELSE IF

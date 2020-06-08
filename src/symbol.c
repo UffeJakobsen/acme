@@ -66,7 +66,7 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	}
 	if (symbol->object.u.number.flags & NUMBER_EVER_UNDEFINED)
 		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
-	if (symbol->usage == 0)
+	if (!symbol->has_been_read)
 		fprintf(fd, "\t; unused");
 	fprintf(fd, "\n");
 }
@@ -88,7 +88,7 @@ static void dump_vice_usednonaddress(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// dump non-addresses that are used
-	if (symbol->usage
+	if (symbol->has_been_read
 	&& (symbol->object.type == &type_int)
 	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
 	&& (symbol->object.u.number.addr_refs != 1))
@@ -99,7 +99,7 @@ static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// dump non-addresses that are unused
-	if (!symbol->usage
+	if (!symbol->has_been_read
 	&& (symbol->object.type == &type_int)
 	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
 	&& (symbol->object.u.number.addr_refs != 1))
@@ -123,8 +123,8 @@ struct symbol *symbol_find(scope_t scope)
 		node->body = symbol;
 		// finish empty symbol item
 		symbol->object.type = NULL;	// no object yet (CAUTION!)
-		symbol->usage = 0;	// usage count
 		symbol->pass = pass.number;
+		symbol->has_been_read = FALSE;
 		symbol->has_been_reported = FALSE;
 		symbol->pseudopc = NULL;
 	} else {
