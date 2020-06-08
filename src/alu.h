@@ -47,7 +47,7 @@ struct expression {
 	// undefined expression. Needed for producing the same addresses in all
 	// passes; because in the first pass there will almost for sure be
 	// labels that are undefined, we can't simply get the addressing mode
-	// from looking at the parameter's value.
+	// from looking at the parameter's value.	FIXME - rename to TAINTED :)
 
 
 // create dynamic buffer, operator/function trees and operator/operand stacks

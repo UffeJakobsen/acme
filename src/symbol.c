@@ -198,9 +198,17 @@ static void symbol_set_object(struct symbol *symbol, struct object *new_value, b
 		// take flags from new value, then OR EVER_UNDEFINED from old value
 		flags = (flags & NUMBER_EVER_UNDEFINED) | new_value->u.number.flags;
 	} else {
-		if ((flags & NUMBER_FORCEBITS) == 0)
-			if ((flags & (NUMBER_EVER_UNDEFINED | NUMBER_IS_DEFINED)) == 0)	// FIXME - this can't happen!?
+		if ((flags & NUMBER_FORCEBITS) == 0) {
+			if ((flags & (NUMBER_EVER_UNDEFINED | NUMBER_IS_DEFINED)) == 0) {
+				// FIXME - this can't happen!?	Yes, it can!
+				// if the symbol was created just now to be assigned a value,
+				// then both flags are clear before the assignment takes place.
+				// in future this should no longer happen, because creating a
+				// symbol will give it the NULL type, and flags will only
+				// matter if it then gets assigned an int or float value.
 				flags |= new_value->u.number.flags & NUMBER_FORCEBITS;
+			}
+		}
 		flags |= new_value->u.number.flags & ~NUMBER_FORCEBITS;
 	}
 	symbol->object.u.number.flags = flags;
@@ -208,7 +216,7 @@ static void symbol_set_object(struct symbol *symbol, struct object *new_value, b
 // FIXME - temporary helper function during refactoring
 // used for:
 //	(implicit!) label definitions, including anons	(FIXME - anons cannot have force bits. handle them elsewhere? change backward anons directly, no questions asked?)
-//	setting up loop counter for "!for" (actual incrementing is then done directly!)
+//	setting up loop counter for "!for" (CAUTION: actual incrementing is then done directly without calling this function!)
 // "change_allowed" is used by backward anons, but then force_bit is 0
 // "change_allowed" is also used by "!for", then force_bit may be nonzero
 void symbol_set_object2(struct symbol *symbol, struct object *result, int force_bit, boolean change_allowed)
@@ -230,6 +238,7 @@ void symbol_set_object3(struct symbol *symbol, struct object *result, int force_
 		// (but only do this for numbers!)
 		if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
 		&& ((result->type == &type_int) || (result->type == &type_float))) {
+			// clear symbol's size flags, set new one, clear result's size flags
 			symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
 			if (force_bit) {
 				symbol->object.u.number.flags |= force_bit;
