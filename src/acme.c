@@ -336,30 +336,43 @@ static void keyword_to_dynabuf(const char keyword[])
 }
 
 
-// check output format (the output format tree must be set up at this point!)
-static void set_output_format(void)
+// set output format (the output format tree must be set up at this point!)
+static void set_output_format(const char format_name[])
 {
-	keyword_to_dynabuf(cliargs_safe_get_next("output format"));
-	if (outputfile_set_format()) {
-		fprintf(stderr, "%sUnknown output format (known formats are: %s).\n", cliargs_error, outputfile_formats);
-		exit(EXIT_FAILURE);
+	// caution, name may be NULL!
+	if (format_name) {
+		keyword_to_dynabuf(format_name);
+		if (!outputfile_set_format())
+			return;	// ok
+
+		fputs("Error: Unknown output format.\n", stderr);
+	} else {
+		fputs("Error: No output format specified.\n", stderr);
 	}
+	fprintf(stderr, "Supported formats are:\n\n\t%s\n\n", outputfile_formats);
+	exit(EXIT_FAILURE);
 }
 
 
-// check CPU type (the cpu type tree must be set up at this point!)
-static void set_starting_cpu(const char expression[])
+// set CPU type (the cpu type tree must be set up at this point!)
+static void set_starting_cpu(const char cpu_name[])
 {
 	const struct cpu_type	*new_cpu_type;
 
-	keyword_to_dynabuf(expression);
-	new_cpu_type = cputype_find();
-	if (new_cpu_type) {
-		default_cpu = new_cpu_type;
+	// caution, name may be NULL!
+	if (cpu_name) {
+		keyword_to_dynabuf(cpu_name);
+		new_cpu_type = cputype_find();
+		if (new_cpu_type) {
+			default_cpu = new_cpu_type;
+			return;	// ok
+		}
+		fputs("Error: Unknown CPU type.\n", stderr);
 	} else {
-		fprintf(stderr, "%sUnknown CPU type (known types are: %s).\n", cliargs_error, cputype_names);
-		exit(EXIT_FAILURE);
+		fputs("Error: No CPU type specified.\n", stderr);
 	}
+	fprintf(stderr, "Supported types are:\n\n\t%s\n\n", cputype_names);
+	exit(EXIT_FAILURE);
 }
 
 
@@ -498,7 +511,7 @@ static const char *long_option(const char *string)
 	if (strcmp(string, OPTION_HELP) == 0)
 		show_help_and_exit();
 	else if (strcmp(string, OPTION_FORMAT) == 0)
-		set_output_format();
+		set_output_format(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_OUTFILE) == 0)
 		output_filename = cliargs_safe_get_next(name_outfile);
 	else if (strcmp(string, OPTION_LABELDUMP) == 0)	// old
@@ -512,7 +525,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_SETPC) == 0)
 		set_starting_pc(cliargs_safe_get_next("program counter"));
 	else if (strcmp(string, OPTION_CPU) == 0)
-		set_starting_cpu(cliargs_safe_get_next("CPU type"));
+		set_starting_cpu(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_INITMEM) == 0)
 		set_mem_contents(cliargs_safe_get_next("initmem value"));
 	else if (strcmp(string, OPTION_MAXERRORS) == 0)
@@ -557,7 +570,7 @@ static char short_option(const char *argument)
 			define_symbol(argument + 1);
 			goto done;
 		case 'f':	// "-f" selects output format
-			set_output_format();
+			set_output_format(cliargs_get_next());	// NULL is ok (handled like unknown)
 			break;
 		case 'h':	// "-h" shows help
 			show_help_and_exit();

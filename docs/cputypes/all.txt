@@ -13,8 +13,8 @@ ACME supports the following cpu types:
 
 ***   6502
 
-This is the instruction set of the original NMOS 6502 designed by MOS
-(later CSG).
+This is the official instruction set of the original NMOS 6502 CPU
+designed by MOS (later CSG).
 There are 151 documented opcodes.
 ACME does not use "A" to indicate "accumulator addressing"; just write
 the mnemonic without any argument: "LSR" will work, "LSR A" won't.
@@ -65,10 +65,10 @@ There are 178 documented opcodes.
 
 This is a superset of 65c02, probably originally by Rockwell. It adds
 bit manipulation instructions:
-	BBR0 $12, near_target	branch on bit reset in zp
-	BBS0 $12, near_target	branch on bit set in zp
-	RMB0 $12		reset memory bit in zp
-	SMB0 $12		set memory bit in zp
+	BBR4 $12, near_target	branch on bit reset in zp
+	BBS5 $12, near_target	branch on bit set in zp
+	RMB6 $12		reset memory bit in zp
+	SMB7 $12		set memory bit in zp
 The digit in the mnemonic is the bit number, therefore it must be in
 the 0..7 range.
 Chips with this instruction set seem to have been available from
@@ -131,6 +131,34 @@ There are 256 documented opcodes.
 
 
 
+***   m65
+
+This is a superset of 4502 specified by the MEGA65 project. It uses
+NOP and NEG:NEG as prefix bytes to extend the instruction set.
+Features:
+- new "long indirect z-indexed" addressing mode with four-byte-pointer
+  for existing instructions:
+	LDA/STA/ADC/SBC [$12], z	; contents of $12/$13/$14/$15
+	AND/ORA/EOR/CMP [$12], z	; plus z form the address
+- 32-bit data operations indicated via 'Q' ("quad"):
+	LDQ/STQ/CPQ		like LDA/STA/CMP
+	ADCQ/SBCQ		like ADC/SBC
+	ANDQ/EORQ/ORQ		like AND/EOR/ORA
+	ASLQ/LSRQ/ROLQ/RORQ	like ASL/LSR/ROL/ROR
+	INQ/DEQ			like INC/DEC
+  The new mnemonics support all the addressing modes of the original
+  mnemonics, except there are no 32-bit immediate arguments.
+  CAUTION: The STQ mnemonic clobbers the N and Z flags!
+  There is no "real" Q register, instead A/X/Y/Z are combined to form
+  the Q register (A holds lsb, Z holds msb), except for read-modify-
+  write instructions, where the 32-bit operation is performed without
+  using A/X/Y/Z.
+- The NOP mnemonic is disabled for this instruction set because its
+  opcode is re-used internally as a prefix byte.
+  CAUTION: The !align pseudo opcode still inserts NOPs.
+
+
+
 ***   c64dtv2
 
 This is the cpu in version 2 of the C64DTV. It uses a superset of the
@@ -150,7 +178,7 @@ Here's a family tree:
      |
      |\_6510                (+ undocumented opcodes of nmos6502)
      |
-     |\_c64dtv2             (+ bra/sac/sir and some illegals)
+     |\_c64dtv2             (+ bra/sac/sir and some undocumented)
      |
       \_65c02               (+ bra/phx/phy/plx/ply/stz/trb/tsb, ...)
          |
@@ -163,3 +191,5 @@ Here's a family tree:
               \_65ce02      (+ Z reg, long branches, ...)
                  |
                   \_4502    (+ map/eom)
+                     |
+                      \_m65 (+ 32-bit pointers, 32-bit data)
