@@ -1460,6 +1460,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
 	case OPID_LESSOREQUAL:
+// FIXME - all comparison results should clear all force bits and set fits_byte! also for floats!
 		self->u.number.val.intval = (self->u.number.val.intval <= other->u.number.val.intval);
 		break;
 	case OPID_LESSTHAN:

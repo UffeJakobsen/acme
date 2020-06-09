@@ -1,0 +1,4 @@
+	*=$1000
+label
+	b = label	; read symbol
+label+2	; -> too late for postfix

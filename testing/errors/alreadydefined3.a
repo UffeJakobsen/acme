@@ -1,0 +1,4 @@
+	*=$1000
+label
+	nop
+label	; -> already defined
