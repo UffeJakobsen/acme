@@ -442,7 +442,7 @@ static void parse_quoted(char closing_quote)
 			Throw_error("There's more than one character.");
 		// parse character
 		value = (intval_t) (unsigned char) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
-		PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);
+		PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);	// FIXME - why set FITS_BYTE? it's only really useful for undefined values!
 	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 	return;
@@ -1126,7 +1126,7 @@ static void unsupported_operation(struct object *optional, struct op *op, struct
 static void int_create_byte(struct object *self, intval_t byte)
 {
 	self->type = &type_int;
-	self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;
+	self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;	// FIXME - if DEFINED anyway, what use is there for FITS_BYTE?
 	self->u.number.val.intval = byte;
 	self->u.number.addr_refs = 0;
 }
@@ -1259,21 +1259,27 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 		break;
 	case OPID_SIN:
 		self->u.number.val.fpval = sin(self->u.number.val.fpval);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_COS:
 		self->u.number.val.fpval = cos(self->u.number.val.fpval);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_TAN:
 		self->u.number.val.fpval = tan(self->u.number.val.fpval);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_ARCSIN:
 		float_ranged_fn(asin, self);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_ARCCOS:
 		float_ranged_fn(acos, self);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_ARCTAN:
 		self->u.number.val.fpval = atan(self->u.number.val.fpval);
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
 		break;
 	case OPID_NEGATE:
 		self->u.number.val.fpval = -(self->u.number.val.fpval);
@@ -1336,15 +1342,26 @@ static void string_handle_monadic_operator(struct object *self, struct op *op)
 
 // int/float:
 // merge result flags
-// (used by both int and float handlers for dyadic operators)
+// (used by both int and float handlers for comparison operators)
+static void number_fix_result_after_comparison(struct object *self, struct object *other, intval_t result)
+{
+	int	flags;
+
+	self->type = &type_int;
+	self->u.number.val.intval = result;
+	self->u.number.addr_refs = 0;
+	flags = (self->u.number.flags & other->u.number.flags) & NUMBER_IS_DEFINED;	// DEFINED flags are ANDed together
+	flags |= (self->u.number.flags | other->u.number.flags) & NUMBER_EVER_UNDEFINED;	// EVER_UNDEFINED flags are ORd together
+	flags |= NUMBER_FITS_BYTE;	// FITS_BYTE gets set
+	// (FORCEBITS are cleared)
+	self->u.number.flags = flags;
+}
+// (used by both int and float handlers for all other dyadic operators)
 static void number_fix_result_after_dyadic(struct object *self, struct object *other)
 {
-	// EVER_UNDEFINED and FORCEBIT flags are ORd together
-	self->u.number.flags |= other->u.number.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);
-	// DEFINED flags are ANDed together
-	self->u.number.flags &= (other->u.number.flags | ~NUMBER_IS_DEFINED);
-	// FITS_BYTE is cleared
-	self->u.number.flags &= ~NUMBER_FITS_BYTE;
+	self->u.number.flags |= other->u.number.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);	// EVER_UNDEFINED and FORCEBITs are ORd together
+	self->u.number.flags &= (other->u.number.flags | ~NUMBER_IS_DEFINED);	// DEFINED flags are ANDed together
+	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// FITS_BYTE is cleared
 }
 
 
@@ -1460,24 +1477,17 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
 	case OPID_LESSOREQUAL:
-// FIXME - all comparison results should clear all force bits and set fits_byte! also for floats!
-		self->u.number.val.intval = (self->u.number.val.intval <= other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval <= other->u.number.val.intval);
 	case OPID_LESSTHAN:
-		self->u.number.val.intval = (self->u.number.val.intval < other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval < other->u.number.val.intval);
 	case OPID_GREATEROREQUAL:
-		self->u.number.val.intval = (self->u.number.val.intval >= other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval >= other->u.number.val.intval);
 	case OPID_GREATERTHAN:
-		self->u.number.val.intval = (self->u.number.val.intval > other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval > other->u.number.val.intval);
 	case OPID_NOTEQUAL:
-		self->u.number.val.intval = (self->u.number.val.intval != other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval != other->u.number.val.intval);
 	case OPID_EQUALS:
-		self->u.number.val.intval = (self->u.number.val.intval == other->u.number.val.intval);
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.intval == other->u.number.val.intval);
 	case OPID_AND:
 		self->u.number.val.intval &= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
@@ -1500,6 +1510,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 		unsupported_operation(self, op, other);
 		return;
 	}
+	// CAUTION: comparisons call number_fix_result_after_comparison instead of jumping here
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
 }
@@ -1616,29 +1627,17 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		self->u.number.val.fpval /= (1 << other->u.number.val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
 	case OPID_LESSOREQUAL:
-		self->u.number.val.intval = (self->u.number.val.fpval <= other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval <= other->u.number.val.fpval);
 	case OPID_LESSTHAN:
-		self->u.number.val.intval = (self->u.number.val.fpval < other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval < other->u.number.val.fpval);
 	case OPID_GREATEROREQUAL:
-		self->u.number.val.intval = (self->u.number.val.fpval >= other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval >= other->u.number.val.fpval);
 	case OPID_GREATERTHAN:
-		self->u.number.val.intval = (self->u.number.val.fpval > other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval > other->u.number.val.fpval);
 	case OPID_NOTEQUAL:
-		self->u.number.val.intval = (self->u.number.val.fpval != other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval != other->u.number.val.fpval);
 	case OPID_EQUALS:
-		self->u.number.val.intval = (self->u.number.val.fpval == other->u.number.val.fpval);
-		self->type = &type_int;	// result is int
-		break;
+		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval == other->u.number.val.fpval);
 // add new dyadic operators here
 //	case OPID_:
 //		break;
@@ -1646,6 +1645,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 		unsupported_operation(self, op, other);
 		return;
 	}
+	// CAUTION: comparisons call number_fix_result_after_comparison instead of jumping here
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 	number_fix_result_after_dyadic(self, other);	// fix result flags
 }

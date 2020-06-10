@@ -1,3 +1,4 @@
+;ACME 0.96.5
 	; "assert" macro
 	!macro a @r {
 		!if @r != 1 {
