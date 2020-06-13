@@ -664,7 +664,7 @@ static void list_init_list(struct object *self)
 	self->u.listhead->refs = 1;
 }
 // extend list by appending a single object
-static void list_append_object(struct listitem *head, struct object *obj)
+static void list_append_object(struct listitem *head, const struct object *obj)
 {
 	struct listitem	*item;
 
@@ -1095,7 +1095,7 @@ push_dyadic_op:
 
 
 // helper function: create and output error message about (argument/)operator/argument combination
-static void unsupported_operation(struct object *optional, struct op *op, struct object *arg)
+static void unsupported_operation(const struct object *optional, const struct op *op, const struct object *arg)
 {
 	if (optional) {
 		if (op->group != OPGROUP_DYADIC)
@@ -1149,14 +1149,14 @@ inline static void float_to_int(struct object *self)
 
 // int/float:
 // return DEFINED flag
-static boolean number_is_defined(struct object *self)
+static boolean number_is_defined(const struct object *self)
 {
 	return !!(self->u.number.flags & NUMBER_IS_DEFINED);
 }
 
 // list/string:
 // ...are always considered "defined"
-static boolean object_return_true(struct object *self)
+static boolean object_return_true(const struct object *self)
 {
 	return TRUE;
 }
@@ -1164,7 +1164,7 @@ static boolean object_return_true(struct object *self)
 // int/float:
 // helper function to check two values for equality
 // in case of undefined value(s), "fallback" is returned
-static inline boolean num_different(struct object *self, struct object *other, boolean fallback)
+static inline boolean num_different(const struct object *self, const struct object *other, boolean fallback)
 {
 	if ((self->u.number.flags & NUMBER_IS_DEFINED) == 0)
 		return fallback;
@@ -1187,7 +1187,7 @@ static inline boolean num_different(struct object *self, struct object *other, b
 
 // int/float:
 // assign new value
-static void number_assign(struct object *self, struct object *new_value, boolean accept_change)
+static void number_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	int	own_flags	= self->u.number.flags,
 		other_flags	= new_value->u.number.flags;
@@ -1234,7 +1234,7 @@ static void number_assign(struct object *self, struct object *new_value, boolean
 
 // list:
 // assign new value
-static void list_assign(struct object *self, struct object *new_value, boolean accept_change)
+static void list_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	if (!accept_change) {
 		if (0/* TODO - compare old and new lists? */) {
@@ -1247,7 +1247,7 @@ static void list_assign(struct object *self, struct object *new_value, boolean a
 
 // string:
 // helper function, returns whether equal
-static boolean string_equal(struct string *arthur, struct string *ford)
+static boolean string_equal(const struct string *arthur, const struct string *ford)
 {
 	if (arthur->length != ford->length)
 		return FALSE;
@@ -1256,7 +1256,7 @@ static boolean string_equal(struct string *arthur, struct string *ford)
 }
 // string:
 // assign new value
-static void string_assign(struct object *self, struct object *new_value, boolean accept_change)
+static void string_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	if (!accept_change) {
 		if (!string_equal(self->u.string, new_value->u.string)) {
@@ -1276,7 +1276,7 @@ static void warn_float_to_int(void)
 
 // int:
 // handle monadic operator (includes functions)
-static void int_handle_monadic_operator(struct object *self, struct op *op)
+static void int_handle_monadic_operator(struct object *self, const struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1350,7 +1350,7 @@ static void float_ranged_fn(double (*fn)(double), struct object *self)
 
 // float:
 // handle monadic operator (includes functions)
-static void float_handle_monadic_operator(struct object *self, struct op *op)
+static void float_handle_monadic_operator(struct object *self, const struct op *op)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1412,7 +1412,7 @@ static void float_handle_monadic_operator(struct object *self, struct op *op)
 
 // list:
 // handle monadic operator (includes functions)
-static void list_handle_monadic_operator(struct object *self, struct op *op)
+static void list_handle_monadic_operator(struct object *self, const struct op *op)
 {
 	int	length;
 
@@ -1430,7 +1430,7 @@ static void list_handle_monadic_operator(struct object *self, struct op *op)
 
 // string:
 // handle monadic operator (includes functions)
-static void string_handle_monadic_operator(struct object *self, struct op *op)
+static void string_handle_monadic_operator(struct object *self, const struct op *op)
 {
 	int	length;
 
@@ -1449,7 +1449,7 @@ static void string_handle_monadic_operator(struct object *self, struct op *op)
 // int/float:
 // merge result flags
 // (used by both int and float handlers for comparison operators)
-static void number_fix_result_after_comparison(struct object *self, struct object *other, intval_t result)
+static void number_fix_result_after_comparison(struct object *self, const struct object *other, intval_t result)
 {
 	int	flags;
 
@@ -1463,7 +1463,7 @@ static void number_fix_result_after_comparison(struct object *self, struct objec
 	self->u.number.flags = flags;
 }
 // (used by both int and float handlers for all other dyadic operators)
-static void number_fix_result_after_dyadic(struct object *self, struct object *other)
+static void number_fix_result_after_dyadic(struct object *self, const struct object *other)
 {
 	self->u.number.flags |= other->u.number.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);	// EVER_UNDEFINED and FORCEBITs are ORd together
 	self->u.number.flags &= (other->u.number.flags | ~NUMBER_IS_DEFINED);	// DEFINED flags are ANDed together
@@ -1473,7 +1473,7 @@ static void number_fix_result_after_dyadic(struct object *self, struct object *o
 
 // int:
 // handle dyadic operator
-static void int_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+static void int_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1623,7 +1623,7 @@ static void int_handle_dyadic_operator(struct object *self, struct op *op, struc
 
 // float:
 // handle dyadic operator
-static void float_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+static void float_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
 {
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
@@ -1759,7 +1759,7 @@ static void float_handle_dyadic_operator(struct object *self, struct op *op, str
 
 // helper function for lists and strings, check index
 // return zero on success, nonzero on error
-static int get_valid_index(int *target, int length, struct object *self, struct op *op, struct object *other)
+static int get_valid_index(int *target, int length, const struct object *self, const struct op *op, struct object *other)
 {
 	int	index;
 
@@ -1787,7 +1787,7 @@ static int get_valid_index(int *target, int length, struct object *self, struct 
 
 // list:
 // handle dyadic operator
-static void list_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+static void list_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
 {
 	struct listitem	*item;
 	int		length;
@@ -1832,7 +1832,7 @@ static void list_handle_dyadic_operator(struct object *self, struct op *op, stru
 
 // string:
 // handle dyadic operator
-static void string_handle_dyadic_operator(struct object *self, struct op *op, struct object *other)
+static void string_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
 {
 	int		length;
 	int		index;
@@ -1939,7 +1939,7 @@ static void object_no_op(struct object *self)
 
 // int:
 // print value for user message
-static void int_print(struct object *self, struct dynabuf *db)
+static void int_print(const struct object *self, struct dynabuf *db)
 {
 	char	buffer[32];	// 11 for dec, 8 for hex
 
@@ -1953,7 +1953,7 @@ static void int_print(struct object *self, struct dynabuf *db)
 
 // float:
 // print value for user message
-static void float_print(struct object *self, struct dynabuf *db)
+static void float_print(const struct object *self, struct dynabuf *db)
 {
 	char	buffer[40];
 
@@ -1970,7 +1970,7 @@ static void float_print(struct object *self, struct dynabuf *db)
 
 // list:
 // print value for user message
-static void list_print(struct object *self, struct dynabuf *db)
+static void list_print(const struct object *self, struct dynabuf *db)
 {
 	struct listitem	*item;
 	int		length;
@@ -1992,7 +1992,7 @@ static void list_print(struct object *self, struct dynabuf *db)
 
 // string:
 // print value for user message
-static void string_print(struct object *self, struct dynabuf *db)
+static void string_print(const struct object *self, struct dynabuf *db)
 {
 	DynaBuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
 }

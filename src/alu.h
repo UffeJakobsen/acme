@@ -14,12 +14,12 @@ struct op;
 struct dynabuf;
 struct type {
 	const char	*name;
-	boolean		(*is_defined)(struct object *self);
-	void		(*assign)(struct object *self, struct object *new_value, boolean accept_change);
-	void		(*monadic_op)(struct object *self, struct op *op);
-	void		(*dyadic_op)(struct object *self, struct op *op, struct object *other);
+	boolean		(*is_defined)(const struct object *self);
+	void		(*assign)(struct object *self, const struct object *new_value, boolean accept_change);
+	void		(*monadic_op)(struct object *self, const struct op *op);
+	void		(*dyadic_op)(struct object *self, const struct op *op, struct object *other);
 	void		(*fix_result)(struct object *self);
-	void		(*print)(struct object *self, struct dynabuf *db);
+	void		(*print)(const struct object *self, struct dynabuf *db);
 };
 extern struct type	type_int;
 extern struct type	type_float;
@@ -38,6 +38,7 @@ struct expression {
 // constants
 
 // flag bits in number struct:
+#define NO_FORCE_BIT		0		// (just to make source more readable)
 #define NUMBER_FORCES_8		(1u << 0)	// value usage forces 8-bit usage
 #define NUMBER_FORCES_16	(1u << 1)	// value usage forces 16-bit usage
 #define NUMBER_FORCES_24	(1u << 2)	// value usage forces 24-bit usage

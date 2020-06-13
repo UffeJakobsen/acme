@@ -272,8 +272,8 @@ static void parse_backward_anon_def(int *statement_flags)
 		DYNABUF_APPEND(GlobalDynaBuf, '-');
 	while (GetByte() == '-');
 	DynaBuf_append(GlobalDynaBuf, '\0');
-	// 0 = no force bit, power = backward anons change their value!
-	set_label(section_now->local_scope, *statement_flags, 0, POWER_CHANGE_VALUE);
+	// backward anons change their value!
+	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_CHANGE_VALUE);
 }
 
 
@@ -292,8 +292,7 @@ static void parse_forward_anon_def(int *statement_flags)
 	symbol_fix_forward_anon_name(TRUE);	// TRUE: increment counter
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	//printf("[%d, %s]\n", section_now->local_scope, GlobalDynaBuf->buffer);
-	// 0 = no force bit
-	set_label(section_now->local_scope, *statement_flags, 0, POWER_NONE);
+	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_NONE);
 }
 
 
