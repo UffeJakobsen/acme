@@ -316,8 +316,8 @@ Source file contains illegal character.
     Your source code file contained a null byte.
 
 Symbol already defined.
-    You defined a symbol that already had a different value. To change
-    a symbol's value, use the "!set" pseudo opcode.
+    You defined a symbol that already had a different type or value.
+    To change a symbol's type or value, use the "!set" pseudo opcode.
 
 Syntax error.
     Guess what - there's a syntax error.
