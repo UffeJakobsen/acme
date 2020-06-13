@@ -54,6 +54,8 @@ void flow_forloop(struct for_loop *loop)
 	// activate new input
 	// (not yet useable; pointer and line number are still missing)
 	Input_now = &loop_input;
+	// fix line number (not for block, but in case symbol handling throws errors)
+	Input_now->line_number = loop->block.start;
 	// init counter
 	loop_counter.type = &type_int;
 	loop_counter.u.number.flags = NUMBER_IS_DEFINED;
