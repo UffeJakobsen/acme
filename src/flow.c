@@ -61,8 +61,21 @@ void flow_forloop(struct for_loop *loop)
 	loop_counter.u.number.flags = NUMBER_IS_DEFINED;
 	loop_counter.u.number.val.intval = loop->counter.first;
 	loop_counter.u.number.addr_refs = loop->counter.addr_refs;
-	symbol_set_object2(loop->symbol, &loop_counter, loop->force_bit, TRUE);
+	// CAUTION: next line does not have power to change symbol type, but if
+	// "symbol already defined" error is thrown, the type will still have
+	// been changed. this was done so the code below has a counter var.
+	symbol_set_object(loop->symbol, &loop_counter, POWER_CHANGE_VALUE);
+	// TODO: in versions before 0.97, force bit handling was broken
+	// in both "!set" and "!for":
+	// trying to change a force bit correctly raised an error, but
+	// in any case, ALL FORCE BITS WERE CLEARED in symbol. only
+	// cases like !set N=N+1 worked, because the force bit was
+	// taken from result.
+	// maybe support this behaviour via --dialect?
+	if (loop->force_bit)
+		symbol_set_force_bit(loop->symbol, loop->force_bit);
 	loop_counter = loop->symbol->object;	// update local copy with force bit
+	loop->symbol->has_been_read = TRUE;	// lock force bit
 	if (loop->use_old_algo) {
 		// old algo for old syntax:
 		// if count == 0, skip loop

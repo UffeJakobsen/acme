@@ -135,119 +135,77 @@ struct symbol *symbol_find(scope_t scope)
 }
 
 
-// FIXME - temporary helper function during refactoring
-static void symbol_forcebit(struct symbol *symbol, int force_bit)
-{
-	// if symbol has no object assigned to it, make it an int
-	if (symbol->object.type == NULL) {
-		// finish empty symbol item
-		symbol->object.type = &type_int;
-		symbol->object.u.number.flags = force_bit;
-		symbol->object.u.number.addr_refs = 0;
-		symbol->object.u.number.val.intval = 0;
-	} else {
-		// make sure the force bits don't clash
-		if ((symbol->object.type == &type_int)
-		|| (symbol->object.type == &type_float)) {
-			if (force_bit
-			&& force_bit != (symbol->object.u.number.flags & NUMBER_FORCEBITS))
-				Throw_error("Too late for postfix.");
-		}
-	}
-}
-// assign value to symbol. the function acts upon the symbol's flag bits and
+// assign object to symbol. the function acts upon the symbol's flag bits and
 // produces an error if needed.
-// TODO - split checks into two parts: first deal with object type. in case of number, then check value/flags/whatever
-static void symbol_set_object(struct symbol *symbol, struct object *new_value, boolean change_allowed)	// FIXME - does "change_allowed" refer to type change or number value change?
+// using "power" bits, caller can state which changes are ok.
+// called by:
+// implicit label definitions (including anons, backward anons have POWER_CHANGE_VALUE)
+// explicit symbol assignments
+// explicit symbol assignments via "!set" (has all powers)
+// loop counter var init via "!for" (has POWER_CHANGE_VALUE and POWER_CHANGE_NUMTYPE)
+//	CAUTION: actual incrementing of counter is then done directly without calls here!
+void symbol_set_object(struct symbol *symbol, struct object *new_value, int powers)
 {
-	int	flags;	// for int/float re-definitions
+	struct type	*symbol_class,	// helper vars to group
+			*newval_class;	//	ints and floats
 
-	// any new type?
-	if (((symbol->object.type != &type_int) && (symbol->object.type != &type_float))
-	|| ((new_value->type != &type_int) && (new_value->type != &type_float))) {
-		// changing value is ok, changing type needs extra flag:
-		if (change_allowed || (symbol->object.type == new_value->type))
-			symbol->object = *new_value;
-		else
-			Throw_error("Symbol already defined.");
+	// if symbol has no object assigned to it yet, fine:
+	if (symbol->object.type == NULL) {
+		symbol->object = *new_value;	// copy whole struct including type
+		// as long as the symbol has not been read, the force bits can
+		// be changed, so the caller still has a chance to do that.
 		return;
 	}
 
-// FIXME - force bits assigned via !for or !set are lost, because due to "change_allowed", the new object struct is copied and that's it!
+	// now we know symbol already has a type
 
-	// both old and new are either int or float, so keep old algo:
-
-	// value stuff
-	flags = symbol->object.u.number.flags;
-	if (change_allowed || !(flags & NUMBER_IS_DEFINED)) {
-		// symbol is not defined yet OR redefinitions are allowed
-		symbol->object = *new_value;
-	} else {
-		// symbol is already defined, so compare new and old values
-		// if different type OR same type but different value, complain
-		if ((symbol->object.type != new_value->type)
-		|| ((symbol->object.type == &type_float) ? (symbol->object.u.number.val.fpval != new_value->u.number.val.fpval) : (symbol->object.u.number.val.intval != new_value->u.number.val.intval)))
-			Throw_error("Symbol already defined.");
+	// compare types (CAUTION, ints and floats are grouped!)
+	symbol_class = symbol->object.type;
+	if (symbol_class == &type_float)
+		symbol_class = &type_int;
+	newval_class = new_value->type;
+	if (newval_class == &type_float)
+		newval_class = &type_int;
+	// if too different, needs power (or complains)
+	if (symbol_class != newval_class) {
+		if (!(powers & POWER_CHANGE_OBJTYPE))
+			Throw_error(exception_symbol_defined);
+		// CAUTION: if above line throws error, we still go ahead and change type!
+		// this is to keep "!for" working, where the counter var is accessed.
+		symbol->object = *new_value;	// copy whole struct including type
+		// clear flag so caller can adjust force bits:
+		symbol->has_been_read = FALSE;	// it's basically a new symbol now
+		return;
 	}
-	// flags stuff
-	// Ensure that "unsure" symbols without "isByte" state don't get that
-	if ((flags & (NUMBER_EVER_UNDEFINED | NUMBER_FITS_BYTE)) == NUMBER_EVER_UNDEFINED)
-		new_value->u.number.flags &= ~NUMBER_FITS_BYTE;
 
-	if (change_allowed) {
-		// take flags from new value, then OR EVER_UNDEFINED from old value
-		flags = (flags & NUMBER_EVER_UNDEFINED) | new_value->u.number.flags;
-	} else {
-		if ((flags & NUMBER_FORCEBITS) == 0) {
-			if ((flags & (NUMBER_EVER_UNDEFINED | NUMBER_IS_DEFINED)) == 0) {
-				// FIXME - this can't happen!?	Yes, it can!
-				// if the symbol was created just now to be assigned a value,
-				// then both flags are clear before the assignment takes place.
-				// in future this should no longer happen, because creating a
-				// symbol will give it the NULL type, and flags will only
-				// matter if it then gets assigned an int or float value.
-				flags |= new_value->u.number.flags & NUMBER_FORCEBITS;
-			}
-		}
-		flags |= new_value->u.number.flags & ~NUMBER_FORCEBITS;
-	}
-	symbol->object.u.number.flags = flags;
+	// now we know symbol and new value have compatible types, so call handler:
+	symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
 }
-// FIXME - temporary helper function during refactoring
-// used for:
-//	(implicit!) label definitions, including anons	(FIXME - anons cannot have force bits. handle them elsewhere? change backward anons directly, no questions asked?)
-//	setting up loop counter for "!for" (CAUTION: actual incrementing is then done directly without calling this function!)
-// "change_allowed" is used by backward anons, but then force_bit is 0
-// "change_allowed" is also used by "!for", then force_bit may be nonzero
-void symbol_set_object2(struct symbol *symbol, struct object *result, int force_bit, boolean change_allowed)
+
+
+// set force bit of symbol. trying to change to a different one will raise error.
+void symbol_set_force_bit(struct symbol *symbol, int force_bit)
 {
-	symbol_forcebit(symbol, force_bit);	// TODO - "if NULL object, make int" and "if not int, complain"
-	symbol_set_object(symbol, result, change_allowed);	// FIXME - "backward anon allows number redef" is different from "!set allows object redef"!
-}
-// FIXME - temporary helper function during refactoring
-// used for:
-//	explicit assignments, including "!set"
-// "po_set" means "!set", so changes are allowed
-void symbol_set_object3(struct symbol *symbol, struct object *result, int force_bit, boolean po_set)
-{
-	// FIXME - force bit can only be used if result is number! check!
-	symbol_forcebit(symbol, force_bit);
-	// if this was called by !set, new force bit replaces old one:
-	if (po_set) {
-		// clear symbol's force bits and set new ones
-		// (but only do this for numbers!)
-		if (((symbol->object.type == &type_int) || (symbol->object.type == &type_float))
-		&& ((result->type == &type_int) || (result->type == &type_float))) {
-			// clear symbol's size flags, set new one, clear result's size flags
-			symbol->object.u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-			if (force_bit) {
-				symbol->object.u.number.flags |= force_bit;
-				result->u.number.flags &= ~(NUMBER_FORCEBITS | NUMBER_FITS_BYTE);
-			}
-		}
-		// FIXME - take a good look at the flags handling above and in the fn called below and clean this up!
+	if (!force_bit)
+		Bug_found("ForceBitZero", 0);	// FIXME - add to docs!
+	if (symbol->object.type == NULL)
+		Bug_found("NullObject", 0);	// FIXME - add to docs!
+
+	if ((symbol->object.type != &type_int) && (symbol->object.type != &type_float)) {
+		Throw_error("Force bits can only be given to numbers.");	// FIXME - add to docs!
+		return;
 	}
-	symbol_set_object(symbol, result, po_set);
+
+	// if change is ok, change
+	if (!symbol->has_been_read) {
+		symbol->object.u.number.flags &= ~NUMBER_FORCEBITS;
+		symbol->object.u.number.flags |= force_bit;
+		return;	// and be done with it
+	}
+
+	// it's too late to change, so check if the wanted bit is actually different
+	if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != force_bit)
+		Throw_error("Too late for postfix.");
 }
 
 

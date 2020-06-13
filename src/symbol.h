@@ -29,15 +29,18 @@ struct symbol {
 extern struct rwnode	*symbols_forest[];	// trees (because of 8-bit hash)
 
 
-// function acts upon the symbol's flag bits and produces an error if needed.
-//extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, boolean change_allowed);
-// FIXME - temporary helper function during refactoring
-extern void symbol_set_object2(struct symbol *symbol, struct object *new_obj, int force_bit, boolean change_allowed);
-// FIXME - temporary helper function during refactoring
-extern void symbol_set_object3(struct symbol *symbol, struct object *new_obj, int force_bit, boolean change_allowed);
 // search for symbol. if it does not exist, create with NULL type object (CAUTION!).
 // the symbol name must be held in GlobalDynaBuf.
 extern struct symbol *symbol_find(scope_t scope);
+// assign object to symbol. function acts upon the symbol's flag bits and
+// produces an error if needed.
+// using "power" bits, caller can state which changes are ok.
+#define POWER_NONE		0
+#define POWER_CHANGE_VALUE	(1u << 0)	// e.g. change 3 to 5 or 2.71
+#define POWER_CHANGE_OBJTYPE	(1u << 1)	// e.g. change 3 to "somestring"
+extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, int powers);
+// set force bit of symbol. trying to change to a different one will raise error.
+extern void symbol_set_force_bit(struct symbol *symbol, int force_bit);
 // set global symbol to value, no questions asked (for "-D" switch)
 // name must be held in GlobalDynaBuf.
 extern void symbol_define(intval_t value);

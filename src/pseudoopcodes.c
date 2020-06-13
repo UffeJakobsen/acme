@@ -751,7 +751,14 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;
 	}
 
-	parse_assignment(scope, force_bit, TRUE);
+	// TODO: in versions before 0.97, force bit handling was broken
+	// in both "!set" and "!for":
+	// trying to change a force bit correctly raised an error, but
+	// in any case, ALL FORCE BITS WERE CLEARED in symbol. only
+	// cases like !set N=N+1 worked, because the force bit was
+	// taken from result.
+	// maybe support this behaviour via --dialect?
+	parse_assignment(scope, force_bit, POWER_CHANGE_VALUE | POWER_CHANGE_OBJTYPE);
 	return ENSURE_EOS;
 }
 

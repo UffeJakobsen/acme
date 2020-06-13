@@ -44,6 +44,7 @@ extern const char	exception_no_right_brace[];
 //extern const char	exception_not_yet[];
 extern const char	exception_number_out_of_range[];
 extern const char	exception_pc_undefined[];
+extern const char	exception_symbol_defined[];
 extern const char	exception_syntax[];
 extern const char	exception_value_not_defined[];
 // byte flags table
@@ -135,8 +136,8 @@ extern void config_default(struct config *conf);
 // allocate memory and die if not available
 extern void *safe_malloc(size_t amount);
 // call with symbol name in GlobalDynaBuf and GotByte == '='
-// "po_set" is for "!set" pseudo opcode, so changes are allowed
-extern void parse_assignment(scope_t scope, int force_bit, boolean po_set);
+// "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
+extern void parse_assignment(scope_t scope, int force_bit, int powers);
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.

@@ -1161,6 +1161,112 @@ static boolean object_return_true(struct object *self)
 	return TRUE;
 }
 
+// int/float:
+// helper function to check two values for equality
+// in case of undefined value(s), "fallback" is returned
+static inline boolean num_different(struct object *self, struct object *other, boolean fallback)
+{
+	if ((self->u.number.flags & NUMBER_IS_DEFINED) == 0)
+		return fallback;
+
+	if ((other->u.number.flags & NUMBER_IS_DEFINED) == 0)
+		return fallback;
+
+	if (self->type == &type_int) {
+		if (other->type == &type_int)
+			return self->u.number.val.intval != other->u.number.val.intval;
+		else
+			return self->u.number.val.intval != other->u.number.val.fpval;
+	} else {
+		if (other->type == &type_int)
+			return self->u.number.val.fpval != other->u.number.val.intval;
+		else
+			return self->u.number.val.fpval != other->u.number.val.fpval;
+	}
+}
+
+// int/float:
+// assign new value
+static void number_assign(struct object *self, struct object *new_value, boolean accept_change)
+{
+	int	own_flags	= self->u.number.flags,
+		other_flags	= new_value->u.number.flags;
+	// local copies of the flags are used because
+	//	self->...flags might get overwritten when copying struct over, and
+	//	new_value-> is const so shouldn't be touched.
+
+	// accepting a different value is easily done by just forgetting the old one:
+	if (accept_change) {
+		own_flags &= ~(NUMBER_IS_DEFINED | NUMBER_FITS_BYTE);
+	}
+
+	// copy struct over?
+	if (!(own_flags & NUMBER_IS_DEFINED)) {
+		// symbol is undefined OR redefinitions are allowed, so use new value:
+		*self = *new_value;	// copy type and flags/value/addr_refs
+		// flags will be fixed, see below
+	} else {
+		// symbol is already defined, so compare new and old values
+		// if values differ, complain and return
+		if (num_different(self, new_value, FALSE)) {
+			Throw_error(exception_symbol_defined);
+			return;
+		}
+		// values are the same, so only fiddle with flags
+	}
+
+	// if symbol has no force bits of its own, use the ones from new value:
+	if ((own_flags & NUMBER_FORCEBITS) == 0)
+		own_flags = (own_flags & ~NUMBER_FORCEBITS) | (other_flags & NUMBER_FORCEBITS);
+
+	// tainted symbols without "fits byte" flag must never get that flag
+	if ((own_flags & (NUMBER_EVER_UNDEFINED | NUMBER_FITS_BYTE)) == NUMBER_EVER_UNDEFINED)
+		other_flags &= ~NUMBER_FITS_BYTE;
+	// now OR together "fits byte", "defined" and "tainted"
+	// (any hypothetical problems about "new value is later found out to
+	// _not_ fit byte" would be detected when assigning a different value
+	// raises an error in a later pass)
+	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
+
+	self->u.number.flags = own_flags;
+}
+
+
+// list:
+// assign new value
+static void list_assign(struct object *self, struct object *new_value, boolean accept_change)
+{
+	if (!accept_change) {
+		if (0/* TODO - compare old and new lists? */) {
+			Throw_error(exception_symbol_defined);
+			return;
+		}
+	}
+	*self = *new_value;
+}
+
+// string:
+// helper function, returns whether equal
+static boolean string_equal(struct string *arthur, struct string *ford)
+{
+	if (arthur->length != ford->length)
+		return FALSE;
+
+	return !memcmp(arthur->payload, ford->payload, arthur->length);
+}
+// string:
+// assign new value
+static void string_assign(struct object *self, struct object *new_value, boolean accept_change)
+{
+	if (!accept_change) {
+		if (!string_equal(self->u.string, new_value->u.string)) {
+			Throw_error(exception_symbol_defined);
+			return;
+		}
+	}
+	*self = *new_value;
+}
+
 // this gets called for LSR, AND, OR, XOR with float args
 // FIXME - warning is never seen if arguments are undefined in first pass!
 static void warn_float_to_int(void)
@@ -1762,11 +1868,7 @@ static void string_handle_dyadic_operator(struct object *self, struct op *op, st
 			break;	// complain
 		arthur = self->u.string;
 		ford = other->u.string;
-		if (arthur->length != ford->length) {
-			int_create_byte(self, FALSE);
-		} else {
-			int_create_byte(self, !memcmp(arthur->payload, ford->payload, arthur->length));
-		}
+		int_create_byte(self, string_equal(arthur, ford));
 		arthur->refs--;	// FIXME - call a function for this...
 		ford->refs--;	// FIXME - call a function for this...
 		return;
@@ -1776,11 +1878,7 @@ static void string_handle_dyadic_operator(struct object *self, struct op *op, st
 			break;	// complain
 		arthur = self->u.string;
 		ford = other->u.string;
-		if (arthur->length != ford->length) {
-			int_create_byte(self, TRUE);
-		} else {
-			int_create_byte(self, !!memcmp(arthur->payload, ford->payload, arthur->length));
-		}
+		int_create_byte(self, !string_equal(arthur, ford));
 		arthur->refs--;	// FIXME - call a function for this...
 		ford->refs--;	// FIXME - call a function for this...
 		return;
@@ -1902,6 +2000,7 @@ static void string_print(struct object *self, struct dynabuf *db)
 struct type	type_int	= {
 	"integer",
 	number_is_defined,
+	number_assign,
 	int_handle_monadic_operator,
 	int_handle_dyadic_operator,
 	int_fix_result,
@@ -1910,6 +2009,7 @@ struct type	type_int	= {
 struct type	type_float	= {
 	"float",
 	number_is_defined,
+	number_assign,
 	float_handle_monadic_operator,
 	float_handle_dyadic_operator,
 	float_fix_result,
@@ -1918,6 +2018,7 @@ struct type	type_float	= {
 struct type	type_list	= {
 	"list",
 	object_return_true,	// lists are always considered to be defined (even though they can hold undefined numbers...)
+	list_assign,
 	list_handle_monadic_operator,
 	list_handle_dyadic_operator,
 	object_no_op,	// no need to fix list results
@@ -1926,6 +2027,7 @@ struct type	type_list	= {
 struct type	type_string	= {
 	"string",
 	object_return_true,	// strings are always defined
+	string_assign,
 	string_handle_monadic_operator,
 	string_handle_dyadic_operator,
 	object_no_op,	// no need to fix string results

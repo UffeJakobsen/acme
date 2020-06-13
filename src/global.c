@@ -54,6 +54,7 @@ const char	exception_no_right_brace[]	= "Found end-of-file instead of '}'.";
 //const char	exception_not_yet[]	= "Sorry, feature not yet implemented.";
 const char	exception_number_out_of_range[]	= "Number out of range.";
 const char	exception_pc_undefined[]	= "Program counter undefined.";
+const char	exception_symbol_defined[]	= "Symbol already defined.";
 const char	exception_syntax[]		= "Syntax error.";
 const char	exception_value_not_defined[]	= "Value not defined.";
 // default value for number of errors before exiting
@@ -162,7 +163,8 @@ static int first_label_of_statement(int *statement_flags)
 // parse label definition (can be either global or local).
 // name must be held in GlobalDynaBuf.
 // called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
-static void set_label(scope_t scope, int stat_flags, int force_bit, boolean change_allowed)	// "change_allowed" is used by backward anons!
+// "powers" is used by backward anons to allow changes
+static void set_label(scope_t scope, int stat_flags, int force_bit, int powers)
 {
 	struct symbol	*symbol;
 	struct number	pc;
@@ -176,7 +178,9 @@ static void set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
-	symbol_set_object2(symbol, &result, force_bit, change_allowed);
+	symbol_set_object(symbol, &result, powers);
+	if (force_bit)
+		symbol_set_force_bit(symbol, force_bit);
 	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
@@ -185,8 +189,8 @@ static void set_label(scope_t scope, int stat_flags, int force_bit, boolean chan
 
 
 // call with symbol name in GlobalDynaBuf and GotByte == '='
-// "po_set" is for "!set" pseudo opcode, so changes are allowed
-void parse_assignment(scope_t scope, int force_bit, boolean po_set)
+// "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
+void parse_assignment(scope_t scope, int force_bit, int powers)
 {
 	struct symbol	*symbol;
 	struct object	result;
@@ -201,7 +205,9 @@ void parse_assignment(scope_t scope, int force_bit, boolean po_set)
 		|| (result.type == &type_float))
 			result.u.number.addr_refs = 1;
 	}
-	symbol_set_object3(symbol, &result, force_bit, po_set);
+	symbol_set_object(symbol, &result, powers);
+	if (force_bit)
+		symbol_set_force_bit(symbol, force_bit);
 }
 
 
@@ -214,11 +220,11 @@ static void parse_symbol_definition(scope_t scope, int stat_flags)
 	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
-		parse_assignment(scope, force_bit, FALSE);
+		parse_assignment(scope, force_bit, POWER_NONE);
 		Input_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
-		set_label(scope, stat_flags, force_bit, FALSE);
+		set_label(scope, stat_flags, force_bit, POWER_NONE);
 	}
 }
 
@@ -266,7 +272,8 @@ static void parse_backward_anon_def(int *statement_flags)
 		DYNABUF_APPEND(GlobalDynaBuf, '-');
 	while (GetByte() == '-');
 	DynaBuf_append(GlobalDynaBuf, '\0');
-	set_label(section_now->local_scope, *statement_flags, 0, TRUE);	// this "TRUE" is the whole secret
+	// 0 = no force bit, power = backward anons change their value!
+	set_label(section_now->local_scope, *statement_flags, 0, POWER_CHANGE_VALUE);
 }
 
 
@@ -285,7 +292,8 @@ static void parse_forward_anon_def(int *statement_flags)
 	symbol_fix_forward_anon_name(TRUE);	// TRUE: increment counter
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	//printf("[%d, %s]\n", section_now->local_scope, GlobalDynaBuf->buffer);
-	set_label(section_now->local_scope, *statement_flags, 0, FALSE);
+	// 0 = no force bit
+	set_label(section_now->local_scope, *statement_flags, 0, POWER_NONE);
 }
 
 
