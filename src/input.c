@@ -629,10 +629,10 @@ int Input_accept_comma(void)
 
 // read optional info about parameter length
 // FIXME - move to different file!
-int Input_get_force_bit(void)
+bits Input_get_force_bit(void)
 {
 	char	byte;
-	int	force_bit	= 0;
+	bits	force_bit	= 0;
 
 	if (GotByte == '+') {
 		byte = GetByte();

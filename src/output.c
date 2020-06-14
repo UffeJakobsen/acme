@@ -47,7 +47,7 @@ struct output {
 	struct {
 		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
 		intval_t	max;	// highest address segment may use
-		int		flags;	// segment flags ("overlay" and "invisible", see header file)
+		bits		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
 	} segment;
 	char		xor;		// output modifier
@@ -540,7 +540,7 @@ void Output_end_segment(void)
 
 
 // change output pointer and enable output
-void Output_start_segment(intval_t address_change, int segment_flags)
+void Output_start_segment(intval_t address_change, bits segment_flags)
 {
 	// properly finalize previous segment (link to list, announce)
 	Output_end_segment();
@@ -573,7 +573,7 @@ void output_set_xor(char xor)
 // set program counter to defined value (FIXME - allow for undefined!)
 // if start address was given on command line, main loop will call this before each pass.
 // in addition to that, it will be called on each "*= VALUE".
-void vcpu_set_pc(intval_t new_pc, int segment_flags)
+void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 {
 	intval_t	new_offset;
 
@@ -654,7 +654,7 @@ void vcpu_end_statement(void)
 struct pseudopc {
 	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
 	intval_t	offset;	// inner minus outer pc
-	int		flags;	// flags of outer pc
+	bits		flags;	// flags of outer pc
 };
 // start offset assembly
 void pseudopc_start(struct number *new_pc)

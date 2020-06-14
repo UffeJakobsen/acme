@@ -19,7 +19,7 @@ struct block {
 // struct to pass "!for" loop stuff from pseudoopcodes.c to flow.c
 struct for_loop {
 	struct symbol	*symbol;
-	int		force_bit;
+	bits		force_bit;
 	boolean		use_old_algo;
 	struct {
 		intval_t	first,

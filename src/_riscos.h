@@ -58,7 +58,7 @@ do {				\
 
 
 // variables
-extern int	RISCOS_flags;	// Holds platform-specific flags
+extern bits	RISCOS_flags;	// Holds platform-specific flags
 #define RISCOSFLAG_THROWBACK	(1u << 0)	// use throwback protocol
 #define RISCOSFLAG_THROWN	(1u << 1)	// throwback is active
 

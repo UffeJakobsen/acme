@@ -144,7 +144,7 @@ struct symbol *symbol_find(scope_t scope)
 // explicit symbol assignments via "!set" (has all powers)
 // loop counter var init via "!for" (has POWER_CHANGE_VALUE and POWER_CHANGE_NUMTYPE)
 //	CAUTION: actual incrementing of counter is then done directly without calls here!
-void symbol_set_object(struct symbol *symbol, struct object *new_value, int powers)
+void symbol_set_object(struct symbol *symbol, struct object *new_value, bits powers)
 {
 	struct type	*symbol_class,	// helper vars to group
 			*newval_class;	//	ints and floats
@@ -184,7 +184,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, int powe
 
 
 // set force bit of symbol. trying to change to a different one will raise error.
-void symbol_set_force_bit(struct symbol *symbol, int force_bit)
+void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 {
 	if (!force_bit)
 		Bug_found("ForceBitZero", 0);	// FIXME - add to docs!

@@ -84,14 +84,14 @@ extern int outputfile_set_filename(void);
 // write smallest-possible part of memory buffer to file
 extern void Output_save_file(FILE *fd);
 // change output pointer and enable output
-extern void Output_start_segment(intval_t address_change, int segment_flags);
+extern void Output_start_segment(intval_t address_change, bits segment_flags);
 // Show start and end of current segment
 extern void Output_end_segment(void);
 extern char output_get_xor(void);
 extern void output_set_xor(char xor);
 
 // set program counter to defined value (TODO - allow undefined!)
-extern void vcpu_set_pc(intval_t new_pc, int flags);
+extern void vcpu_set_pc(intval_t new_pc, bits flags);
 // get program counter
 extern void vcpu_read_pc(struct number *target);
 // get size of current statement (until now) - needed for "!bin" verbose output

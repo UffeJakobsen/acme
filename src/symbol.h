@@ -38,9 +38,9 @@ extern struct symbol *symbol_find(scope_t scope);
 #define POWER_NONE		0
 #define POWER_CHANGE_VALUE	(1u << 0)	// e.g. change 3 to 5 or 2.71
 #define POWER_CHANGE_OBJTYPE	(1u << 1)	// e.g. change 3 to "somestring"
-extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, int powers);
+extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, bits powers);
 // set force bit of symbol. trying to change to a different one will raise error.
-extern void symbol_set_force_bit(struct symbol *symbol, int force_bit);
+extern void symbol_set_force_bit(struct symbol *symbol, bits force_bit);
 // set global symbol to value, no questions asked (for "-D" switch)
 // name must be held in GlobalDynaBuf.
 extern void symbol_define(intval_t value);

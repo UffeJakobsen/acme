@@ -23,7 +23,7 @@
 
 
 // variables
-int	RISCOS_flags	= 0;	// used to store platform-specific flags
+bits	RISCOS_flags	= 0;	// used to store platform-specific flags
 
 
 // exit handler: if throwback was used, de-register now

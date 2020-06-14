@@ -137,7 +137,7 @@ extern void config_default(struct config *conf);
 extern void *safe_malloc(size_t amount);
 // call with symbol name in GlobalDynaBuf and GotByte == '='
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
-extern void parse_assignment(scope_t scope, int force_bit, int powers);
+extern void parse_assignment(scope_t scope, bits force_bit, bits powers);
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.

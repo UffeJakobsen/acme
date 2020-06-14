@@ -14,9 +14,9 @@
 struct cpu_type {
 	// This function is not allowed to change GlobalDynaBuf
 	// because that's where the mnemonic is stored!
-	boolean	(*keyword_is_mnemonic)(int);
-	int	flags;	// see below for bit meanings
-	char	default_align_value;
+	boolean		(*keyword_is_mnemonic)(int);
+	bits		flags;	// see below for bit meanings
+	unsigned char	default_align_value;
 };
 #define	CPUFLAG_INDIRECTJMPBUGGY	(1u << 0)	// warn if "jmp ($xxff)" is assembled
 #define CPUFLAG_SUPPORTSLONGREGS	(1u << 1)	// allow "!al" and "!rl" pseudo opcodes

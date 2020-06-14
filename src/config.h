@@ -16,13 +16,14 @@
 #endif
 // types
 typedef enum { FALSE = 0, TRUE }	boolean;	// yes, I could include <stdbool.h>, but this source should work with ancient compilers as well...
+typedef unsigned int	bits;
 typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
 
 // structure for ints/floats
 struct number {
-	int	flags;	// DEFINED, FITS_IN_BYTE, etc. (see alu.h)
+	bits	flags;	// DEFINED, FITS_IN_BYTE, etc. (see alu.h)
 	union {
 		intval_t	intval;	// integer value
 		double		fpval;	// floating point value

@@ -459,8 +459,8 @@ fail:
 static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
-	int		flags	= NUMBER_IS_DEFINED,
-			digits	= -1;	// digit counter
+	bits		flags	= NUMBER_IS_DEFINED;
+	int		digits	= -1;	// digit counter
 
 	for (;;) {
 		++digits;
@@ -501,8 +501,8 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 {
 	char		byte;
-	int		digits	= -1,	// digit counter
-			flags	= NUMBER_IS_DEFINED;
+	int		digits	= -1;	// digit counter
+	bits		flags	= NUMBER_IS_DEFINED;
 	intval_t	value	= 0;
 
 	for (;;) {
@@ -611,8 +611,8 @@ static void parse_number_literal(void)	// Now GotByte = first digit
 static void parse_octal_literal(void)	// Now GotByte = first octal digit
 {
 	intval_t	value	= 0;
-	int		flags	= NUMBER_IS_DEFINED,
-			digits	= 0;	// digit counter
+	bits		flags	= NUMBER_IS_DEFINED;
+	int		digits	= 0;	// digit counter
 
 	while ((GotByte >= '0') && (GotByte <= '7')) {
 		value = (value << 3) + (GotByte & 7);	// this works. it's ASCII.
@@ -1189,7 +1189,7 @@ static inline boolean num_different(const struct object *self, const struct obje
 // assign new value
 static void number_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
-	int	own_flags	= self->u.number.flags,
+	bits	own_flags	= self->u.number.flags,
 		other_flags	= new_value->u.number.flags;
 	// local copies of the flags are used because
 	//	self->...flags might get overwritten when copying struct over, and
@@ -1451,7 +1451,7 @@ static void string_handle_monadic_operator(struct object *self, const struct op 
 // (used by both int and float handlers for comparison operators)
 static void number_fix_result_after_comparison(struct object *self, const struct object *other, intval_t result)
 {
-	int	flags;
+	bits	flags;
 
 	self->type = &type_int;
 	self->u.number.val.intval = result;

@@ -538,7 +538,7 @@ void Mnemo_init(void)
 // Address mode parsing
 
 // utility function for parsing indices. result must be processed via AMB_PREINDEX() or AMB_INDEX() macro!
-static int get_index(int next)
+static int get_index(boolean next)
 {
 	if (next)
 		GetByte();
@@ -592,10 +592,10 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 
 // wrapper function to detect addressing mode, and, if not IMPLIED, read arg.
 // argument is stored in given result structure, addressing mode is returned.
-static int get_addr_mode(struct number *result)
+static bits get_addr_mode(struct number *result)
 {
 	struct expression	expression;
-	int			address_mode_bits	= 0;
+	bits			address_mode_bits	= 0;
 
 	SKIPSPACE();
 	switch (GotByte) {
@@ -645,7 +645,7 @@ static int get_addr_mode(struct number *result)
 
 // Helper function for calc_arg_size()
 // Only call with "size_bit = NUMBER_FORCES_16" or "size_bit = NUMBER_FORCES_24"
-static int check_oversize(int size_bit, struct number *argument)
+static bits check_oversize(bits size_bit, struct number *argument)
 {
 	// only check if value is *defined*
 	if ((argument->flags & NUMBER_IS_DEFINED) == 0)
@@ -672,7 +672,7 @@ static int check_oversize(int size_bit, struct number *argument)
 // argument		value and flags of parameter
 // addressing_modes	adressing modes (8b, 16b, 24b or any combination)
 // Return value = force bit for number of parameter bytes to send (0 = error)
-static int calc_arg_size(int force_bit, struct number *argument, int addressing_modes)
+static bits calc_arg_size(bits force_bit, struct number *argument, bits addressing_modes)
 {
 	// if there are no possible addressing modes, complain
 	if (addressing_modes == MAYBE______) {
@@ -841,7 +841,7 @@ static void far_branch(int preoffset)
 
 // set addressing mode bits depending on which opcodes exist, then calculate
 // argument size and output both opcode and argument
-static void make_command(int force_bit, struct number *result, unsigned long opcodes)
+static void make_command(bits force_bit, struct number *result, unsigned long opcodes)
 {
 	int	addressing_modes	= MAYBE______;
 
@@ -869,9 +869,9 @@ static void make_command(int force_bit, struct number *result, unsigned long opc
 // check whether 16bit immediate addressing is allowed. If not, return given
 // opcode. If it is allowed, set force bits according to CPU register length
 // and return given opcode for both 8- and 16-bit mode.
-static unsigned int imm_ops(int *force_bit, unsigned char opcode, int immediate_mode)
+static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediate_mode)
 {
-	int	long_register	= 0;
+	boolean	long_register	= FALSE;
 
 	switch (immediate_mode) {
 	case IM_FORCE8:
@@ -911,11 +911,11 @@ static void check_zp_wraparound(struct number *result)
 
 // The main accumulator stuff (ADC, AND, CMP, EOR, LDA, ORA, SBC, STA)
 // plus PEI.
-static void group_main(int index, int flags)
+static void group_main(int index, bits flags)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	int		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMMEDIATE_ADDRESSING:	// #$ff or #$ffff (depending on accu length)
@@ -975,11 +975,11 @@ static void group_main(int index, int flags)
 }
 
 // Various mnemonics with different addressing modes.
-static void group_misc(int index, int immediate_mode)
+static void group_misc(int index, bits immediate_mode)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	int		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMPLIED_ADDRESSING:	// implied addressing
@@ -1095,7 +1095,7 @@ static void group_prefix(int opcode)
 static void group_jump(int index)
 {
 	struct number	result;
-	int		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= Input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case ABSOLUTE_ADDRESSING:	// absolute16 or absolute24
@@ -1121,11 +1121,11 @@ static void group_jump(int index)
 }
 
 // Work function
-static int check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
+static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 {
 	void	*node_body;
-	int	code,
-		flags;
+	int	code;
+	bits	flags;
 
 	// search for tree item
 	if (!Tree_easy_scan(tree, &node_body, dyna_buf))
@@ -1185,7 +1185,7 @@ boolean keyword_is_6502_mnemo(int length)
 
 	// make lower case version of mnemonic in local dynamic buffer
 	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
-	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by NMOS 6502 cpu.
@@ -1205,7 +1205,7 @@ boolean keyword_is_nmos6502_mnemo(int length)
 		return TRUE;
 
 	// ...then check original opcodes
-	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by C64DTV2 cpu.
@@ -1225,7 +1225,7 @@ boolean keyword_is_c64dtv2_mnemo(int length)
 		return TRUE;
 
 	// ...then check original opcodes
-	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 65c02 cpu.
@@ -1241,7 +1241,7 @@ boolean keyword_is_65c02_mnemo(int length)
 		return TRUE;
 
 	// ...then check original opcodes
-	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by Rockwell 65c02 cpu.
@@ -1261,7 +1261,7 @@ boolean keyword_is_r65c02_mnemo(int length)
 		return TRUE;
 
 	// ...then check Rockwell extensions (rmb, smb, bbr, bbs)
-	return check_mnemo_tree(mnemo_bitmanips_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_bitmanips_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by WDC w65c02 cpu.
@@ -1285,7 +1285,7 @@ boolean keyword_is_w65c02_mnemo(int length)
 		return TRUE;
 
 	// ...then check WDC extensions "stp" and "wai"
-	return check_mnemo_tree(mnemo_stp_wai_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_stp_wai_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by CSG 65CE02 cpu.
@@ -1313,7 +1313,7 @@ boolean keyword_is_65ce02_mnemo(int length)
 		return TRUE;
 
 	// ...then check "aug"
-	return check_mnemo_tree(mnemo_aug_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_aug_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by CSG 4502 cpu.
@@ -1341,7 +1341,7 @@ boolean keyword_is_4502_mnemo(int length)
 		return TRUE;
 
 	// ...then check "map" and "eom"
-	return check_mnemo_tree(mnemo_map_eom_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_map_eom_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by MEGA65 cpu.
@@ -1373,7 +1373,7 @@ boolean keyword_is_m65_mnemo(int length)
 		return TRUE;
 
 	// ...then check "map" and "eom"
-	return check_mnemo_tree(mnemo_map_eom_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_map_eom_tree, mnemo_dyna_buf);
 }
 
 // check whether mnemonic in GlobalDynaBuf is supported by 65816 cpu.
@@ -1397,5 +1397,5 @@ boolean keyword_is_65816_mnemo(int length)
 		return TRUE;
 
 	// ...then check WDC extensions "stp" and "wai"
-	return check_mnemo_tree(mnemo_stp_wai_tree, mnemo_dyna_buf) ? TRUE : FALSE;
+	return check_mnemo_tree(mnemo_stp_wai_tree, mnemo_dyna_buf);
 }

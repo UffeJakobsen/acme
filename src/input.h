@@ -8,7 +8,7 @@
 
 
 #include <stdio.h>	// for FILE
-#include "config.h"	// for scope_t
+#include "config.h"	// for bits and scope_t
 
 
 // type definitions
@@ -120,7 +120,7 @@ extern int Input_read_filename(boolean library_allowed, boolean *uses_lib);
 // found, otherwise FALSE.
 extern int Input_accept_comma(void);
 // read optional info about parameter length
-extern int Input_get_force_bit(void);
+extern bits Input_get_force_bit(void);
 
 
 // include path stuff - should be moved to its own file:

@@ -148,7 +148,7 @@ void *safe_malloc(size_t size)
 
 
 // Check and return whether first label of statement. Complain if not.
-static int first_label_of_statement(int *statement_flags)
+static int first_label_of_statement(bits *statement_flags)
 {
 	if ((*statement_flags) & SF_IMPLIED_LABEL) {
 		Throw_error(exception_syntax);
@@ -164,7 +164,7 @@ static int first_label_of_statement(int *statement_flags)
 // name must be held in GlobalDynaBuf.
 // called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
 // "powers" is used by backward anons to allow changes
-static void set_label(scope_t scope, int stat_flags, int force_bit, int powers)
+static void set_label(scope_t scope, bits stat_flags, bits force_bit, bits powers)
 {
 	struct symbol	*symbol;
 	struct number	pc;
@@ -190,7 +190,7 @@ static void set_label(scope_t scope, int stat_flags, int force_bit, int powers)
 
 // call with symbol name in GlobalDynaBuf and GotByte == '='
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
-void parse_assignment(scope_t scope, int force_bit, int powers)
+void parse_assignment(scope_t scope, bits force_bit, bits powers)
 {
 	struct symbol	*symbol;
 	struct object	result;
@@ -213,9 +213,9 @@ void parse_assignment(scope_t scope, int force_bit, int powers)
 
 // parse symbol definition (can be either global or local, may turn out to be a label).
 // name must be held in GlobalDynaBuf.
-static void parse_symbol_definition(scope_t scope, int stat_flags)
+static void parse_symbol_definition(scope_t scope, bits stat_flags)
 {
-	int	force_bit;
+	bits	force_bit;
 
 	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
@@ -230,7 +230,7 @@ static void parse_symbol_definition(scope_t scope, int stat_flags)
 
 
 // Parse global symbol definition or assembler mnemonic
-static void parse_mnemo_or_global_symbol_def(int *statement_flags)
+static void parse_mnemo_or_global_symbol_def(bits *statement_flags)
 {
 	boolean	is_mnemonic;
 
@@ -250,7 +250,7 @@ static void parse_mnemo_or_global_symbol_def(int *statement_flags)
 
 
 // parse (cheap) local symbol definition
-static void parse_local_symbol_def(int *statement_flags, scope_t scope)
+static void parse_local_symbol_def(bits *statement_flags, scope_t scope)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
@@ -262,7 +262,7 @@ static void parse_local_symbol_def(int *statement_flags, scope_t scope)
 
 
 // parse anonymous backward label definition. Called with GotByte == '-'
-static void parse_backward_anon_def(int *statement_flags)
+static void parse_backward_anon_def(bits *statement_flags)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
@@ -278,7 +278,7 @@ static void parse_backward_anon_def(int *statement_flags)
 
 
 // parse anonymous forward label definition. called with GotByte == ?
-static void parse_forward_anon_def(int *statement_flags)
+static void parse_forward_anon_def(bits *statement_flags)
 {
 	if (!first_label_of_statement(statement_flags))
 		return;
@@ -301,7 +301,7 @@ static void parse_forward_anon_def(int *statement_flags)
 // Has to be re-entrant.
 void Parse_until_eob_or_eof(void)
 {
-	int	statement_flags;
+	bits	statement_flags;
 
 //	// start with next byte, don't care about spaces
 //	NEXTANDSKIPSPACE();

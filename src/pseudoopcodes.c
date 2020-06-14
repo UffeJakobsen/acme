@@ -47,7 +47,7 @@ static struct ronode	*pseudo_opcode_tree	= NULL;	// tree to hold pseudo opcodes
 // called when "*= EXPRESSION" is parsed, to set the program counter
 void notreallypo_setpc(void)	// GotByte is '*'
 {
-	int		segment_flags	= 0;
+	bits		segment_flags	= 0;
 	struct number	intresult;
 
 	// next non-space must be '='
