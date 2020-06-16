@@ -361,7 +361,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 		symbol->object.u.number.ntype = NUMTYPE_UNDEFINED;
 		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;	// reading undefined taints it
 		symbol->object.u.number.addr_refs = 0;
-		symbol->object.u.number.val.intval = 0;
+		symbol->object.u.number.val.intval = 0;	// FIXME - should not be needed!
 	} else {
 		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> Bug_found()!
 		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
@@ -387,7 +387,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 
 
 // Parse program counter ('*')
-static void parse_program_counter(void)	// Now GotByte = "*"
+static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = "*"
 {
 	struct number	pc;
 
@@ -396,6 +396,8 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 	// if needed, output "value not defined" error
 	if (pc.ntype == NUMTYPE_UNDEFINED)
 		is_not_defined(NULL, 0, "*", 1);
+	if (unpseudo_count)
+		pseudopc_unpseudo(&pc, pseudopc_get_context(), unpseudo_count);
 	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);	// FIXME - when undefined pc is allowed, this must be changed for numtype!
 }
 
@@ -712,7 +714,9 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 	}
 
 	// TODO - support anonymous labels as well?
-	if (GotByte == '.') {
+	if (GotByte == '*') {
+		parse_program_counter(unpseudo_count);
+	} else if (GotByte == '.') {
 		GetByte();
 		if (Input_read_keyword() == 0)	// now GotByte = illegal char
 			return 1;	// error (no string given)
@@ -838,7 +842,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		goto now_expect_dyadic_op;
 
 	case '*':	// Program counter
-		parse_program_counter();
+		parse_program_counter(0);
 		// Now GotByte = char after closing quote
 		goto now_expect_dyadic_op;
 

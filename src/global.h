@@ -69,7 +69,7 @@ enum version {
 	VER_NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
 					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
 	VER_CURRENT,			// "RELEASE"
-	VER_BACKSLASHESCAPING,		// backslash escaping (and therefore strings)
+	VER_BACKSLASHESCAPING,		// v0.97 added backslash escaping (and therefore strings)
 					// possible changes in future versions:
 					//	paths should be relative to file, not start dir
 					//	ignore leading zeroes?

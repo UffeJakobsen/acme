@@ -469,7 +469,7 @@ struct dialect	dialects[]	= {
 	{VER_NEWFORSYNTAX,		"0.94.12",	"new \"!for\" syntax"},
 //	{VER_,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
 //	{VER_CURRENT,			"default",	"default"},
-//	{VER_BACKSLASHESCAPING,		"",		"backslash escaping and strings"},
+//	{VER_BACKSLASHESCAPING,		"0.97",		"backslash escaping and strings"},
 	{VER_FUTURE,			"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
 };

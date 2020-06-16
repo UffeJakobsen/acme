@@ -703,14 +703,14 @@ void pseudopc_end_all(void)
 int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
 {
 	while (levels--) {
-		if (target->ntype == NUMTYPE_UNDEFINED)
-			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anway)
+		//if (target->ntype == NUMTYPE_UNDEFINED)
+		//	return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
 
 		if (context == NULL) {
 			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error
 		}
-		// FIXME - in future, check DEFINED flag of context!
+		// FIXME - in future, check both target and context for NUMTYPE_UNDEFINED!
 		target->val.intval = (target->val.intval - context->offset) & 0xffff;	// FIXME - is masking really needed?
 		context = context->outer;
 	}
