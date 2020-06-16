@@ -53,8 +53,8 @@ enum op_id {
 	OPID_END_EXPRESSION,	//		end of expression (quasi-dyadic)
 	OPID_START_EXPRESSION,	//		start of expression
 	OPID_LEFT_PARENTHESIS,	//	(v	'(' starts subexpression (quasi-monadic)
-	OPID_START_LIST,	//	[1,2]	'[' starts list literal (quasi-monadic)
-	OPID_START_INDEX,	//	v[	'[' starts subexpression (quasi-monadic, also see dyadic OPID_ATINDEX)
+	OPID_START_LIST,	//	[1,2]	'[' starts non-empty list literal (quasi-monadic, followed by dyadic OPID_LIST_APPEND)
+	OPID_START_INDEX,	//	v[	'[' starts subexpression (quasi-monadic, after dyadic OPID_ATINDEX)
 	// monadic operators (including functions):
 	OPID_NOT,		//	!v	NOT v		bit-wise NOT
 	OPID_NEGATE,		//	-v			negation
@@ -156,6 +156,7 @@ static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
 static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
 static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
 // CAUTION: when adding a function that returns something indexable, fix the code inserting ops_atindex!
+// FIXME - no, do this asap because of test program ;)
 
 
 // variables
@@ -2094,7 +2095,7 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		}
 		Throw_error("Unterminated index spec.");
 		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove START_INDEX operator from stack
+		return TRUE;	// caller can remove OPID_START_INDEX operator from stack
 
 	default:
 		Bug_found("IllegalOperatorId", previous);
