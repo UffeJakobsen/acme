@@ -648,7 +648,7 @@ static bits get_addr_mode(struct number *result)
 static bits check_oversize(bits size_bit, struct number *argument)
 {
 	// only check if value is *defined*
-	if ((argument->flags & NUMBER_IS_DEFINED) == 0)
+	if (argument->ntype == NUMTYPE_UNDEFINED)
 		return size_bit;	// pass on result
 
 	// value is defined, so check
@@ -792,7 +792,7 @@ static void near_branch(int preoffset)
 	vcpu_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
-	if (pc.flags & target.flags & NUMBER_IS_DEFINED) {
+	if ((pc.ntype == NUMTYPE_INT) && (target.ntype == NUMTYPE_INT)) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
@@ -827,7 +827,7 @@ static void far_branch(int preoffset)
 	vcpu_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
-	if (pc.flags & target.flags & NUMBER_IS_DEFINED) {
+	if ((pc.ntype == NUMTYPE_INT) && (target.ntype == NUMTYPE_INT)) {
 		if ((target.val.intval | 0xffff) != 0xffff) {
 			not_in_bank(target.val.intval);
 		} else {
@@ -903,7 +903,7 @@ static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediat
 // helper function to warn if zp pointer wraps around
 static void check_zp_wraparound(struct number *result)
 {
-	if ((result->flags & NUMBER_IS_DEFINED)
+	if ((result->ntype == NUMTYPE_INT)
 	&& (result->val.intval == 0xff)
 	&& (CPU_state.type->flags & CPUFLAG_WARN_ABOUT_FF_PTR))
 		Throw_warning("Zeropage pointer wraps around from $ff to $00");
@@ -995,8 +995,8 @@ static void group_misc(int index, bits immediate_mode)
 		make_command(force_bit, &result, immediate_opcodes);
 		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
 		if ((CPU_state.type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
-		&& ((result.val.intval & 0xff) != 0x00)
-		&& (result.flags & NUMBER_IS_DEFINED)) {
+		&& (result.ntype == NUMTYPE_INT)
+		&& (result.val.intval != 0x00)) {
 			if (immediate_opcodes == 0x8b)
 				Throw_warning("Assembling unstable ANE #NONZERO instruction");
 			else if (immediate_opcodes == 0xab)
@@ -1104,8 +1104,8 @@ static void group_jump(int index)
 	case INDIRECT_ADDRESSING:	// ($ffff)
 		make_command(force_bit, &result, jump_ind[index]);
 		// check whether to warn about 6502's JMP() bug
-		if (((result.val.intval & 0xff) == 0xff)
-		&& (result.flags & NUMBER_IS_DEFINED)
+		if ((result.ntype == NUMTYPE_INT)
+		&& ((result.val.intval & 0xff) == 0xff)
 		&& (CPU_state.type->flags & CPUFLAG_INDIRECTJMPBUGGY))
 			Throw_warning("Assembling buggy JMP($xxff) instruction");
 		break;

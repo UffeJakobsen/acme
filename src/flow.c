@@ -57,8 +57,9 @@ void flow_forloop(struct for_loop *loop)
 	// fix line number (not for block, but in case symbol handling throws errors)
 	Input_now->line_number = loop->block.start;
 	// init counter
-	loop_counter.type = &type_int;
-	loop_counter.u.number.flags = NUMBER_IS_DEFINED;
+	loop_counter.type = &type_number;
+	loop_counter.u.number.ntype = NUMTYPE_INT;
+	loop_counter.u.number.flags = 0;
 	loop_counter.u.number.val.intval = loop->counter.first;
 	loop_counter.u.number.addr_refs = loop->counter.addr_refs;
 	// CAUTION: next line does not have power to change symbol type, but if

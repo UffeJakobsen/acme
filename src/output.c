@@ -496,7 +496,10 @@ void Output_passinit(void)
 	out->xor = 0;
 
 	//vcpu stuff:
-	CPU_state.pc.flags = 0;	// not defined yet
+	CPU_state.pc.ntype = NUMTYPE_UNDEFINED;	// not defined yet
+	CPU_state.pc.flags = 0;
+	// FIXME - number type is "undefined", but still the intval 0 below will
+	// be used to calculate diff when pc is first set.
 	CPU_state.pc.val.intval = 0;	// same as output's write_idx on pass init
 	CPU_state.add_to_pc = 0;	// increase PC by this at end of statement
 
@@ -593,7 +596,7 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 	}
 	new_offset = (new_pc - CPU_state.pc.val.intval) & 0xffff;
 	CPU_state.pc.val.intval = new_pc;
-	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
+	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	CPU_state.pc.addr_refs = 1;	// yes, PC counts as address
 	// now tell output buffer to start a new segment
 	Output_start_segment(new_offset, segment_flags);
@@ -654,7 +657,7 @@ void vcpu_end_statement(void)
 struct pseudopc {
 	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
 	intval_t	offset;	// inner minus outer pc
-	bits		flags;	// flags of outer pc
+	enum numtype	ntype;	// type of outer pc (INT/UNDEFINED)
 };
 // start offset assembly
 void pseudopc_start(struct number *new_pc)
@@ -665,10 +668,10 @@ void pseudopc_start(struct number *new_pc)
 	new_context->outer = pseudopc_current_context;	// let it point to previous one
 	pseudopc_current_context = new_context;	// make it the current one
 
-	new_context->flags = CPU_state.pc.flags;
+	new_context->ntype = CPU_state.pc.ntype;
 	new_context->offset = new_pc->val.intval - CPU_state.pc.val.intval;
 	CPU_state.pc.val.intval = new_pc->val.intval;
-	CPU_state.pc.flags |= NUMBER_IS_DEFINED;	// FIXME - remove when allowing undefined!
+	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
@@ -685,7 +688,7 @@ void pseudopc_end(void)
 			Bug_found("ClosingUnopenedPseudopcBlock", 0);
 	} else {
 		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & 0xffff;	// pc might have wrapped around
-		CPU_state.pc.flags = pseudopc_current_context->flags;
+		CPU_state.pc.ntype = pseudopc_current_context->ntype;
 		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	}
 }
@@ -700,7 +703,7 @@ void pseudopc_end_all(void)
 int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
 {
 	while (levels--) {
-		if ((target->flags & NUMBER_IS_DEFINED) == 0)
+		if (target->ntype == NUMTYPE_UNDEFINED)
 			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anway)
 
 		if (context == NULL) {

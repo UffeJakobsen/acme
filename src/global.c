@@ -174,8 +174,9 @@ static void set_label(scope_t scope, bits stat_flags, bits force_bit, bits power
 		Throw_first_pass_warning("Label name not in leftmost column.");
 	symbol = symbol_find(scope);
 	vcpu_read_pc(&pc);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
-	result.type = &type_int;
-	result.u.number.flags = pc.flags & NUMBER_IS_DEFINED;
+	result.type = &type_number;
+	result.u.number.ntype = NUMTYPE_INT;	// FIXME - if undefined, use NUMTYPE_UNDEFINED!
+	result.u.number.flags = 0;
 	result.u.number.val.intval = pc.val.intval;
 	result.u.number.addr_refs = pc.addr_refs;
 	symbol_set_object(symbol, &result, powers);
@@ -201,8 +202,7 @@ void parse_assignment(scope_t scope, bits force_bit, bits powers)
 	// if wanted, mark as address reference
 	if (typesystem_says_address()) {
 		// FIXME - checking types explicitly is ugly...
-		if ((result.type == &type_int)
-		|| (result.type == &type_float))
+		if (result.type == &type_number)
 			result.u.number.addr_refs = 1;
 	}
 	symbol_set_object(symbol, &result, powers);

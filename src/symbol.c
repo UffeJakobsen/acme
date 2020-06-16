@@ -31,8 +31,7 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// if symbol is neither int nor float, skip
-	if ((symbol->object.type != &type_int)
-	&& (symbol->object.type != &type_float))
+	if (symbol->object.type != &type_number)
 		return;
 
 	// CAUTION: if more types are added, check for NULL before using type pointer!
@@ -54,16 +53,14 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	default:
 		fprintf(fd, "\t= ");
 	}
-	if (symbol->object.u.number.flags & NUMBER_IS_DEFINED) {
-		if (symbol->object.type == &type_int)
-			fprintf(fd, "$%x", (unsigned) symbol->object.u.number.val.intval);
-		else if (symbol->object.type == &type_float)
-			fprintf(fd, "%.30f", symbol->object.u.number.val.fpval);	//FIXME %g
-		else
-			Bug_found("BogusType", 0);	// FIXME - put in docs!
-	} else {
+	if (symbol->object.u.number.ntype == NUMTYPE_UNDEFINED)
 		fprintf(fd, " ?");	// TODO - maybe write "UNDEFINED" instead? then the file could at least be parsed without errors
-	}
+	else if (symbol->object.u.number.ntype == NUMTYPE_INT)
+		fprintf(fd, "$%x", (unsigned) symbol->object.u.number.val.intval);
+	else if (symbol->object.u.number.ntype == NUMTYPE_FLOAT)
+		fprintf(fd, "%.30f", symbol->object.u.number.val.fpval);	//FIXME %g
+	else
+		Bug_found("BogusType", 0);	// FIXME - put in docs!
 	if (symbol->object.u.number.flags & NUMBER_EVER_UNDEFINED)
 		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
 	if (!symbol->has_been_read)
@@ -78,8 +75,8 @@ static void dump_vice_address(struct rwnode *node, FILE *fd)
 	struct symbol	*symbol	= node->body;
 
 	// dump address symbols even if they are not used
-	if ((symbol->object.type == &type_int)
-	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	if ((symbol->object.type == &type_number)
+	&& (symbol->object.u.number.ntype == NUMTYPE_INT)
 	&& (symbol->object.u.number.addr_refs == 1))
 		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
@@ -89,8 +86,8 @@ static void dump_vice_usednonaddress(struct rwnode *node, FILE *fd)
 
 	// dump non-addresses that are used
 	if (symbol->has_been_read
-	&& (symbol->object.type == &type_int)
-	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	&& (symbol->object.type == &type_number)
+	&& (symbol->object.u.number.ntype == NUMTYPE_INT)
 	&& (symbol->object.u.number.addr_refs != 1))
 		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
@@ -100,8 +97,8 @@ static void dump_vice_unusednonaddress(struct rwnode *node, FILE *fd)
 
 	// dump non-addresses that are unused
 	if (!symbol->has_been_read
-	&& (symbol->object.type == &type_int)
-	&& (symbol->object.u.number.flags & NUMBER_IS_DEFINED)
+	&& (symbol->object.type == &type_number)
+	&& (symbol->object.u.number.ntype == NUMTYPE_INT)
 	&& (symbol->object.u.number.addr_refs != 1))
 		fprintf(fd, "al C:%04x .%s\n", (unsigned) symbol->object.u.number.val.intval, node->id_string);
 }
@@ -146,9 +143,6 @@ struct symbol *symbol_find(scope_t scope)
 //	CAUTION: actual incrementing of counter is then done directly without calls here!
 void symbol_set_object(struct symbol *symbol, struct object *new_value, bits powers)
 {
-	struct type	*symbol_class,	// helper vars to group
-			*newval_class;	//	ints and floats
-
 	// if symbol has no object assigned to it yet, fine:
 	if (symbol->object.type == NULL) {
 		symbol->object = *new_value;	// copy whole struct including type
@@ -159,15 +153,9 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 
 	// now we know symbol already has a type
 
-	// compare types (CAUTION, ints and floats are grouped!)
-	symbol_class = symbol->object.type;
-	if (symbol_class == &type_float)
-		symbol_class = &type_int;
-	newval_class = new_value->type;
-	if (newval_class == &type_float)
-		newval_class = &type_int;
+	// compare types
 	// if too different, needs power (or complains)
-	if (symbol_class != newval_class) {
+	if (symbol->object.type != new_value->type) {
 		if (!(powers & POWER_CHANGE_OBJTYPE))
 			Throw_error(exception_symbol_defined);
 		// CAUTION: if above line throws error, we still go ahead and change type!
@@ -191,7 +179,7 @@ void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 	if (symbol->object.type == NULL)
 		Bug_found("NullObject", 0);	// FIXME - add to docs!
 
-	if ((symbol->object.type != &type_int) && (symbol->object.type != &type_float)) {
+	if (symbol->object.type != &type_number) {
 		Throw_error("Force bits can only be given to numbers.");	// FIXME - add to docs!
 		return;
 	}
@@ -216,8 +204,9 @@ void symbol_define(intval_t value)
 	struct object	result;
 	struct symbol	*symbol;
 
-	result.type = &type_int;
-	result.u.number.flags = NUMBER_IS_DEFINED;
+	result.type = &type_number;
+	result.u.number.ntype = NUMTYPE_INT;
+	result.u.number.flags = 0;
 	result.u.number.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL);
 	symbol->object = result;
@@ -266,12 +255,13 @@ void symbol_fix_forward_anon_name(boolean increment)
 	counter_symbol = symbol_find(section_now->local_scope);
 	if (counter_symbol->object.type == NULL) {
 		// finish freshly created symbol item
-		counter_symbol->object.type = &type_int;
-		counter_symbol->object.u.number.flags = NUMBER_IS_DEFINED;
+		counter_symbol->object.type = &type_number;
+		counter_symbol->object.u.number.ntype = NUMTYPE_INT;
+		counter_symbol->object.u.number.flags = 0;
 		counter_symbol->object.u.number.addr_refs = 0;
 		counter_symbol->object.u.number.val.intval = 0;
-	} else if (counter_symbol->object.type != &type_int) {
-		// sanity check: it must be an int!
+	} else if (counter_symbol->object.type != &type_number) {
+		// sanity check: it must be a number!
 		Bug_found("ForwardAnonCounterNotInt", 0);
 	}
 	// make sure it gets reset to zero in each new pass

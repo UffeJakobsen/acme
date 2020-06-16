@@ -21,8 +21,7 @@ struct type {
 	void		(*fix_result)(struct object *self);
 	void		(*print)(const struct object *self, struct dynabuf *db);
 };
-extern struct type	type_int;
-extern struct type	type_float;
+extern struct type	type_number;
 extern struct type	type_list;
 extern struct type	type_string;
 
@@ -44,8 +43,7 @@ struct expression {
 #define NUMBER_FORCES_24	(1u << 2)	// value usage forces 24-bit usage
 #define NUMBER_FORCEBITS	(NUMBER_FORCES_8 | NUMBER_FORCES_16 | NUMBER_FORCES_24)
 #define NUMBER_FITS_BYTE	(1u << 3)	// value is guaranteed to fit in one byte
-#define NUMBER_IS_DEFINED	(1u << 4)	// 0: undefined expression (value will be zero). 1: known result
-#define NUMBER_EVER_UNDEFINED	(1u << 5)	// value once was related to
+#define NUMBER_EVER_UNDEFINED	(1u << 4)	// value once was related to
 	// undefined expression. Needed for producing the same addresses in all
 	// passes; because in the first pass there will almost for sure be
 	// labels that are undefined, we can't simply get the addressing mode

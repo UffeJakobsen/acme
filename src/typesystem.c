@@ -42,7 +42,7 @@ void typesystem_want_nonaddr(struct number *result)
 	if (!config.warn_on_type_mismatch)
 		return;
 
-	if (!(result->flags & NUMBER_IS_DEFINED))
+	if (result->ntype == NUMTYPE_UNDEFINED)
 		return;
 
 	if (result->addr_refs != 0) {
@@ -56,7 +56,7 @@ void typesystem_want_addr(struct number *result)
 	if (!config.warn_on_type_mismatch)
 		return;
 
-	if (!(result->flags & NUMBER_IS_DEFINED))
+	if (result->ntype == NUMTYPE_UNDEFINED)
 		return;
 
 	if (result->addr_refs != 1) {

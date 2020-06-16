@@ -580,7 +580,7 @@ static enum eos po_align(void)
 
 	// make sure PC is defined
 	vcpu_read_pc(&pc);
-	if (!(pc.flags & NUMBER_IS_DEFINED)) {
+	if (pc.ntype == NUMTYPE_UNDEFINED) {
 		Throw_error(exception_pc_undefined);
 		return SKIP_REMAINDER;
 	}

@@ -219,14 +219,16 @@ do {						\
 
 #define PUSH_INT_ARG(i, f, r)				\
 do {							\
-	arg_stack[arg_sp].type = &type_int;		\
+	arg_stack[arg_sp].type = &type_number;		\
+	arg_stack[arg_sp].u.number.ntype = NUMTYPE_INT;	\
 	arg_stack[arg_sp].u.number.flags = (f);		\
 	arg_stack[arg_sp].u.number.val.intval = (i);	\
 	arg_stack[arg_sp++].u.number.addr_refs = (r);	\
 } while (0)
 #define PUSH_FP_ARG(fp, f)				\
 do {							\
-	arg_stack[arg_sp].type = &type_float;		\
+	arg_stack[arg_sp].type = &type_number;		\
+	arg_stack[arg_sp].u.number.ntype = NUMTYPE_FLOAT;\
 	arg_stack[arg_sp].u.number.flags = (f);		\
 	arg_stack[arg_sp].u.number.val.fpval = (fp);	\
 	arg_stack[arg_sp++].u.number.addr_refs = 0;	\
@@ -354,20 +356,21 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	symbol = symbol_find(scope);
 	symbol->has_been_read = TRUE;
 	if (symbol->object.type == NULL) {
-		// finish symbol item by making it an undefined int
-		symbol->object.type = &type_int;
+		// finish symbol item by making it an undefined number
+		symbol->object.type = &type_number;
+		symbol->object.u.number.ntype = NUMTYPE_UNDEFINED;
 		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;	// reading undefined taints it
 		symbol->object.u.number.addr_refs = 0;
 		symbol->object.u.number.val.intval = 0;
 	} else {
-		// FIXME - add sanity check for int/float where DEFINED is false and EVER_UNDEFINED is false -> Bug_found()!
-		// (because the only way to have DEFINED clear is the block above, and EVER_UNDEFINED taints everything it touches)
+		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> Bug_found()!
+		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
 	}
 	// first push on arg stack, so we have a local copy we can "unpseudopc"
 	arg = &arg_stack[arg_sp++];
 	*arg = symbol->object;
 	if (unpseudo_count) {
-		if (arg->type == &type_int) {
+		if (arg->type == &type_number) {
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
 			// TODO - check return value and enter error state if nonzero?
 		} else {
@@ -391,9 +394,9 @@ static void parse_program_counter(void)	// Now GotByte = "*"
 	GetByte();
 	vcpu_read_pc(&pc);
 	// if needed, output "value not defined" error
-	if (!(pc.flags & NUMBER_IS_DEFINED))
+	if (pc.ntype == NUMTYPE_UNDEFINED)
 		is_not_defined(NULL, 0, "*", 1);
-	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);
+	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);	// FIXME - when undefined pc is allowed, this must be changed for numtype!
 }
 
 
@@ -443,13 +446,13 @@ static void parse_quoted(char closing_quote)
 			Throw_error("There's more than one character.");
 		// parse character
 		value = (intval_t) (unsigned char) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
-		PUSH_INT_ARG(value, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);	// FIXME - why set FITS_BYTE? it's only really useful for undefined values!
+		PUSH_INT_ARG(value, NUMBER_FITS_BYTE, 0);	// FIXME - why set FITS_BYTE? it's only really useful for undefined values!
 	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 	return;
 
 fail:
-	PUSH_INT_ARG(0, NUMBER_IS_DEFINED | NUMBER_FITS_BYTE, 0);	// dummy
+	PUSH_INT_ARG(0, NUMBER_FITS_BYTE, 0);	// dummy
 	alu_state = STATE_ERROR;
 }
 
@@ -460,7 +463,7 @@ fail:
 static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
-	bits		flags	= NUMBER_IS_DEFINED;
+	bits		flags	= 0;
 	int		digits	= -1;	// digit counter
 
 	for (;;) {
@@ -503,7 +506,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 {
 	char		byte;
 	int		digits	= -1;	// digit counter
-	bits		flags	= NUMBER_IS_DEFINED;
+	bits		flags	= 0;
 	intval_t	value	= 0;
 
 	for (;;) {
@@ -556,7 +559,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 		GetByte();
 	}
 	// FIXME - add possibility to read 'e' and exponent!
-	PUSH_FP_ARG(fpval / denominator, NUMBER_IS_DEFINED);
+	PUSH_FP_ARG(fpval / denominator, 0);
 }
 
 
@@ -601,7 +604,7 @@ static void parse_number_literal(void)	// Now GotByte = first digit
 		GetByte();
 		parse_frac_part(intval);
 	} else {
-		PUSH_INT_ARG(intval, NUMBER_IS_DEFINED, 0);
+		PUSH_INT_ARG(intval, 0, 0);
 	}
 	// Now GotByte = non-decimal char
 }
@@ -612,7 +615,7 @@ static void parse_number_literal(void)	// Now GotByte = first digit
 static void parse_octal_literal(void)	// Now GotByte = first octal digit
 {
 	intval_t	value	= 0;
-	bits		flags	= NUMBER_IS_DEFINED;
+	bits		flags	= 0;
 	int		digits	= 0;	// digit counter
 
 	while ((GotByte >= '0') && (GotByte <= '7')) {
@@ -908,7 +911,7 @@ static boolean expect_argument_or_monadic_operator(void)
 			// illegal character read - so don't go on
 			// we found end-of-expression instead of an argument,
 			// that's either an empty expression or an erroneous one!
-			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack checking code won't bark
+			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack checking code won't bark	FIXME - use undefined?
 			if (op_stack[op_sp - 1] == &ops_start_expression) {
 				PUSH_OP(&ops_end_expression);
 				alu_state = STATE_TRY_TO_REDUCE_STACKS;
@@ -1126,8 +1129,9 @@ static void unsupported_operation(const struct object *optional, const struct op
 // create byte-sized int object (for comparison results, converted characters, ...)
 static void int_create_byte(struct object *self, intval_t byte)
 {
-	self->type = &type_int;
-	self->u.number.flags = NUMBER_IS_DEFINED | NUMBER_FITS_BYTE;	// FIXME - if DEFINED anyway, what use is there for FITS_BYTE?
+	self->type = &type_number;
+	self->u.number.ntype = NUMTYPE_INT;
+	self->u.number.flags = NUMBER_FITS_BYTE;	// FIXME - if DEFINED anyway, what use is there for FITS_BYTE?
 	self->u.number.val.intval = byte;
 	self->u.number.addr_refs = 0;
 }
@@ -1136,7 +1140,7 @@ static void int_create_byte(struct object *self, intval_t byte)
 // convert to float
 inline static void int_to_float(struct object *self)
 {
-	self->type = &type_float;
+	self->u.number.ntype = NUMTYPE_FLOAT;
 	self->u.number.val.fpval = self->u.number.val.intval;
 }
 
@@ -1144,7 +1148,7 @@ inline static void int_to_float(struct object *self)
 // convert to int
 inline static void float_to_int(struct object *self)
 {
-	self->type = &type_int;
+	self->u.number.ntype = NUMTYPE_INT;
 	self->u.number.val.intval = self->u.number.val.fpval;
 }
 
@@ -1152,7 +1156,7 @@ inline static void float_to_int(struct object *self)
 // return DEFINED flag
 static boolean number_is_defined(const struct object *self)
 {
-	return !!(self->u.number.flags & NUMBER_IS_DEFINED);
+	return self->u.number.ntype != NUMTYPE_UNDEFINED;
 }
 
 // list/string:
@@ -1165,24 +1169,24 @@ static boolean object_return_true(const struct object *self)
 // int/float:
 // helper function to check two values for equality
 // in case of undefined value(s), "fallback" is returned
-static inline boolean num_different(const struct object *self, const struct object *other, boolean fallback)
+static inline boolean num_different(const struct number *self, const struct number *other, boolean fallback)
 {
-	if ((self->u.number.flags & NUMBER_IS_DEFINED) == 0)
+	if (self->ntype == NUMTYPE_UNDEFINED)
 		return fallback;
 
-	if ((other->u.number.flags & NUMBER_IS_DEFINED) == 0)
+	if (other->ntype == NUMTYPE_UNDEFINED)
 		return fallback;
 
-	if (self->type == &type_int) {
-		if (other->type == &type_int)
-			return self->u.number.val.intval != other->u.number.val.intval;
+	if (self->ntype == NUMTYPE_INT) {
+		if (other->ntype == NUMTYPE_INT)
+			return self->val.intval != other->val.intval;
 		else
-			return self->u.number.val.intval != other->u.number.val.fpval;
+			return self->val.intval != other->val.fpval;
 	} else {
-		if (other->type == &type_int)
-			return self->u.number.val.fpval != other->u.number.val.intval;
+		if (other->ntype == NUMTYPE_INT)
+			return self->val.fpval != other->val.intval;
 		else
-			return self->u.number.val.fpval != other->u.number.val.fpval;
+			return self->val.fpval != other->val.fpval;
 	}
 }
 
@@ -1198,18 +1202,19 @@ static void number_assign(struct object *self, const struct object *new_value, b
 
 	// accepting a different value is easily done by just forgetting the old one:
 	if (accept_change) {
-		own_flags &= ~(NUMBER_IS_DEFINED | NUMBER_FITS_BYTE);
+		self->u.number.ntype = NUMTYPE_UNDEFINED;
+		own_flags &= ~(NUMBER_FITS_BYTE);
 	}
 
 	// copy struct over?
-	if (!(own_flags & NUMBER_IS_DEFINED)) {
+	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
 		// symbol is undefined OR redefinitions are allowed, so use new value:
 		*self = *new_value;	// copy type and flags/value/addr_refs
 		// flags will be fixed, see below
 	} else {
 		// symbol is already defined, so compare new and old values
 		// if values differ, complain and return
-		if (num_different(self, new_value, FALSE)) {
+		if (num_different(&self->u.number, &new_value->u.number, FALSE)) {
 			Throw_error(exception_symbol_defined);
 			return;
 		}
@@ -1227,7 +1232,7 @@ static void number_assign(struct object *self, const struct object *new_value, b
 	// (any hypothetical problems about "new value is later found out to
 	// _not_ fit byte" would be detected when assigning a different value
 	// raises an error in a later pass)
-	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
+	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_EVER_UNDEFINED);
 
 	self->u.number.flags = own_flags;
 }
@@ -1275,6 +1280,50 @@ static void warn_float_to_int(void)
 	Throw_first_pass_warning("Converted to integer for binary logic operator.");
 }
 
+// undefined:
+// handle monadic operator (includes functions)
+static void undef_handle_monadic_operator(struct object *self, const struct op *op)
+{
+	switch (op->id) {
+	case OPID_ADDRESS:
+		self->u.number.addr_refs = 1;	// result now is an address
+		break;
+	case OPID_INT:
+	case OPID_FLOAT:
+		self->u.number.addr_refs = 0;
+		break;
+	case OPID_SIN:
+	case OPID_COS:
+	case OPID_TAN:
+	case OPID_ARCSIN:
+	case OPID_ARCCOS:
+	case OPID_ARCTAN:
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
+		self->u.number.addr_refs = 0;
+		break;
+	case OPID_NOT:
+	case OPID_NEGATE:
+		self->u.number.flags &= ~NUMBER_FITS_BYTE;
+		self->u.number.addr_refs = -(self->u.number.addr_refs);	// negate address ref count
+		break;
+	case OPID_LOWBYTEOF:
+	case OPID_HIGHBYTEOF:
+	case OPID_BANKBYTEOF:
+		self->u.number.flags |= NUMBER_FITS_BYTE;
+		self->u.number.flags &= ~NUMBER_FORCEBITS;
+		self->u.number.addr_refs = 0;
+		break;
+// add new monadic operators here
+//	case OPID_:
+//		break;
+	default:
+		unsupported_operation(NULL, op, self);
+	}
+	self->u.number.val.intval = 0;	// FIXME - should not be needed...
+}
+
+// prototype for int/float passing
+static void float_handle_monadic_operator(struct object *self, const struct op *op);
 // int:
 // handle monadic operator (includes functions)
 static void int_handle_monadic_operator(struct object *self, const struct op *op)
@@ -1298,7 +1347,7 @@ static void int_handle_monadic_operator(struct object *self, const struct op *op
 	case OPID_ARCTAN:
 		// convert int to fp and ask fp handler to do the work
 		int_to_float(self);
-		type_float.monadic_op(self, op);	// TODO - put recursion check around this?
+		float_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		return;	// float handler has done everything
 
 	case OPID_NOT:
@@ -1343,8 +1392,7 @@ static void float_ranged_fn(double (*fn)(double), struct object *self)
 	if ((self->u.number.val.fpval >= -1) && (self->u.number.val.fpval <= 1)) {
 		self->u.number.val.fpval = fn(self->u.number.val.fpval);
 	} else {
-		if (self->u.number.flags & NUMBER_IS_DEFINED)
-			Throw_error("Argument out of range.");	// TODO - add number output to error message
+		Throw_error("Argument out of range.");	// TODO - add number output to error message
 		self->u.number.val.fpval = 0;
 	}
 }
@@ -1399,7 +1447,7 @@ static void float_handle_monadic_operator(struct object *self, const struct op *
 	case OPID_BANKBYTEOF:
 		// convert fp to int and ask int handler to do the work
 		float_to_int(self);
-		type_int.monadic_op(self, op);	// TODO - put recursion check around this?
+		int_handle_monadic_operator(self, op);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
 // add new monadic operators here
@@ -1411,6 +1459,25 @@ static void float_handle_monadic_operator(struct object *self, const struct op *
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
 
+// num:
+// handle monadic operator (includes functions)
+static void number_handle_monadic_operator(struct object *self, const struct op *op)
+{
+	switch (self->u.number.ntype) {
+	case NUMTYPE_UNDEFINED:
+		undef_handle_monadic_operator(self, op);
+		break;
+	case NUMTYPE_INT:
+		int_handle_monadic_operator(self, op);
+		break;
+	case NUMTYPE_FLOAT:
+		float_handle_monadic_operator(self, op);
+		break;
+	default:
+		Bug_found("IllegalNumberType1", self->u.number.ntype);	// FIXME - add to docs!
+	}
+}
+
 // list:
 // handle monadic operator (includes functions)
 static void list_handle_monadic_operator(struct object *self, const struct op *op)
@@ -1420,8 +1487,9 @@ static void list_handle_monadic_operator(struct object *self, const struct op *o
 	if (op->id == OPID_LEN) {
 		length = self->u.listhead->length;
 		self->u.listhead->refs--;	// FIXME - call some list_decrement_refs() instead...
-		self->type = &type_int;
-		self->u.number.flags = NUMBER_IS_DEFINED;
+		self->type = &type_number;
+		self->u.number.ntype = NUMTYPE_INT;
+		self->u.number.flags = 0;
 		self->u.number.val.intval = length;
 		self->u.number.addr_refs = 0;
 	} else {
@@ -1438,8 +1506,9 @@ static void string_handle_monadic_operator(struct object *self, const struct op 
 	if (op->id == OPID_LEN) {
 		length = self->u.string->length;
 		self->u.string->refs--;	// FIXME - call some string_decrement_refs() instead...
-		self->type = &type_int;
-		self->u.number.flags = NUMBER_IS_DEFINED;
+		self->type = &type_number;
+		self->u.number.ntype = NUMTYPE_INT;
+		self->u.number.flags = 0;
 		self->u.number.val.intval = length;
 		self->u.number.addr_refs = 0;
 	} else {
@@ -1450,28 +1519,87 @@ static void string_handle_monadic_operator(struct object *self, const struct op 
 // int/float:
 // merge result flags
 // (used by both int and float handlers for comparison operators)
-static void number_fix_result_after_comparison(struct object *self, const struct object *other, intval_t result)
+static void intfloat_fix_result_after_comparison(struct object *self, const struct object *other, intval_t result)
 {
 	bits	flags;
 
-	self->type = &type_int;
+	self->type = &type_number;
+	self->u.number.ntype = NUMTYPE_INT;
 	self->u.number.val.intval = result;
 	self->u.number.addr_refs = 0;
-	flags = (self->u.number.flags & other->u.number.flags) & NUMBER_IS_DEFINED;	// DEFINED flags are ANDed together
-	flags |= (self->u.number.flags | other->u.number.flags) & NUMBER_EVER_UNDEFINED;	// EVER_UNDEFINED flags are ORd together
+	flags = (self->u.number.flags | other->u.number.flags) & NUMBER_EVER_UNDEFINED;	// EVER_UNDEFINED flags are ORd together
 	flags |= NUMBER_FITS_BYTE;	// FITS_BYTE gets set
 	// (FORCEBITS are cleared)
 	self->u.number.flags = flags;
 }
 // (used by both int and float handlers for all other dyadic operators)
-static void number_fix_result_after_dyadic(struct object *self, const struct object *other)
+static void intfloat_fix_result_after_dyadic(struct object *self, const struct object *other)
 {
 	self->u.number.flags |= other->u.number.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);	// EVER_UNDEFINED and FORCEBITs are ORd together
-	self->u.number.flags &= (other->u.number.flags | ~NUMBER_IS_DEFINED);	// DEFINED flags are ANDed together
 	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// FITS_BYTE is cleared
 }
 
+// undefined/int/float:
+// handle dyadic operator
+// (both args are numbers, but at least one of them is undefined!)
+static void undef_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
+{
+	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
+	switch (op->id) {
+	case OPID_POWEROF:
+	case OPID_MULTIPLY:
+	case OPID_DIVIDE:
+	case OPID_INTDIV:
+	case OPID_MODULO:
+	case OPID_SHIFTLEFT:
+	case OPID_ASR:
+	case OPID_LSR:
+		break;
+
+	case OPID_SUBTRACT:
+		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
+		break;
+
+	case OPID_LESSOREQUAL:
+	case OPID_LESSTHAN:
+	case OPID_GREATEROREQUAL:
+	case OPID_GREATERTHAN:
+	case OPID_NOTEQUAL:
+	case OPID_EQUALS:
+		// only for comparisons:
+		self->u.number.flags |= NUMBER_FITS_BYTE;	// FITS_BYTE gets set
+		self->u.number.flags &= ~NUMBER_FORCEBITS;	// FORCEBITS are cleared
+		goto shared;
+
+	case OPID_EOR:
+		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		/*FALLTHROUGH*/
+	case OPID_XOR:
+	case OPID_AND:
+	case OPID_OR:
+	case OPID_ADD:
+		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
+		break;
+// add new dyadic operators here
+//	case OPID_:
+//		break;
+	default:
+		unsupported_operation(self, op, other);
+		return;
+	}
+	// CAUTION: comparisons goto label below instead of jumping here
+	self->u.number.flags |= (other->u.number.flags & NUMBER_FORCEBITS);	// FORCEBITs are ORd together
+	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// FITS_BYTE is cleared
+shared:
+	self->u.number.flags |= (other->u.number.flags & NUMBER_EVER_UNDEFINED);	// EVER_UNDEFINED flags are ORd together
+	self->u.number.ntype = NUMTYPE_UNDEFINED;
+	self->u.number.val.intval = 0;	// FIXME - should not be needed...
+	self->u.number.addr_refs = refs;	// update address refs with local copy
+}
+
+// prototype for int/float passing
+static void float_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other);
 // int:
 // handle dyadic operator
 static void int_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
@@ -1479,9 +1607,9 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
 	// first check type of second arg:
-	if (other->type == &type_int) {
+	if (other->u.number.ntype == NUMTYPE_INT) {
 		// ok
-	} else if (other->type == &type_float) {
+	} else if (other->u.number.ntype == NUMTYPE_FLOAT) {
 		// handle according to operation
 		switch (op->id) {
 		case OPID_POWEROF:
@@ -1498,23 +1626,22 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		case OPID_NOTEQUAL:
 			// become float, delegate to float handler
 			int_to_float(self);
-			type_float.dyadic_op(self, op, other);	// TODO - put recursion check around this?
+			float_handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
 			return;	// float handler has done everything
 
-		case OPID_MODULO:
-		case OPID_SHIFTLEFT:
-		case OPID_ASR:
-			// convert other to int
-			float_to_int(other);
-			break;
 		case OPID_LSR:
 		case OPID_AND:
 		case OPID_OR:
 		case OPID_EOR:
 		case OPID_XOR:
 			// convert other to int, warning user
-			float_to_int(other);
 			warn_float_to_int();
+			/*FALLTHROUGH*/
+		case OPID_MODULO:
+		case OPID_SHIFTLEFT:
+		case OPID_ASR:
+			// convert other to int
+			float_to_int(other);
 			break;
 // add new dyadic operators here:
 //		case OPID_:
@@ -1524,7 +1651,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 			return;
 		}
 // add new types here:
-//	} else if (other->type == &type_) {
+//	} else if (other->u.number.ntype == NUMTYPE_) {
 //		...
 	} else {
 		unsupported_operation(self, op, other);
@@ -1532,7 +1659,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 	}
 	// maybe put this into an extra "int_dyadic_int" function?
 	// sanity check, now "other" must be an int
-	if (other->type != &type_int)
+	if (other->u.number.ntype != NUMTYPE_INT)
 		Bug_found("SecondArgIsNotAnInt", op->id);
 
 	// part 2: now we got rid of non-ints, perform actual operation:
@@ -1541,8 +1668,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		if (other->u.number.val.intval >= 0) {
 			self->u.number.val.intval = my_pow(self->u.number.val.intval, other->u.number.val.intval);
 		} else {
-			if (other->u.number.flags & NUMBER_IS_DEFINED)
-				Throw_error("Exponent is negative.");
+			Throw_error("Exponent is negative.");
 			self->u.number.val.intval = 0;
 		}
 		break;
@@ -1561,8 +1687,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		if (other->u.number.val.intval) {
 			self->u.number.val.intval %= other->u.number.val.intval;
 		} else {
-			if (other->u.number.flags & NUMBER_IS_DEFINED)
-				Throw_error(exception_div_by_zero);
+			Throw_error(exception_div_by_zero);
 			self->u.number.val.intval = 0;
 		}
 		break;
@@ -1584,17 +1709,17 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
 	case OPID_LESSOREQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval <= other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval <= other->u.number.val.intval);
 	case OPID_LESSTHAN:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval < other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval < other->u.number.val.intval);
 	case OPID_GREATEROREQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval >= other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval >= other->u.number.val.intval);
 	case OPID_GREATERTHAN:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval > other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval > other->u.number.val.intval);
 	case OPID_NOTEQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval != other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval != other->u.number.val.intval);
 	case OPID_EQUALS:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.intval == other->u.number.val.intval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval == other->u.number.val.intval);
 	case OPID_AND:
 		self->u.number.val.intval &= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
@@ -1617,9 +1742,9 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		unsupported_operation(self, op, other);
 		return;
 	}
-	// CAUTION: comparisons call number_fix_result_after_comparison instead of jumping here
+	// CAUTION: comparisons call intfloat_fix_result_after_comparison instead of jumping here
 	self->u.number.addr_refs = refs;	// update address refs with local copy
-	number_fix_result_after_dyadic(self, other);	// fix result flags
+	intfloat_fix_result_after_dyadic(self, other);	// fix result flags
 }
 
 // float:
@@ -1629,9 +1754,9 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
 	// first check type of second arg:
-	if (other->type == &type_float) {
+	if (other->u.number.ntype == NUMTYPE_FLOAT) {
 		// ok
-	} else if (other->type == &type_int) {
+	} else if (other->u.number.ntype == NUMTYPE_INT) {
 		// handle according to operation
 		switch (op->id) {
 		// these want two floats
@@ -1669,7 +1794,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 			return;
 		}
 // add new types here
-//	} else if (other->type == &type_) {
+//	} else if (other->u.number.ntype == NUMTYPE_) {
 //		...
 	} else {
 		unsupported_operation(self, op, other);
@@ -1687,8 +1812,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		if (other->u.number.val.fpval) {
 			self->u.number.val.fpval /= other->u.number.val.fpval;
 		} else {
-			if (other->u.number.flags & NUMBER_IS_DEFINED)
-				Throw_error(exception_div_by_zero);
+			Throw_error(exception_div_by_zero);
 			self->u.number.val.fpval = 0;
 		}
 		break;
@@ -1696,11 +1820,10 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		if (other->u.number.val.fpval) {
 			self->u.number.val.intval = self->u.number.val.fpval / other->u.number.val.fpval;	// fp becomes int!
 		} else {
-			if (other->u.number.flags & NUMBER_IS_DEFINED)
-				Throw_error(exception_div_by_zero);
+			Throw_error(exception_div_by_zero);
 			self->u.number.val.intval = 0;
 		}
-		self->type = &type_int;	// result is int
+		self->u.number.ntype = NUMTYPE_INT;	// result is int
 		break;
 	case OPID_LSR:
 	case OPID_AND:
@@ -1712,7 +1835,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 	case OPID_MODULO:
 		float_to_int(self);
 		// int handler will check other and, if needed, convert to int
-		type_int.dyadic_op(self, op, other);	// TODO - put recursion check around this?
+		int_handle_dyadic_operator(self, op, other);	// TODO - put recursion check around this?
 		return;	// int handler has done everything
 
 	case OPID_ADD:
@@ -1724,27 +1847,27 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		refs = self->u.number.addr_refs - other->u.number.addr_refs;	// subtract address references
 		break;
 	case OPID_SHIFTLEFT:
-		if (other->type == &type_float)
+		if (other->u.number.ntype == NUMTYPE_FLOAT)
 			float_to_int(other);
 		self->u.number.val.fpval *= pow(2.0, other->u.number.val.intval);
 		break;
 	case OPID_ASR:
-		if (other->type == &type_float)
+		if (other->u.number.ntype == NUMTYPE_FLOAT)
 			float_to_int(other);
 		self->u.number.val.fpval /= (1 << other->u.number.val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
 	case OPID_LESSOREQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval <= other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval <= other->u.number.val.fpval);
 	case OPID_LESSTHAN:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval < other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval < other->u.number.val.fpval);
 	case OPID_GREATEROREQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval >= other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval >= other->u.number.val.fpval);
 	case OPID_GREATERTHAN:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval > other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval > other->u.number.val.fpval);
 	case OPID_NOTEQUAL:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval != other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval != other->u.number.val.fpval);
 	case OPID_EQUALS:
-		return number_fix_result_after_comparison(self, other, self->u.number.val.fpval == other->u.number.val.fpval);
+		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval == other->u.number.val.fpval);
 // add new dyadic operators here
 //	case OPID_:
 //		break;
@@ -1752,9 +1875,30 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		unsupported_operation(self, op, other);
 		return;
 	}
-	// CAUTION: comparisons call number_fix_result_after_comparison instead of jumping here
+	// CAUTION: comparisons call intfloat_fix_result_after_comparison instead of jumping here
 	self->u.number.addr_refs = refs;	// update address refs with local copy
-	number_fix_result_after_dyadic(self, other);	// fix result flags
+	intfloat_fix_result_after_dyadic(self, other);	// fix result flags
+}
+
+// num:
+// handle dyadic operator
+static void number_handle_dyadic_operator(struct object *self, const struct op *op, struct object *other)
+{
+	// first check type of second arg:
+	if (other->type != &type_number) {
+		unsupported_operation(self, op, other);
+		return;
+	}
+
+	if ((self->u.number.ntype == NUMTYPE_UNDEFINED)
+	|| (other->u.number.ntype == NUMTYPE_UNDEFINED))
+		undef_handle_dyadic_operator(self, op, other);
+	else if (self->u.number.ntype == NUMTYPE_INT)
+		int_handle_dyadic_operator(self, op, other);
+	else if (self->u.number.ntype == NUMTYPE_FLOAT)
+		float_handle_dyadic_operator(self, op, other);
+	else
+		Bug_found("IllegalNumberType2", self->u.number.ntype);	// FIXME - add to docs!
 }
 
 
@@ -1764,16 +1908,19 @@ static int get_valid_index(int *target, int length, const struct object *self, c
 {
 	int	index;
 
-	if (other->type == &type_float)
-		float_to_int(other);
-	if (other->type != &type_int) {
+	if (other->type != &type_number) {
 		unsupported_operation(self, op, other);
 		return 1;
 	}
-	if (!(other->u.number.flags & NUMBER_IS_DEFINED)) {
+	if (other->u.number.ntype == NUMTYPE_UNDEFINED) {
 		Throw_error("Index is undefined.");
 		return 1;
 	}
+	if (other->u.number.ntype == NUMTYPE_FLOAT)
+		float_to_int(other);
+	if (other->u.number.ntype != NUMTYPE_INT)
+		Bug_found("IllegalNumberType3", other->u.number.ntype);	// FIXME - add to docs!
+
 	index = other->u.number.val.intval;
 	// negative indices access from the end
 	if (index < 0)
@@ -1900,36 +2047,24 @@ static void number_fix_result(struct object *self)
 		self->u.number.flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
 	else if (self->u.number.flags & NUMBER_FORCES_16)
 		self->u.number.flags &= ~NUMBER_FORCES_8;
-}
 
-// int:
-// set flags according to result
-static void int_fix_result(struct object *self)
-{
-	number_fix_result(self);
-	// if undefined, return zero
-	if (!(self->u.number.flags & NUMBER_IS_DEFINED))
-		self->u.number.val.intval = 0;
-	// if value is sure, check to set FITS BYTE
-	else if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
-	&& (self->u.number.val.intval <= 255)
-	&& (self->u.number.val.intval >= -128))
-		self->u.number.flags |= NUMBER_FITS_BYTE;
-}
-
-// float:
-// set flags according to result
-static void float_fix_result(struct object *self)
-{
-	number_fix_result(self);
-	// if undefined, return zero
-	if (!(self->u.number.flags & NUMBER_IS_DEFINED))
-		self->u.number.val.fpval = 0;
-	// if value is sure, check to set FITS BYTE
-	else if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
-	&& (self->u.number.val.fpval <= 255.0)
-	&& (self->u.number.val.fpval >= -128.0))
-		self->u.number.flags |= NUMBER_FITS_BYTE;
+	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
+		self->u.number.val.intval = 0;	// FIXME - should not be needed!
+	} else if (self->u.number.ntype == NUMTYPE_INT) {
+		// if value is sure, check to set FITS BYTE
+		if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
+		&& (self->u.number.val.intval <= 255)
+		&& (self->u.number.val.intval >= -128))
+			self->u.number.flags |= NUMBER_FITS_BYTE;	// FIXME - what for? isn't this flag only of use when undefined?
+	} else if (self->u.number.ntype == NUMTYPE_FLOAT) {
+		// if value is sure, check to set FITS BYTE
+		if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
+		&& (self->u.number.val.fpval <= 255.0)
+		&& (self->u.number.val.fpval >= -128.0))
+			self->u.number.flags |= NUMBER_FITS_BYTE;	// FIXME - what for? isn't this flag only of use when undefined?
+	} else {
+		Bug_found("IllegalNumberType4", self->u.number.ntype);	// FIXME - add to docs!
+	}
 }
 
 // list/string:
@@ -1938,34 +2073,25 @@ static void object_no_op(struct object *self)
 {
 }
 
-// int:
+// int/float:
 // print value for user message
-static void int_print(const struct object *self, struct dynabuf *db)
+static void number_print(const struct object *self, struct dynabuf *db)
 {
-	char	buffer[32];	// 11 for dec, 8 for hex
+	char	buffer[40];	// large enough(tm)
 
-	if (self->u.number.flags & NUMBER_IS_DEFINED) {
+	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
+		DynaBuf_add_string(db, "<UNDEFINED NUMBER>");
+	} else if (self->u.number.ntype == NUMTYPE_INT) {
 		sprintf(buffer, "%ld (0x%lx)", (long) self->u.number.val.intval, (long) self->u.number.val.intval);
 		DynaBuf_add_string(db, buffer);
-	} else {
-		DynaBuf_add_string(db, "<UNDEFINED INT>");
-	}
-}
-
-// float:
-// print value for user message
-static void float_print(const struct object *self, struct dynabuf *db)
-{
-	char	buffer[40];
-
-	if (self->u.number.flags & NUMBER_IS_DEFINED) {
+	} else if (self->u.number.ntype == NUMTYPE_FLOAT) {
 		// write up to 30 significant characters.
 		// remaining 10 should suffice for sign,
 		// decimal point, exponent, terminator etc.
 		sprintf(buffer, "%.30g", self->u.number.val.fpval);
 		DynaBuf_add_string(db, buffer);
 	} else {
-		DynaBuf_add_string(db, "<UNDEFINED FLOAT>");
+		Bug_found("IllegalNumberType5", self->u.number.ntype);	// FIXME - add to docs!
 	}
 }
 
@@ -1998,23 +2124,14 @@ static void string_print(const struct object *self, struct dynabuf *db)
 	DynaBuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
 }
 
-struct type	type_int	= {
-	"integer",
+struct type	type_number	= {
+	"number",
 	number_is_defined,
 	number_assign,
-	int_handle_monadic_operator,
-	int_handle_dyadic_operator,
-	int_fix_result,
-	int_print
-};
-struct type	type_float	= {
-	"float",
-	number_is_defined,
-	number_assign,
-	float_handle_monadic_operator,
-	float_handle_dyadic_operator,
-	float_fix_result,
-	float_print
+	number_handle_monadic_operator,
+	number_handle_dyadic_operator,
+	number_fix_result,
+	number_print
 };
 struct type	type_list	= {
 	"list",
@@ -2228,9 +2345,10 @@ static int parse_expression(struct expression *expression)
 		// if there was nothing to parse, mark as undefined	FIXME - change this! make "nothing" its own result type; only numbers may be undefined
 		// (so ALU_defined_int() can react)
 		if (expression->is_empty) {
-			result->type = &type_int;
-			result->u.number.flags = NUMBER_EVER_UNDEFINED;	// ...and without NUMBER_IS_DEFINED!
-			result->u.number.val.intval = 0;
+			result->type = &type_number;
+			result->u.number.ntype = NUMTYPE_UNDEFINED;
+			result->u.number.flags = NUMBER_EVER_UNDEFINED;
+			result->u.number.val.intval = 0;	// FIXME - should not be needed!
 			result->u.number.addr_refs = 0;
 		} else {
 			// not empty. undefined?
@@ -2246,8 +2364,9 @@ static int parse_expression(struct expression *expression)
 		// State is STATE_ERROR. Errors have already been reported,
 		// but we must make sure not to pass bogus data to caller.
 		// FIXME - just use the return value to indicate "there were errors, do not use result!"
-		result->type = &type_int;
-		result->u.number.flags = 0;	// maybe set DEFINED flag to suppress follow-up errors?
+		result->type = &type_number;
+		result->u.number.ntype = NUMTYPE_UNDEFINED;	// maybe use NUMTYPE_INT to suppress follow-up errors?
+		result->u.number.flags = 0;
 		result->u.number.val.intval = 0;
 		result->u.number.addr_refs = 0;
 		// make sure no additional (spurious) errors are reported:
@@ -2275,11 +2394,16 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_error(exception_no_value);
-	if (expression.result.type == &type_int)
-		*target = expression.result.u.number.val.intval;
-	else if (expression.result.type == &type_float)
-		*target = expression.result.u.number.val.fpval;
-	else {
+	if (expression.result.type == &type_number) {
+		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED)
+			*target = 0;
+		else if (expression.result.u.number.ntype == NUMTYPE_INT)
+			*target = expression.result.u.number.val.intval;
+		else if (expression.result.u.number.ntype == NUMTYPE_FLOAT)
+			*target = expression.result.u.number.val.fpval;
+		else
+			Bug_found("IllegalNumberType6", expression.result.u.number.ntype);	// FIXME - add to docs!
+	} else {
 		*target = 0;
 		Throw_error(exception_not_number);
 	}
@@ -2306,15 +2430,19 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
 		Throw_serious_error(exception_no_value);
-	if (expression.result.type == &type_int) {
-		// ok
-	} else if (expression.result.type == &type_float) {
-		float_to_int(&expression.result);
+	if (expression.result.type == &type_number) {
+		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED) {
+			Throw_serious_error(exception_value_not_defined);
+		} else if (expression.result.u.number.ntype == NUMTYPE_INT) {
+			// ok
+		} else if (expression.result.u.number.ntype == NUMTYPE_FLOAT) {
+			float_to_int(&expression.result);
+		} else {
+			Bug_found("IllegalNumberType7", expression.result.u.number.ntype);	// FIXME - add to docs!
+		}
 	} else {
 		Throw_serious_error(exception_not_number);
 	}
-	if (!(expression.result.u.number.flags & NUMBER_IS_DEFINED))
-		Throw_serious_error(exception_value_not_defined);
 	*intresult = expression.result.u.number;
 }
 
@@ -2330,11 +2458,14 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFINED | ACCEPT_OPENPARENTHESIS
 {
 	parse_expression(expression);	// FIXME - check return value and pass to caller!
-	// convert float to int
-	if (expression->result.type == &type_float)
-		float_to_int(&(expression->result));
-	if (expression->result.type != &type_int)
+	if (expression->result.type == &type_number) {
+		// convert float to int
+		if (expression->result.u.number.ntype == NUMTYPE_FLOAT)
+			float_to_int(&(expression->result));
+		// FIXME - check for undefined?
+	} else {
 		Throw_error(exception_not_number);
+	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
 		Throw_error(exception_paren_open);
