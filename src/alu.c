@@ -52,9 +52,9 @@ enum op_id {
 	// special (pseudo) operators:
 	OPID_END_EXPRESSION,	//		end of expression (quasi-dyadic)
 	OPID_START_EXPRESSION,	//		start of expression
-	OPID_LEFT_PARENTHESIS,	//	(v	'(' starts subexpression (quasi-monadic)
+	OPID_SUBEXPR_PAREN,	//	(v	'(' starts subexpression (quasi-monadic)
 	OPID_START_LIST,	//	[1,2]	'[' starts non-empty list literal (quasi-monadic, followed by dyadic OPID_LIST_APPEND)
-	OPID_START_INDEX,	//	v[	'[' starts subexpression (quasi-monadic, after dyadic OPID_ATINDEX)
+	OPID_SUBEXPR_BRACKET,	//	v[	'[' starts subexpression (quasi-monadic, after dyadic OPID_ATINDEX)
 	// monadic operators (including functions):
 	OPID_NOT,		//	!v	NOT v		bit-wise NOT
 	OPID_NEGATE,		//	-v			negation
@@ -103,9 +103,9 @@ struct op {
 };
 static struct op ops_end_expression	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"end of expression"	};
 static struct op ops_start_expression	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
-static struct op ops_left_parenthesis	= {4, OPGROUP_SPECIAL,	OPID_LEFT_PARENTHESIS,	"left parenthesis"	};
+static struct op ops_subexpr_paren	= {4, OPGROUP_SPECIAL,	OPID_SUBEXPR_PAREN,	"left parenthesis"	};
 static struct op ops_start_list		= {6, OPGROUP_SPECIAL,	OPID_START_LIST,	"start list"	};
-static struct op ops_start_index	= {8, OPGROUP_SPECIAL,	OPID_START_INDEX,	"open index"	};
+static struct op ops_subexpr_bracket	= {8, OPGROUP_SPECIAL,	OPID_SUBEXPR_BRACKET,	"open index"	};
 static struct op ops_list_append	= {14, OPGROUP_DYADIC,	OPID_LIST_APPEND,	"append to list"	};
 static struct op ops_or			= {16, OPGROUP_DYADIC,	OPID_OR,	"logical or"	};
 static struct op ops_eor		= {18, OPGROUP_DYADIC,	OPID_EOR,	"exclusive or"	};	// FIXME - remove
@@ -173,7 +173,7 @@ static int		arg_sp;
 enum alu_state {
 	STATE_EXPECT_ARG_OR_MONADIC_OP,
 	STATE_EXPECT_DYADIC_OP,
-	STATE_TRY_TO_REDUCE_STACKS,
+	STATE_TRY_TO_REDUCE_STACKS,	// FIXME - get rid of this state
 	STATE_MAX_GO_ON,	// "border value" to find the stoppers:
 	STATE_ERROR,		// error has occurred
 	STATE_END		// standard end
@@ -803,7 +803,8 @@ static boolean expect_argument_or_monadic_operator(void)
 		if (GotByte == ']') {
 			// list literal is empty, so we're basically done
 			GetByte();
-			alu_state = STATE_EXPECT_DYADIC_OP;
+			goto now_expect_dyadic_op;
+
 		} else {
 			// non-empty list literal
 			PUSH_OP(&ops_start_list);	// quasi-monadic "start of list", makes sure earlier ops do not process empty list
@@ -814,7 +815,7 @@ static boolean expect_argument_or_monadic_operator(void)
 		break;//goto done;
 
 	case '(':	// left parenthesis
-		op = &ops_left_parenthesis;
+		op = &ops_subexpr_paren;
 		goto get_byte_and_push_monadic;
 
 // arguments (state changes to ExpectDyadic)
@@ -1004,7 +1005,8 @@ static void expect_dyadic_operator(void)
 	case '[':	// indexing operator
 		GetByte();	// eat char
 		PUSH_OP(&ops_atindex);	// first put high-priority dyadic on stack,
-		PUSH_OP(&ops_start_index);	// then low-priority special ops_start_index
+		// FIXME - reduce stacks!
+		PUSH_OP(&ops_subexpr_bracket);	// then low-priority special ops_subexpr_bracket
 // FIXME! this would work reliably if "atindex" had the highest priority.
 // but function calls have higher priority than indexing:
 // fn(a+b)[c] -> fn d [c] -> e [c], but the code above would return fn(d[c]) instead
@@ -2171,7 +2173,7 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		alu_state = STATE_END;	// done
 		return TRUE;	// caller can remove this operator (we are done, so not really needed, but there are sanity checks for stack pointers)
 
-	case OPID_LEFT_PARENTHESIS:
+	case OPID_SUBEXPR_PAREN:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
 		if (current != OPID_END_EXPRESSION)
 			Bug_found("StrangeParenthesis", current);
@@ -2184,7 +2186,7 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		}
 		// unmatched parenthesis, as in "lda ($80,x)"
 		++(expression->open_parentheses);	// count
-		return TRUE;	// caller can remove "OPID_LEFT_PARENTHESIS" operator from stack
+		return TRUE;	// caller can remove "SUBEXPR_PAREN" operator from stack
 
 	case OPID_START_LIST:
 		if (current != OPID_END_EXPRESSION)
@@ -2203,20 +2205,20 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		}
 		Throw_error("Unterminated list.");
 		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove LISTBUILDER operator from stack
+		return TRUE;	// caller can remove START_LIST operator from stack
 
-	case OPID_START_INDEX:
+	case OPID_SUBEXPR_BRACKET:
 		if (current != OPID_END_EXPRESSION)
 			Bug_found("StrangeIndexBracket", current);
 		if (GotByte == ']') {
 			GetByte();	// eat ']'
-			op_sp -= 2;	// remove both OPENINDEX and END_EXPRESSION
+			op_sp -= 2;	// remove both SUBEXPR_BRACKET and END_EXPRESSION
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
 		Throw_error("Unterminated index spec.");
 		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove OPID_START_INDEX operator from stack
+		return TRUE;	// caller can remove SUBEXPR_BRACKET operator from stack
 
 	default:
 		Bug_found("IllegalOperatorId", previous);
@@ -2228,73 +2230,77 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 
 // Try to reduce stacks by performing high-priority operations
 // (if the previous operator has a higher priority than the current one, do it)
+// FIXME - rename to "push_dyadic_op" and add operator arg?
 static void try_to_reduce_stacks(struct expression *expression)
 {
 	struct op	*previous_op;
 	struct op	*current_op;
 
-	if (op_sp < 2) {
-		// we only have one operator, which must be "start of expression",
-		// so there isn't anything left to do, so go on trying to parse the expression
-		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-		return;
-	}
+	while (alu_state == STATE_TRY_TO_REDUCE_STACKS) {
 
-	previous_op = op_stack[op_sp - 2];
-	current_op = op_stack[op_sp - 1];
+		if (op_sp < 2) {
+			// we only have one operator, which must be "start of expression",
+			// so there isn't anything left to do, so go on trying to parse the expression
+			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+			return;
+		}
 
-	// previous operator has lower piority than current one? then do nothing.
-	if (previous_op->priority < current_op->priority) {
-		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-		return;
-	}
+		previous_op = op_stack[op_sp - 2];
+		current_op = op_stack[op_sp - 1];
 
-	// previous operator has same priority as current one? then check associativity
-	if ((previous_op->priority == current_op->priority)
-	&& (current_op->priority == PRIO_POWEROF)
-	&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF)) {
-		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-		return;
-	}
+		// previous operator has lower piority than current one? then do nothing.
+		if (previous_op->priority < current_op->priority) {
+			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+			return;
+		}
 
-	// we now know that either
-	// - the previous operator has higher priority, or
-	// - it has the same priority and is left-associative,
-	// so perform that operation!
+		// previous operator has same priority as current one? then check associativity
+		if ((previous_op->priority == current_op->priority)
+		&& (current_op->priority == PRIO_POWEROF)
+		&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF)) {
+			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+			return;
+		}
+
+		// we now know that either
+		// - the previous operator has higher priority, or
+		// - it has the same priority and is left-associative,
+		// so perform that operation!
 #define ARG_PREV	(arg_stack[arg_sp - 2])
 #define ARG_NOW		(arg_stack[arg_sp - 1])
-	switch (previous_op->group) {
-	case OPGROUP_MONADIC:	// monadic operators
-		if (arg_sp < 1)
-			Bug_found("ArgStackEmpty", arg_sp);
-		ARG_NOW.type->monadic_op(&ARG_NOW, previous_op);
-		// operation was something other than parentheses
-		expression->is_parenthesized = FALSE;
-		break;
-	case OPGROUP_DYADIC:	// dyadic operators
-		if (arg_sp < 2)
-			Bug_found("NotEnoughArgs", arg_sp);
-		ARG_PREV.type->dyadic_op(&ARG_PREV, previous_op, &ARG_NOW);
-		// decrement argument stack pointer because dyadic operator merged two arguments into one
-		--arg_sp;
-		// operation was something other than parentheses
-		expression->is_parenthesized = FALSE;
-		break;
-	case OPGROUP_SPECIAL:	// special (pseudo) operators
-		if (!handle_special_operator(expression, previous_op->id, current_op->id))
-			return;	// called fn has fixed the stack, so we return and don't touch it
+		switch (previous_op->group) {
+		case OPGROUP_MONADIC:	// monadic operators
+			if (arg_sp < 1)
+				Bug_found("ArgStackEmpty", arg_sp);
+			ARG_NOW.type->monadic_op(&ARG_NOW, previous_op);
+			// operation was something other than parentheses
+			expression->is_parenthesized = FALSE;
+			break;
+		case OPGROUP_DYADIC:	// dyadic operators
+			if (arg_sp < 2)
+				Bug_found("NotEnoughArgs", arg_sp);
+			ARG_PREV.type->dyadic_op(&ARG_PREV, previous_op, &ARG_NOW);
+			// decrement argument stack pointer because dyadic operator merged two arguments into one
+			--arg_sp;
+			// operation was something other than parentheses
+			expression->is_parenthesized = FALSE;
+			break;
+		case OPGROUP_SPECIAL:	// special (pseudo) operators
+			if (!handle_special_operator(expression, previous_op->id, current_op->id))
+				continue;	// called fn has fixed the stack, so we don't touch it
 
-		// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
-		break;
-	default:
-		Bug_found("IllegalOperatorGroup", previous_op->group);
+			// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
+			break;
+		default:
+			Bug_found("IllegalOperatorGroup", previous_op->group);
+		}
+		// shared endings for "we did the operation indicated by previous operator":
+		// fix stack:
+		// remove previous operator and shift down current one
+		// CAUTION - fiddling with our local copies like "previous_op = current_op" is not enough... ;)
+		op_stack[op_sp - 2] = op_stack[op_sp - 1];
+		--op_sp;	// decrement operator stack pointer
 	}
-// shared endings for "we did the operation indicated by previous operator":
-	// fix stack:
-	// remove previous operator and shift down current one
-	// CAUTION - fiddling with our local copies like "previous_op = current_op" is not enough... ;)
-	op_stack[op_sp - 2] = op_stack[op_sp - 1];
-	--op_sp;	// decrement operator stack pointer
 }
 
 
