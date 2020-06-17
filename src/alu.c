@@ -173,7 +173,7 @@ static int		arg_sp;
 enum alu_state {
 	STATE_EXPECT_ARG_OR_MONADIC_OP,
 	STATE_EXPECT_DYADIC_OP,
-	STATE_TRY_TO_REDUCE_STACKS,	// FIXME - get rid of this state
+	STATE_TRY_TO_REDUCE_STACKS,
 	STATE_MAX_GO_ON,	// "border value" to find the stoppers:
 	STATE_ERROR,		// error has occurred
 	STATE_END		// standard end
@@ -699,6 +699,8 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 
 // expression parser
 
+// prototype (FIXME, re-arrange code so this is no longer needed!)
+static void push_dyadic_and_check(struct expression *expression, struct op *op);
 
 // helper function for "monadic &" (either octal value or "unpseudo" operator)
 // returns nonzero on error
@@ -741,7 +743,7 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 // Expect argument or monadic operator (hopefully inlined)
 // returns TRUE if it ate any non-space (-> so expression isn't empty)
 // returns FALSE if first non-space is delimiter (-> end of expression)
-static boolean expect_argument_or_monadic_operator(void)
+static boolean expect_argument_or_monadic_operator(struct expression *expression)
 {
 	struct op	*op;
 	int		ugly_length_kluge;
@@ -808,9 +810,8 @@ static boolean expect_argument_or_monadic_operator(void)
 		} else {
 			// non-empty list literal
 			PUSH_OP(&ops_start_list);	// quasi-monadic "start of list", makes sure earlier ops do not process empty list
-			PUSH_OP(&ops_list_append);	// dyadic "append to list", so next arg will be appended to list
-			// no need to TRY_TO_REDUCE_STACKS, because we know the one pushed first has a lower priority anyway
-			//stay in STATE_EXPECT_ARG_OR_MONADIC_OP
+			push_dyadic_and_check(expression, &ops_list_append);	// dyadic "append to list", so next arg will be appended to list
+			//now we're back in STATE_EXPECT_ARG_OR_MONADIC_OP
 		}
 		break;//goto done;
 
@@ -918,8 +919,7 @@ static boolean expect_argument_or_monadic_operator(void)
 			// that's either an empty expression or an erroneous one!
 			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack checking code won't bark	FIXME - use undefined?
 			if (op_stack[op_sp - 1] == &ops_start_expression) {
-				PUSH_OP(&ops_end_expression);
-				alu_state = STATE_TRY_TO_REDUCE_STACKS;
+				push_dyadic_and_check(expression, &ops_end_expression);
 			} else {
 				Throw_error(exception_syntax);
 				alu_state = STATE_ERROR;
@@ -948,7 +948,7 @@ now_expect_dyadic_op:
 
 
 // Expect dyadic operator (hopefully inlined)
-static void expect_dyadic_operator(void)
+static void expect_dyadic_operator(struct expression *expression)
 {
 	void		*node_body;
 	struct op	*op;
@@ -1004,17 +1004,11 @@ static void expect_dyadic_operator(void)
 
 	case '[':	// indexing operator
 		GetByte();	// eat char
-		PUSH_OP(&ops_atindex);	// first put high-priority dyadic on stack,
-		// FIXME - reduce stacks!
-		PUSH_OP(&ops_subexpr_bracket);	// then low-priority special ops_subexpr_bracket
-// FIXME! this would work reliably if "atindex" had the highest priority.
-// but function calls have higher priority than indexing:
-// fn(a+b)[c] -> fn d [c] -> e [c], but the code above would return fn(d[c]) instead
-// atm, it's not a problem, because all functions return numbers, and numbers cannot
-// be indexed anyway, but in the long run, this must be fixed.
-// maybe call "try_to_reduce_stacks" inbetween the two PUSH_OPs above?
-// or maybe add a PUSH_DYADIC_AND_TRY_TO_REDUCE(op) macro?
-		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+		// first put high-priority dyadic on stack,
+		// then low-priority special ops_subexpr_bracket
+		push_dyadic_and_check(expression, &ops_atindex);
+		// now we're in STATE_EXPECT_ARG_OR_MONADIC_OP
+		PUSH_OP(&ops_subexpr_bracket);
 		return;
 
 // Multi-character dyadic operators
@@ -1099,8 +1093,7 @@ static void expect_dyadic_operator(void)
 get_byte_and_push_dyadic:
 	GetByte();
 push_dyadic_op:
-	PUSH_OP(op);
-	alu_state = STATE_TRY_TO_REDUCE_STACKS;
+	push_dyadic_and_check(expression, op);
 }
 
 
@@ -2230,14 +2223,15 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 
 // Try to reduce stacks by performing high-priority operations
 // (if the previous operator has a higher priority than the current one, do it)
-// FIXME - rename to "push_dyadic_op" and add operator arg?
-static void try_to_reduce_stacks(struct expression *expression)
+static void push_dyadic_and_check(struct expression *expression, struct op *op)
 {
 	struct op	*previous_op;
 	struct op	*current_op;
 
+	PUSH_OP(op);
+	if (alu_state < STATE_MAX_GO_ON)
+		alu_state = STATE_TRY_TO_REDUCE_STACKS;
 	while (alu_state == STATE_TRY_TO_REDUCE_STACKS) {
-
 		if (op_sp < 2) {
 			// we only have one operator, which must be "start of expression",
 			// so there isn't anything left to do, so go on trying to parse the expression
@@ -2319,23 +2313,22 @@ static int parse_expression(struct expression *expression)
 	op_sp = 0;	// operator stack pointer
 	arg_sp = 0;	// argument stack pointer
 	// begin by reading an argument (or a monadic operator)
-	alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 	PUSH_OP(&ops_start_expression);
+	alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 	do {
 		// check stack sizes. enlarge if needed
 		if (arg_sp >= argstack_size)
 			enlarge_argument_stack();
 		switch (alu_state) {
 		case STATE_EXPECT_ARG_OR_MONADIC_OP:
-			if (expect_argument_or_monadic_operator())
+			if (expect_argument_or_monadic_operator(expression))
 				expression->is_empty = FALSE;
 			break;
 		case STATE_EXPECT_DYADIC_OP:
-			expect_dyadic_operator();
-			break;	// no fallthrough; state might
-			// have been changed to END or ERROR
+			expect_dyadic_operator(expression);
+			break;
 		case STATE_TRY_TO_REDUCE_STACKS:
-			try_to_reduce_stacks(expression);
+			Bug_found("TryToReduce", 0);	// FIXME - add to docs or remove!
 			break;
 		case STATE_MAX_GO_ON:	// suppress
 		case STATE_ERROR:	// compiler
