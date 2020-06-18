@@ -168,6 +168,13 @@ extern void Throw_error(const char *msg);
 extern void Throw_serious_error(const char *msg);
 // handle bugs
 extern void Bug_found(const char *msg, int code);
+// insert object (in case of list, will iterate/recurse until done)
+struct iter_context {
+	void	(*fn)(intval_t);	// output function
+	boolean	accept_long_strings;	// if FALSE, only 1-char-strings work
+	char	stringxor;		// for !scrxor, 0 otherwise
+};
+extern void output_object(struct object *object, struct iter_context *iter);
 
 
 #endif

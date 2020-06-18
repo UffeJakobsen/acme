@@ -17,6 +17,7 @@
 #include "alu.h"
 #include "cpu.h"
 #include "dynabuf.h"
+#include "encoding.h"
 #include "input.h"
 #include "macro.h"
 #include "output.h"
@@ -472,4 +473,43 @@ void Bug_found(const char *message, int code)
 	Throw_warning("Bug in ACME, code follows");
 	fprintf(stderr, "(0x%x:)", code);
 	Throw_serious_error(message);
+}
+
+
+// insert object (in case of list, will iterate/recurse until done)
+void output_object(struct object *object, struct iter_context *iter)
+{
+	struct listitem	*item;
+	int		length;
+	char		*read;
+
+	if (object->type == &type_number) {
+		if (object->u.number.ntype == NUMTYPE_UNDEFINED)
+			iter->fn(0);
+		else if (object->u.number.ntype == NUMTYPE_INT)
+			iter->fn(object->u.number.val.intval);
+		else if (object->u.number.ntype == NUMTYPE_FLOAT)
+			iter->fn(object->u.number.val.fpval);
+		else
+			Bug_found("IllegalNumberType7", object->u.number.ntype);	// FIXME - add to docs!
+	} else if (object->type == &type_list) {
+		// iterate over list
+		item = object->u.listhead->next;
+		while (item != object->u.listhead) {
+			output_object(&item->payload, iter);
+			item = item->next;
+		}
+	} else if (object->type == &type_string) {
+		// iterate over string
+		read = object->u.string->payload;
+		length = object->u.string->length;
+		if (iter->accept_long_strings || (length < 2)) {
+			while (length--)
+				iter->fn(iter->stringxor ^ encoding_encode_char(*(read++)));
+		} else {
+			Throw_error("There's more than one character.");	// see alu.c for the original of this error
+		}
+	} else {
+		Bug_found("IllegalObjectType9", 0);	// FIXME - add to docs!
+	}
 }

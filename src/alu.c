@@ -155,8 +155,6 @@ static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN,	"arcsin()"	};
 static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
 static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
 static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
-// CAUTION: when adding a function that returns something indexable, fix the code inserting ops_atindex!
-// FIXME - no, do this asap because of test program ;)
 
 
 // variables
@@ -2511,6 +2509,9 @@ void ALU_any_result(struct object *result)
 	pseudoopcodes.c
 		!set									don't care
 		when throwing user-specified errors					don't care
+		iterator for !by, !wo, etc.						needvalue!
+		byte values in !raw, !tx, etc.						needvalue!
+		!scrxor									needvalue!
 	symbol.c
 		explicit symbol definition						don't care
 
@@ -2535,9 +2536,6 @@ void ALU_defined_int(struct number *intresult)
 void ALU_any_int(intval_t *target)
 	pseudoopcodes.c
 		!xor									needvalue!
-		iterator for !by, !wo, etc.						needvalue!
-		byte values in !raw, !tx, etc.						needvalue!
-		!scrxor									needvalue!
 		!fill (2nd arg)								needvalue!
 		!align (3rd arg)							needvalue!
 */

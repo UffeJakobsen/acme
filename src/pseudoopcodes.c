@@ -181,11 +181,15 @@ static enum eos po_to(void)
 // helper function for !8, !16, !24 and !32 pseudo opcodes
 static enum eos iterate(void (*fn)(intval_t))
 {
-	intval_t	value;
+	struct iter_context	iter;
+	struct object		object;
 
+	iter.fn = fn;
+	iter.accept_long_strings = FALSE;
+	iter.stringxor = 0;
 	do {
-		ALU_any_int(&value);
-		fn(value);
+		ALU_any_result(&object);
+		output_object(&object, &iter);
 	} while (Input_accept_comma());
 	return ENSURE_EOS;
 }
@@ -381,13 +385,21 @@ static enum eos po_convtab(void)
 static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 {
 	const struct encoder	*outer_encoder	= encoder_current;	// buffer encoder
-	int			offset;
-	intval_t		value;
+	struct iter_context	iter;
+	struct object		object;
 
+	iter.fn = output_8;
+	iter.accept_long_strings = TRUE;
+	iter.stringxor = xor;
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
 	do {
-		if (GotByte == '"') {	// FIXME - add "&& (config.wanted_version < VER_BACKSLASHESCAPING)", otherwise stuff like "string"[index] will not work
+		// we need to keep the old string handler code, because if user selects
+		// older dialect, the new code will complain about string lengths > 1!
+		if ((GotByte == '"') && (config.wanted_version < VER_BACKSLASHESCAPING)) {
+			// the old way of handling string literals:
+			int	offset;
+
 			DYNABUF_CLEAR(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error
@@ -402,14 +414,11 @@ static enum eos encode_string(const struct encoder *inner_encoder, char xor)
 			for (offset = 0; offset < GlobalDynaBuf->size; ++offset)
 				output_8(xor ^ encoding_encode_char(GLOBALDYNABUF_CURRENT[offset]));
 		} else {
-			// Parse value. No problems with single characters
-			// because the current encoding is
-			// temporarily set to the given one.
-			ALU_any_int(&value);
-			output_8(value);
-			// FIXME - call ALU_any_result(FLOAT2INT) instead and support lists and strings:
-			// for lists, call some list_iter() fn to handle components
-			// for strings, do not forget to XOR!
+			// handle everything else (also strings in newer dialects):
+			// parse value. no problems with single characters because the
+			// current encoding is temporarily set to the given one.
+			ALU_any_result(&object);
+			output_object(&object, &iter);
 		}
 	} while (Input_accept_comma());
 	encoder_current = outer_encoder;	// reactivate buffered encoder
@@ -1044,7 +1053,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 
 	// now GotByte = illegal char
 	loop.force_bit = Input_get_force_bit();	// skips spaces after
-	loop.symbol = symbol_find(scope);	// FIXME - if type is not NULL, complain if not number!
+	loop.symbol = symbol_find(scope);	// if not number, error will be reported on first assignment
 	if (!Input_accept_comma()) {
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
