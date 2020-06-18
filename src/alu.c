@@ -50,7 +50,7 @@ enum op_group {
 };
 enum op_id {
 	// special (pseudo) operators:
-	OPID_END_EXPRESSION,	//		end of expression (quasi-dyadic)
+	OPID_TERMINATOR,	//		(preliminary) end of expression (quasi-dyadic)
 	OPID_START_EXPRESSION,	//		start of expression
 	OPID_SUBEXPR_PAREN,	//	(v	'(' starts subexpression (quasi-monadic)
 	OPID_START_LIST,	//	[1,2]	'[' starts non-empty list literal (quasi-monadic, followed by dyadic OPID_LIST_APPEND)
@@ -101,7 +101,7 @@ struct op {
 	enum op_id	id;
 	const char	*text_version;
 };
-static struct op ops_end_expression	= {0, OPGROUP_SPECIAL,	OPID_END_EXPRESSION,	"end of expression"	};
+static struct op ops_terminating_char	= {0, OPGROUP_SPECIAL,	OPID_TERMINATOR,	"end of expression"	};
 static struct op ops_start_expression	= {2, OPGROUP_SPECIAL,	OPID_START_EXPRESSION,	"start of expression"	};
 static struct op ops_subexpr_paren	= {4, OPGROUP_SPECIAL,	OPID_SUBEXPR_PAREN,	"left parenthesis"	};
 static struct op ops_start_list		= {6, OPGROUP_SPECIAL,	OPID_START_LIST,	"start list"	};
@@ -173,7 +173,7 @@ static int		arg_sp;
 enum alu_state {
 	STATE_EXPECT_ARG_OR_MONADIC_OP,
 	STATE_EXPECT_DYADIC_OP,
-	STATE_TRY_TO_REDUCE_STACKS,
+	STATE_TRY_TO_REDUCE_STACKS,	// FIXME - get rid of this
 	STATE_MAX_GO_ON,	// "border value" to find the stoppers:
 	STATE_ERROR,		// error has occurred
 	STATE_END		// standard end
@@ -919,7 +919,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			// that's either an empty expression or an erroneous one!
 			PUSH_INT_ARG(0, 0, 0);	// push dummy argument so stack checking code won't bark	FIXME - use undefined?
 			if (op_stack[op_sp - 1] == &ops_start_expression) {
-				push_dyadic_and_check(expression, &ops_end_expression);
+				push_dyadic_and_check(expression, &ops_terminating_char);
 			} else {
 				Throw_error(exception_syntax);
 				alu_state = STATE_ERROR;
@@ -1082,7 +1082,7 @@ static void expect_dyadic_operator(struct expression *expression)
 			//goto end;
 		} else {
 			// we found end-of-expression when expecting an operator, that's ok.
-			op = &ops_end_expression;
+			op = &ops_terminating_char;
 			goto push_dyadic_op;
 		}
 	}
@@ -2154,13 +2154,11 @@ struct type	type_string	= {
 
 // handler for special operators like parentheses and start/end of expression:
 // returns whether caller can remove "previous" operator from stack
-static boolean handle_special_operator(struct expression *expression, enum op_id previous, enum op_id current)
+static boolean handle_special_operator(struct expression *expression, enum op_id previous)
 {
-	// when this gets called, "previous" is a special operator, and "current" has a lower priority, so it is also a special operator
+	// when this gets called, "current" operator is OPID_TERMINATOR
 	switch (previous) {
 	case OPID_START_EXPRESSION:
-		// the only operator with a lower priority than this
-		// "start-of-expression" operator is "end-of-expression",
 		// therefore we know we are done.
 		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
 		alu_state = STATE_END;	// done
@@ -2168,12 +2166,10 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 
 	case OPID_SUBEXPR_PAREN:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
-		if (current != OPID_END_EXPRESSION)
-			Bug_found("StrangeParenthesis", current);
 		if (GotByte == ')') {
 			// matching parenthesis
 			GetByte();	// eat char
-			op_sp -= 2;	// remove both operators
+			op_sp -= 2;	// remove both SUBEXPR_PAREN and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
@@ -2182,8 +2178,6 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		return TRUE;	// caller can remove "SUBEXPR_PAREN" operator from stack
 
 	case OPID_START_LIST:
-		if (current != OPID_END_EXPRESSION)
-			Bug_found("StrangeListBracket", current);
 		if (GotByte == ',') {
 			GetByte();	// eat ','
 			op_stack[op_sp - 1] = &ops_list_append;	// change "end of expression" to "append"
@@ -2192,7 +2186,7 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		}
 		if (GotByte == ']') {
 			GetByte();	// eat ']'
-			op_sp -= 2;	// remove both START_LIST and END_EXPRESSION
+			op_sp -= 2;	// remove both START_LIST and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
@@ -2201,11 +2195,9 @@ static boolean handle_special_operator(struct expression *expression, enum op_id
 		return TRUE;	// caller can remove START_LIST operator from stack
 
 	case OPID_SUBEXPR_BRACKET:
-		if (current != OPID_END_EXPRESSION)
-			Bug_found("StrangeIndexBracket", current);
 		if (GotByte == ']') {
 			GetByte();	// eat ']'
-			op_sp -= 2;	// remove both SUBEXPR_BRACKET and END_EXPRESSION
+			op_sp -= 2;	// remove both SUBEXPR_BRACKET and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
 			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
 		}
@@ -2280,7 +2272,9 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 			expression->is_parenthesized = FALSE;
 			break;
 		case OPGROUP_SPECIAL:	// special (pseudo) operators
-			if (!handle_special_operator(expression, previous_op->id, current_op->id))
+			if (current_op->id != OPID_TERMINATOR)
+				Bug_found("StrangeOperator", current_op->id);
+			if (!handle_special_operator(expression, previous_op->id))
 				continue;	// called fn has fixed the stack, so we don't touch it
 
 			// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!

@@ -527,7 +527,5 @@ SecondArgIsNotAnInt
 StrangeInputMode
     The input state machine has reached a state that does not exist.
 
-StrangeIndexBracket
-StrangeListBracket
-StrangeParenthesis
+StrangeOperator
     The expression parser found a non-existing operator.
