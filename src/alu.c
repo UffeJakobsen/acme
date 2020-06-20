@@ -370,10 +370,8 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	if (unpseudo_count) {
 		if (arg->type == &type_number) {
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
-			// TODO - check return value and enter error state if nonzero?
 		} else {
 			Throw_error("Un-pseudopc operator '&' can only be applied to labels.");
-			// TODO - enter error state?
 		}
 	}
 	// if needed, output "value not defined" error
@@ -1164,27 +1162,65 @@ static boolean object_return_true(const struct object *self)
 }
 
 // int/float:
-// helper function to check two values for equality
-// in case of undefined value(s), "fallback" is returned
-static inline boolean num_different(const struct number *self, const struct number *other, boolean fallback)
+// check if new value differs from old
+// returns FALSE in case of undefined value(s), because undefined is not necessarily different!
+static boolean number_differs(const struct object *self, const struct object *other)
 {
-	if (self->ntype == NUMTYPE_UNDEFINED)
-		return fallback;
+	if (self->u.number.ntype == NUMTYPE_UNDEFINED)
+		return FALSE;
 
-	if (other->ntype == NUMTYPE_UNDEFINED)
-		return fallback;
+	if (other->u.number.ntype == NUMTYPE_UNDEFINED)
+		return FALSE;
 
-	if (self->ntype == NUMTYPE_INT) {
-		if (other->ntype == NUMTYPE_INT)
-			return self->val.intval != other->val.intval;
+	if (self->u.number.ntype == NUMTYPE_INT) {
+		if (other->u.number.ntype == NUMTYPE_INT)
+			return self->u.number.val.intval != other->u.number.val.intval;
 		else
-			return self->val.intval != other->val.fpval;
+			return self->u.number.val.intval != other->u.number.val.fpval;
 	} else {
-		if (other->ntype == NUMTYPE_INT)
-			return self->val.fpval != other->val.intval;
+		if (other->u.number.ntype == NUMTYPE_INT)
+			return self->u.number.val.fpval != other->u.number.val.intval;
 		else
-			return self->val.fpval != other->val.fpval;
+			return self->u.number.val.fpval != other->u.number.val.fpval;
 	}
+}
+// list:
+// check if new value differs from old
+static boolean list_differs(const struct object *self, const struct object *other)
+{
+	struct listitem	*arthur,
+			*ford;
+
+	if (self->u.listhead->length != other->u.listhead->length)
+		return TRUE;	// lengths differ
+
+	// same length, so iterate over lists and check items
+	arthur = self->u.listhead->next;
+	ford = other->u.listhead->next;
+	while (arthur != self->u.listhead) {
+		if (ford == other->u.listhead)
+			Bug_found("ListLengthError", 0);
+		if (arthur->payload.type != ford->payload.type)
+			return TRUE;	// item types differ
+
+		if (arthur->payload.type->differs(&arthur->payload, &ford->payload))
+			return TRUE;	// item values differ
+
+		arthur = arthur->next;
+		ford = ford->next;
+	}
+	if (ford != other->u.listhead)
+		Bug_found("ListLengthError", 1);
+	return FALSE;	// no difference found
+}
+// string:
+// check if new value differs from old
+static boolean string_differs(const struct object *self, const struct object *other)
+{
+	if (self->u.string->length != other->u.string->length)
+		return TRUE;
+
+	return !!memcmp(self->u.string->payload, other->u.string->payload, self->u.string->length);
 }
 
 // int/float:
@@ -1211,7 +1247,7 @@ static void number_assign(struct object *self, const struct object *new_value, b
 	} else {
 		// symbol is already defined, so compare new and old values
 		// if values differ, complain and return
-		if (num_different(&self->u.number, &new_value->u.number, FALSE)) {
+		if (number_differs(self, new_value)) {
 			Throw_error(exception_symbol_defined);
 			return;
 		}
@@ -1239,33 +1275,20 @@ static void number_assign(struct object *self, const struct object *new_value, b
 // assign new value
 static void list_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
-	if (!accept_change) {
-		if (0/* TODO - compare old and new lists? */) {
-			Throw_error(exception_symbol_defined);
-			return;
-		}
+	if ((!accept_change) && list_differs(self, new_value)) {
+		Throw_error(exception_symbol_defined);
+		return;
 	}
 	*self = *new_value;
 }
 
 // string:
-// helper function, returns whether equal
-static boolean string_equal(const struct string *arthur, const struct string *ford)
-{
-	if (arthur->length != ford->length)
-		return FALSE;
-
-	return !memcmp(arthur->payload, ford->payload, arthur->length);
-}
-// string:
 // assign new value
 static void string_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
-	if (!accept_change) {
-		if (!string_equal(self->u.string, new_value->u.string)) {
-			Throw_error(exception_symbol_defined);
-			return;
-		}
+	if ((!accept_change) && string_differs(self, new_value)) {
+		Throw_error(exception_symbol_defined);
+		return;
 	}
 	*self = *new_value;
 }
@@ -2013,7 +2036,7 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 			break;	// complain
 		arthur = self->u.string;
 		ford = other->u.string;
-		int_create_byte(self, string_equal(arthur, ford));
+		int_create_byte(self, !string_differs(self, other));
 		arthur->refs--;	// FIXME - call a function for this...
 		ford->refs--;	// FIXME - call a function for this...
 		return;
@@ -2023,7 +2046,7 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 			break;	// complain
 		arthur = self->u.string;
 		ford = other->u.string;
-		int_create_byte(self, !string_equal(arthur, ford));
+		int_create_byte(self, string_differs(self, other));
 		arthur->refs--;	// FIXME - call a function for this...
 		ford->refs--;	// FIXME - call a function for this...
 		return;
@@ -2124,6 +2147,7 @@ static void string_print(const struct object *self, struct dynabuf *db)
 struct type	type_number	= {
 	"number",
 	number_is_defined,
+	number_differs,
 	number_assign,
 	number_handle_monadic_operator,
 	number_handle_dyadic_operator,
@@ -2133,6 +2157,7 @@ struct type	type_number	= {
 struct type	type_list	= {
 	"list",
 	object_return_true,	// lists are always considered to be defined (even though they can hold undefined numbers...)
+	list_differs,
 	list_assign,
 	list_handle_monadic_operator,
 	list_handle_dyadic_operator,
@@ -2142,6 +2167,7 @@ struct type	type_list	= {
 struct type	type_string	= {
 	"string",
 	object_return_true,	// strings are always defined
+	string_differs,
 	string_assign,
 	string_handle_monadic_operator,
 	string_handle_dyadic_operator,

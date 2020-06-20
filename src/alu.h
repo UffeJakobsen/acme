@@ -15,6 +15,7 @@ struct dynabuf;
 struct type {
 	const char	*name;
 	boolean		(*is_defined)(const struct object *self);
+	boolean		(*differs)(const struct object *self, const struct object *other);
 	void		(*assign)(struct object *self, const struct object *new_value, boolean accept_change);
 	void		(*monadic_op)(struct object *self, const struct op *op);
 	void		(*dyadic_op)(struct object *self, const struct op *op, struct object *other);
