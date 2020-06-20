@@ -24,7 +24,32 @@
 #include "tree.h"
 
 
-// helper functions for "!for" and "!do"
+// helper functions for if/ifdef/ifndef/else/for/do/while
+
+
+// parse symbol name and return if symbol has defined value (called by ifdef/ifndef)
+boolean check_ifdef_condition(void)
+{
+	scope_t		scope;
+	struct rwnode	*node;
+	struct symbol	*symbol;
+
+	// read symbol name
+	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
+		return FALSE;	// there was an error, it has been reported, so return value is more or less meaningless anway
+
+	// look for it
+	Tree_hard_scan(&node, symbols_forest, scope, FALSE);
+	if (!node)
+		return FALSE;	// not found -> no, not defined
+
+	symbol = (struct symbol *) node->body;
+	symbol->has_been_read = TRUE;	// we did not really read the symbol's value, but checking for its existence still counts as "used it"
+	if (symbol->object.type == NULL)
+		Bug_found("ObjectHasNullType", 0);	// FIXME - add to docs!
+	return symbol->object.type->is_defined(&symbol->object);
+}
+
 
 // parse a loop body (TODO - also use for macro body?)
 static void parse_ram_block(struct block *block)

@@ -43,6 +43,8 @@ struct do_while {
 };
 
 
+// parse symbol name and return if symbol has defined value (called by ifdef/ifndef)
+extern boolean check_ifdef_condition(void);
 // back end function for "!for" pseudo opcode
 extern void flow_forloop(struct for_loop *loop);
 // try to read a condition into DynaBuf and store pointer to copy in

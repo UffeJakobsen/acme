@@ -892,36 +892,14 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	return ENSURE_EOS;
 }
 
-// FIXME - move this to flow.c!
-static boolean check_ifdef_condition(void)
-{
-	scope_t		scope;
-	struct rwnode	*node;
-	struct symbol	*symbol;
-
-	// read symbol name
-	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
-		return FALSE;	// there was an error, it has been reported, so return value is more or less meaningless anway
-
-	// look for it
-	Tree_hard_scan(&node, symbols_forest, scope, FALSE);
-	if (!node)
-		return FALSE;	// not found -> no, not defined
-
-	symbol = (struct symbol *) node->body;
-	symbol->has_been_read = TRUE;	// we did not really read the symbol's value, but checking for its existence still counts as "used it"
-	if (symbol->object.type == NULL)
-		Bug_found("ObjectHasNullType", 0);	// FIXME - add to docs!
-	return symbol->object.type->is_defined(&symbol->object);
-}
-// if/ifdef/ifndef/else function, to be able to do ELSE IF
+// if/ifdef/ifndef/else
 enum ifmode {
 	IFMODE_IF,	// parse expression, then block
 	IFMODE_IFDEF,	// check symbol, then parse block or line
 	IFMODE_IFNDEF,	// check symbol, then parse block or line
 	IFMODE_ELSE	// unconditional last block
 };
-// function for if/ifdef/ifndef/else. has to be re-entrant.
+// has to be re-entrant
 static enum eos ifelse(enum ifmode mode)
 {
 	boolean		nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met

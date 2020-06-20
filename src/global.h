@@ -175,6 +175,21 @@ struct iter_context {
 	char	stringxor;		// for !scrxor, 0 otherwise
 };
 extern void output_object(struct object *object, struct iter_context *iter);
+// output 8-bit value with range check
+extern void output_8(intval_t value);
+// output 16-bit value with range check big-endian
+extern void output_be16(intval_t value);
+// output 16-bit value with range check little-endian
+extern void output_le16(intval_t value);
+// output 24-bit value with range check big-endian
+extern void output_be24(intval_t value);
+// output 24-bit value with range check little-endian
+extern void output_le24(intval_t value);
+// output 32-bit value (without range check) big-endian
+extern void output_be32(intval_t value);
+// output 32-bit value (without range check) little-endian
+extern void output_le32(intval_t value);
+
 
 
 #endif

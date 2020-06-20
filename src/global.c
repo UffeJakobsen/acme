@@ -513,3 +513,91 @@ void output_object(struct object *object, struct iter_context *iter)
 		Bug_found("IllegalObjectType9", 0);	// FIXME - add to docs!
 	}
 }
+
+
+// output 8-bit value with range check
+void output_8(intval_t value)
+{
+	if ((value <= 0xff) && (value >= -0x80))
+		Output_byte(value);
+	else
+		Throw_error(exception_number_out_of_range);
+}
+
+
+// output 16-bit value with range check big-endian
+void output_be16(intval_t value)
+{
+	if ((value <= 0xffff) && (value >= -0x8000)) {
+		Output_byte(value >> 8);
+		Output_byte(value);
+	} else {
+		Throw_error(exception_number_out_of_range);
+	}
+}
+
+
+// output 16-bit value with range check little-endian
+void output_le16(intval_t value)
+{
+	if ((value <= 0xffff) && (value >= -0x8000)) {
+		Output_byte(value);
+		Output_byte(value >> 8);
+	} else {
+		Throw_error(exception_number_out_of_range);
+	}
+}
+
+
+// output 24-bit value with range check big-endian
+void output_be24(intval_t value)
+{
+	if ((value <= 0xffffff) && (value >= -0x800000)) {
+		Output_byte(value >> 16);
+		Output_byte(value >> 8);
+		Output_byte(value);
+	} else {
+		Throw_error(exception_number_out_of_range);
+	}
+}
+
+
+// output 24-bit value with range check little-endian
+void output_le24(intval_t value)
+{
+	if ((value <= 0xffffff) && (value >= -0x800000)) {
+		Output_byte(value);
+		Output_byte(value >> 8);
+		Output_byte(value >> 16);
+	} else {
+		Throw_error(exception_number_out_of_range);
+	}
+}
+
+
+// output 32-bit value (without range check) big-endian
+void output_be32(intval_t value)
+{
+//  if ((Value <= 0x7fffffff) && (Value >= -0x80000000)) {
+	Output_byte(value >> 24);
+	Output_byte(value >> 16);
+	Output_byte(value >> 8);
+	Output_byte(value);
+//  } else {
+//	Throw_error(exception_number_out_of_range);
+//  }
+}
+
+
+// output 32-bit value (without range check) little-endian
+void output_le32(intval_t value)
+{
+//  if ((Value <= 0x7fffffff) && (Value >= -0x80000000)) {
+	Output_byte(value);
+	Output_byte(value >> 8);
+	Output_byte(value >> 16);
+	Output_byte(value >> 24);
+//  } else {
+//	Throw_error(exception_number_out_of_range);
+//  }
+}
