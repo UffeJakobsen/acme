@@ -496,14 +496,14 @@ void output_object(struct object *object, struct iter_context *iter)
 		// iterate over list
 		item = object->u.listhead->next;
 		while (item != object->u.listhead) {
-			output_object(&item->payload, iter);
+			output_object(&item->u.payload, iter);
 			item = item->next;
 		}
 	} else if (object->type == &type_string) {
 		// iterate over string
 		read = object->u.string->payload;
 		length = object->u.string->length;
-		if (iter->accept_long_strings || (length < 2)) {
+		if (iter->accept_long_strings || (length < 2)) {	// FIXME - really allow single chars?
 			while (length--)
 				iter->fn(iter->stringxor ^ encoding_encode_char(*(read++)));
 		} else {

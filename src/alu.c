@@ -662,8 +662,8 @@ static void list_init_list(struct object *self)
 	self->u.listhead = safe_malloc(sizeof(*(self->u.listhead)));
 	self->u.listhead->next = self->u.listhead;
 	self->u.listhead->prev = self->u.listhead;
-	self->u.listhead->length = 0;
-	self->u.listhead->refs = 1;
+	self->u.listhead->u.listinfo.length = 0;
+	self->u.listhead->u.listinfo.refs = 1;
 }
 // extend list by appending a single object
 static void list_append_object(struct listitem *head, const struct object *obj)
@@ -671,12 +671,12 @@ static void list_append_object(struct listitem *head, const struct object *obj)
 	struct listitem	*item;
 
 	item = safe_malloc(sizeof(*item));
-	item->payload = *obj;
+	item->u.payload = *obj;
 	item->next = head;
 	item->prev = head->prev;
 	item->next->prev = item;
 	item->prev->next = item;
-	head->length++;
+	head->u.listinfo.length++;
 }
 // extend list by appending all items of a list
 static void list_append_list(struct listitem *selfhead, struct listitem *otherhead)
@@ -687,7 +687,7 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 		Bug_found("ExtendingListWithItself", 0);	// TODO - add to docs!
 	item = otherhead->next;
 	while (item != otherhead) {
-		list_append_object(selfhead, &item->payload);
+		list_append_object(selfhead, &item->u.payload);
 		item = item->next;
 	}
 }
@@ -1191,7 +1191,7 @@ static boolean list_differs(const struct object *self, const struct object *othe
 	struct listitem	*arthur,
 			*ford;
 
-	if (self->u.listhead->length != other->u.listhead->length)
+	if (self->u.listhead->u.listinfo.length != other->u.listhead->u.listinfo.length)
 		return TRUE;	// lengths differ
 
 	// same length, so iterate over lists and check items
@@ -1200,10 +1200,10 @@ static boolean list_differs(const struct object *self, const struct object *othe
 	while (arthur != self->u.listhead) {
 		if (ford == other->u.listhead)
 			Bug_found("ListLengthError", 0);
-		if (arthur->payload.type != ford->payload.type)
+		if (arthur->u.payload.type != ford->u.payload.type)
 			return TRUE;	// item types differ
 
-		if (arthur->payload.type->differs(&arthur->payload, &ford->payload))
+		if (arthur->u.payload.type->differs(&arthur->u.payload, &ford->u.payload))
 			return TRUE;	// item values differ
 
 		arthur = arthur->next;
@@ -1505,8 +1505,8 @@ static void list_handle_monadic_operator(struct object *self, const struct op *o
 	int	length;
 
 	if (op->id == OPID_LEN) {
-		length = self->u.listhead->length;
-		self->u.listhead->refs--;	// FIXME - call some list_decrement_refs() instead...
+		length = self->u.listhead->u.listinfo.length;
+		self->u.listhead->u.listinfo.refs--;	// FIXME - call some list_decrement_refs() instead...
 		self->type = &type_number;
 		self->u.number.ntype = NUMTYPE_INT;
 		self->u.number.flags = 0;
@@ -1961,7 +1961,7 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 	int		length;
 	int		index;
 
-	length = self->u.listhead->length;
+	length = self->u.listhead->u.listinfo.length;
 	switch (op->id) {
 	case OPID_LIST_APPEND:
 		list_append_object(self->u.listhead, other);
@@ -1976,8 +1976,8 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 			item = item->next;
 			--index;
 		}
-		self->u.listhead->refs--;	// FIXME - call some fn for this (and do _after_ next line)
-		*self = item->payload;	// FIXME - if item is a list, it would gain a ref by this...
+		self->u.listhead->u.listinfo.refs--;	// FIXME - call some fn for this (and do _after_ next line)
+		*self = item->u.payload;	// FIXME - if item is a list, it would gain a ref by this...
 		break;
 	case OPID_ADD:
 		if (other->type != &type_list) {
@@ -1987,10 +1987,10 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 		item = self->u.listhead;	// get ref to first list
 		list_init_list(self);	// replace first list on arg stack with new one
 		list_append_list(self->u.listhead, item);
-		item->refs--;	// FIXME - call a function for this...
+		item->u.listinfo.refs--;	// FIXME - call a function for this...
 		item = other->u.listhead;
 		list_append_list(self->u.listhead, item);
-		item->refs--;	// FIXME - call a function for this...
+		item->u.listinfo.refs--;	// FIXME - call a function for this...
 		return;
 		
 	default:
@@ -2125,10 +2125,10 @@ static void list_print(const struct object *self, struct dynabuf *db)
 	const char	*prefix	= "";	// first item does not get a prefix
 
 	DynaBuf_append(db, '[');
-	length = self->u.listhead->length;
+	length = self->u.listhead->u.listinfo.length;
 	item = self->u.listhead->next;
 	while (length--) {
-		obj = &item->payload;
+		obj = &item->u.payload;
 		DynaBuf_add_string(db, prefix);
 		obj->type->print(obj, db);
 		item = item->next;
@@ -2486,6 +2486,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 		// FIXME - check for undefined?
 	} else {
 		Throw_error(exception_not_number);
+		// FIXME - accept and encode strings if length is 1?
 	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;

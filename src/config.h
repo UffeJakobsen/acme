@@ -57,9 +57,13 @@ struct string {
 struct listitem {
 	struct listitem	*next;
 	struct listitem	*prev;
-	int		length;	// only used if item is list head (head itself is not included in length)
-	int		refs;	// only used if item is list head
-	struct object	payload;
+	union {
+		struct {
+			int	length;	// this does not include the head element
+			int	refs;
+		} listinfo;			// if item is list head
+		struct object	payload;	// if item is not list head
+	} u;
 };
 
 // debugging flag, should be undefined in release version
