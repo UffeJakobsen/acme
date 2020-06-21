@@ -73,9 +73,10 @@ static struct cpu_type	cpu_type_m65	= {
 // predefined stuff
 static struct ronode	*cputype_tree	= NULL;
 static struct ronode	cputype_list[]	= {
-#define KNOWN_TYPES	"'6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'm65', 'c64dtv2'"	// shown in CLI error message for unknown types
+#define KNOWN_TYPES	"'6502', 'nmos6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'm65', 'c64dtv2'"	// shown in CLI error message for unknown types
 //	PREDEFNODE("z80",		&cpu_type_Z80),
 	PREDEFNODE("6502",		&cpu_type_6502),
+	PREDEFNODE("nmos6502",		&cpu_type_nmos6502),
 	PREDEFNODE("6510",		&cpu_type_nmos6502),
 	PREDEFNODE("65c02",		&cpu_type_65c02),
 	PREDEFNODE("r65c02",		&cpu_type_r65c02),
