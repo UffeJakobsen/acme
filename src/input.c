@@ -402,7 +402,19 @@ int Input_unescape_dynabuf(int read_index)
 			case '\'':
 			case '"':
 				break;
-			// TODO - convert '0' to 0, 'n' to 10, 'a' to BEL, etc.
+			case '0':	// NUL
+				byte = 0;
+				break;
+			case 't':	// TAB
+				byte = 9;
+				break;
+			case 'n':	// LF
+				byte = 10;
+				break;
+			case 'r':	// CR
+				byte = 13;
+				break;
+			// TODO - 'a' to BEL? others?
 			default:
 				Throw_error("Unsupported backslash sequence.");	// TODO - add to docs
 			}
