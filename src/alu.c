@@ -42,6 +42,7 @@ static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
 static const char	exception_paren_open[]	= "Too many '('.";
 static const char	exception_not_number[]	= "Expression did not return a number.";
+static const char	exception_float_to_int[]= "Converted to integer for binary logic operator.";
 
 enum op_group {
 	OPGROUP_SPECIAL,	// start/end of expression, and parentheses
@@ -385,7 +386,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 		}
 	}
 	// if needed, output "value not defined" error
-	// FIXME - in case of unpseudopc, error message should include the correct amount of '&' characters
+	// FIXME - in case of unpseudopc, error message should include the correct number of '&' characters
 	if (!(arg->type->is_defined(arg)))
 		is_not_defined(symbol, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// FIXME - if arg is list, increment ref count!
@@ -1296,6 +1297,17 @@ inline static void float_to_int(struct object *self)
 	self->u.number.val.intval = self->u.number.val.fpval;
 }
 
+// string:
+// replace with char at index
+static void string_to_byte(struct object *self, int index)
+{
+	intval_t	byte;
+
+	byte = (intval_t) (unsigned char) encoding_encode_char(self->u.string->payload[index]);
+	self->u.string->refs--;	// FIXME - call a function for this...
+	int_create_byte(self, byte);
+}
+
 // int/float:
 // return DEFINED flag
 static boolean number_is_defined(const struct object *self)
@@ -1442,12 +1454,6 @@ static void string_assign(struct object *self, const struct object *new_value, b
 	*self = *new_value;
 }
 
-// this gets called for LSR, AND, OR, XOR with float args
-// FIXME - warning is never seen if arguments are undefined in first pass!
-static void warn_float_to_int(void)
-{
-	Throw_first_pass_warning("Converted to integer for binary logic operator.");
-}
 
 // undefined:
 // handle monadic operator (includes functions)
@@ -1832,7 +1838,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		case OPID_EOR:
 		case OPID_XOR:
 			// convert other to int, warning user
-			warn_float_to_int();
+			Throw_first_pass_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
 			/*FALLTHROUGH*/
 		case OPID_MODULO:
 		case OPID_SHIFTLEFT:
@@ -2027,7 +2033,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 	case OPID_OR:
 	case OPID_EOR:
 	case OPID_XOR:
-		warn_float_to_int();
+		Throw_first_pass_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
 		/*FALLTHROUGH*/
 	case OPID_MODULO:
 		float_to_int(self);
@@ -2197,7 +2203,6 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 {
 	int		length;
 	int		index;
-	intval_t	character;
 	struct string	*arthur,
 			*ford;
 
@@ -2207,9 +2212,7 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 		if (get_valid_index(&index, length, self, op, other))
 			return;	// error has already been reported
 
-		character = (intval_t) (unsigned char) encoding_encode_char(self->u.string->payload[index]);
-		self->u.string->refs--;	// FIXME - call a function for this...
-		int_create_byte(self, character);
+		string_to_byte(self, index);
 		return;	// ok
 
 	case OPID_ADD:
@@ -2538,8 +2541,17 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 		if (expression->result.u.number.ntype == NUMTYPE_FLOAT)
 			float_to_int(&(expression->result));
 		// FIXME - check for undefined?
+	} else if (expression->result.type == &type_string) {
+		// accept single-char strings, to be more
+		// compatible with versions before 0.97:
+		if (expression->result.u.string->length == 1) {
+			// FIXME - throw a warning?
+			string_to_byte(&(expression->result), 0);
+		} else {
+			Throw_error("String length is not 1.");	// FIXME - add to docs!
+		}
 	} else {
-		Throw_error(exception_not_number);	// FIXME - accept and encode strings if length is 1! but throw a warning?
+		Throw_error(exception_not_number);
 	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;

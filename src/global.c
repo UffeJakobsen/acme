@@ -503,7 +503,9 @@ void output_object(struct object *object, struct iter_context *iter)
 		// iterate over string
 		read = object->u.string->payload;
 		length = object->u.string->length;
-		if (iter->accept_long_strings || (length < 2)) {	// FIXME - really allow single chars?
+		// single-char strings are accepted, to be more compatible with
+		// versions before 0.97 (and empty strings are not really a problem...)
+		if (iter->accept_long_strings || (length < 2)) {
 			while (length--)
 				iter->fn(iter->stringxor ^ encoding_encode_char(*(read++)));
 		} else {

@@ -416,7 +416,7 @@ int Input_unescape_dynabuf(int read_index)
 				break;
 			// TODO - 'a' to BEL? others?
 			default:
-				Throw_error("Unsupported backslash sequence.");	// TODO - add to docs
+				Throw_error("Unsupported backslash sequence.");	// TODO - add to docs (and add unexpected character to error message?)
 			}
 			GLOBALDYNABUF_CURRENT[write_index++] = byte;
 			escaped = FALSE;
