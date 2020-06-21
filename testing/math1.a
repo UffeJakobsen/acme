@@ -139,6 +139,9 @@
 	+a int(3 + 4) + .8 = (int(3 + 4) + .8)
 	+a int(3 + 4) + .8 != int((3 + 4) + .8)
 
+	+a 3*(4+5)+7 = (3*(4+5))+7
+	+a 3*(4+5)+7 != 3*((4+5)+7)
+
 	; test dyadics with different arg types
 	; int/int
 	+a 3 ^ 2 = 9

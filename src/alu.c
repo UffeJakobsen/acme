@@ -180,7 +180,6 @@ static int		arg_sp;
 enum alu_state {
 	STATE_EXPECT_ARG_OR_MONADIC_OP,
 	STATE_EXPECT_DYADIC_OP,
-	STATE_TRY_TO_REDUCE_STACKS,	// FIXME - get rid of this
 	STATE_MAX_GO_ON,	// "border value" to find the stoppers:
 	STATE_ERROR,		// error has occurred
 	STATE_END		// standard end
@@ -747,142 +746,131 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 // expression parser
 
 
-// handler for special operators like parentheses and start/end of expression:
-// returns whether caller can remove "previous" operator from stack
-static boolean handle_special_operator(struct expression *expression, enum op_id previous)
+// handler for special operators like parentheses and start/end of expression
+#define PREVIOUS_ARGUMENT	(arg_stack[arg_sp - 2])
+#define NEWEST_ARGUMENT		(arg_stack[arg_sp - 1])
+#define PREVIOUS_OPERATOR	(op_stack[op_sp - 2])
+#define NEWEST_OPERATOR		(op_stack[op_sp - 1])
+static void handle_special_operator(struct expression *expression, enum op_id previous)
 {
 	// when this gets called, "current" operator is OPID_TERMINATOR
 	switch (previous) {
 	case OPID_START_EXPRESSION:
-		// therefore we know we are done.
+		alu_state = STATE_END;	// we are done
 		// don't touch "is_parenthesized", because start/end are obviously not "real" operators
-		alu_state = STATE_END;	// done
-		return TRUE;	// caller can remove this operator (we are done, so not really needed, but there are sanity checks for stack pointers)
-
+		// not really needed, but there are sanity checks for stack pointers:
+		// remove previous operator by overwriting with newest one...
+		PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+		--op_sp;	// ...and shrinking operator stack
+		break;
 	case OPID_SUBEXPR_PAREN:
 		expression->is_parenthesized = TRUE;	// found parentheses. if this is not the outermost level, the outermost level will fix this flag later on.
 		if (GotByte == ')') {
 			// matching parenthesis
-			GetByte();	// eat char
+			GetByte();	// eat ')'
 			op_sp -= 2;	// remove both SUBEXPR_PAREN and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
-			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+		} else {
+			// unmatched parenthesis, as in "lda ($80,x)"
+			++(expression->open_parentheses);	// count
+			// remove previous operator by overwriting with newest one...
+			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+			--op_sp;	// ...and shrinking operator stack
 		}
-		// unmatched parenthesis, as in "lda ($80,x)"
-		++(expression->open_parentheses);	// count
-		return TRUE;	// caller can remove "SUBEXPR_PAREN" operator from stack
-
+		break;
 	case OPID_START_LIST:
 		if (GotByte == ',') {
 			GetByte();	// eat ','
-			op_stack[op_sp - 1] = &ops_list_append;	// change "end of expression" to "append"
-			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
-			return FALSE;	// stack remains, so caller shouldn't touch it
-		}
-		if (GotByte == ']') {
+			NEWEST_OPERATOR = &ops_list_append;	// change "end of expression" to "append"
+		} else if (GotByte == ']') {
 			GetByte();	// eat ']'
 			op_sp -= 2;	// remove both START_LIST and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
-			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+		} else {
+			// unmatched bracket
+			Throw_error("Unterminated list.");
+			alu_state = STATE_ERROR;
+			// remove previous operator by overwriting with newest one...
+			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+			--op_sp;	// ...and shrinking operator stack
 		}
-		Throw_error("Unterminated list.");
-		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove START_LIST operator from stack
-
+		break;
 	case OPID_SUBEXPR_BRACKET:
 		if (GotByte == ']') {
 			GetByte();	// eat ']'
 			op_sp -= 2;	// remove both SUBEXPR_BRACKET and TERMINATOR
 			alu_state = STATE_EXPECT_DYADIC_OP;
-			return FALSE;	// we fixed the stack ourselves, so caller shouldn't touch it
+		} else {
+			// unmatched bracket
+			Throw_error("Unterminated index spec.");
+			alu_state = STATE_ERROR;
+			// remove previous operator by overwriting with newest one...
+			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+			--op_sp;	// ...and shrinking operator stack
 		}
-		Throw_error("Unterminated index spec.");
-		alu_state = STATE_ERROR;
-		return TRUE;	// caller can remove SUBEXPR_BRACKET operator from stack
-
+		break;
 	default:
 		Bug_found("IllegalOperatorId", previous);
 	}
-	// this is unreachable
-	return FALSE;	// stack is done, so caller shouldn't touch it
 }
-
-
-// Try to reduce stacks by performing high-priority operations
-// (if the previous operator has a higher priority than the current one, do it)
+// put dyadic operator on stack and try to reduce stacks by performing
+// high-priority operations: as long as the second-to-last operator
+// has a higher priority than the last one, perform the operation of
+// that second-to-last one and remove it from stack.
 static void push_dyadic_and_check(struct expression *expression, struct op *op)
 {
-	struct op	*previous_op;
-	struct op	*current_op;
-
-	PUSH_OP(op);
+	PUSH_OP(op);	// put newest operator on stack
 	if (alu_state < STATE_MAX_GO_ON)
-		alu_state = STATE_TRY_TO_REDUCE_STACKS;
-	while (alu_state == STATE_TRY_TO_REDUCE_STACKS) {
-		if (op_sp < 2) {
-			// we only have one operator, which must be "start of expression",
-			// so there isn't anything left to do, so go on trying to parse the expression
-			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+		alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+	while (alu_state == STATE_EXPECT_ARG_OR_MONADIC_OP) {
+		// if there is only one operator left on op stack, it must be
+		// "start of expression", so there isn't anything to do here:
+		if (op_sp < 2)
 			return;
-		}
 
-		previous_op = op_stack[op_sp - 2];
-		current_op = op_stack[op_sp - 1];
-
-		// previous operator has lower piority than current one? then do nothing.
-		if (previous_op->priority < current_op->priority) {
-			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+		// if previous operator has lower piority, nothing to do here:
+		if (PREVIOUS_OPERATOR->priority < NEWEST_OPERATOR->priority)
 			return;
-		}
 
-		// previous operator has same priority as current one? then check associativity
-		if ((previous_op->priority == current_op->priority)
-		&& (current_op->priority == PRIO_POWEROF)
-		&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF)) {
-			alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
+		// if priorities are the same, check associativity:
+		if ((PREVIOUS_OPERATOR->priority == NEWEST_OPERATOR->priority)
+		&& (NEWEST_OPERATOR->priority == PRIO_POWEROF)
+		&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF))
 			return;
-		}
 
-		// we now know that either
-		// - the previous operator has higher priority, or
-		// - it has the same priority and is left-associative,
-		// so perform that operation!
-#define ARG_PREV	(arg_stack[arg_sp - 2])
-#define ARG_NOW		(arg_stack[arg_sp - 1])
-		switch (previous_op->group) {
-		case OPGROUP_MONADIC:	// monadic operators
+		// ok, so now perform operation indicated by previous operator!
+		switch (PREVIOUS_OPERATOR->group) {
+		case OPGROUP_MONADIC:
+			// stacks:	...	...	previous op(monadic)	newest arg	newest op(dyadic)
 			if (arg_sp < 1)
 				Bug_found("ArgStackEmpty", arg_sp);
-			ARG_NOW.type->monadic_op(&ARG_NOW, previous_op);
-			// operation was something other than parentheses
-			expression->is_parenthesized = FALSE;
+			NEWEST_ARGUMENT.type->monadic_op(&NEWEST_ARGUMENT, PREVIOUS_OPERATOR);
+			expression->is_parenthesized = FALSE;	// operation was something other than parentheses
+			// now remove previous operator by overwriting with newest one...
+			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+			--op_sp;	// ...and shrinking operator stack
 			break;
-		case OPGROUP_DYADIC:	// dyadic operators
+		case OPGROUP_DYADIC:
+			// stacks:	previous arg	previous op(dyadic)	newest arg	newest op(dyadic)
 			if (arg_sp < 2)
 				Bug_found("NotEnoughArgs", arg_sp);
-			ARG_PREV.type->dyadic_op(&ARG_PREV, previous_op, &ARG_NOW);
-			// decrement argument stack pointer because dyadic operator merged two arguments into one
-			--arg_sp;
-			// operation was something other than parentheses
-			expression->is_parenthesized = FALSE;
+			PREVIOUS_ARGUMENT.type->dyadic_op(&PREVIOUS_ARGUMENT, PREVIOUS_OPERATOR, &NEWEST_ARGUMENT);
+			expression->is_parenthesized = FALSE;	// operation was something other than parentheses
+			// now remove previous operator by overwriting with newest one...
+			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
+			--op_sp;	// ...and shrinking operator stack
+			--arg_sp;	// and then shrink argument stack because two arguments just became one
 			break;
-		case OPGROUP_SPECIAL:	// special (pseudo) operators
-			if (current_op->id != OPID_TERMINATOR)
-				Bug_found("StrangeOperator", current_op->id);
-			if (!handle_special_operator(expression, previous_op->id))
-				continue;	// called fn has fixed the stack, so we don't touch it
-
-			// both monadics and dyadics clear "is_parenthesized", but here we don't touch it!
+		case OPGROUP_SPECIAL:
+			// stacks:	...	...	previous op(special)	newest arg	newest op(dyadic)
+			if (NEWEST_OPERATOR->id != OPID_TERMINATOR)
+				Bug_found("StrangeOperator", NEWEST_OPERATOR->id);
+			handle_special_operator(expression, PREVIOUS_OPERATOR->id);
+			// the function above fixes both stacks and "is_parenthesized"!
 			break;
 		default:
-			Bug_found("IllegalOperatorGroup", previous_op->group);
+			Bug_found("IllegalOperatorGroup", PREVIOUS_OPERATOR->group);
 		}
-		// shared endings for "we did the operation indicated by previous operator":
-		// fix stack:
-		// remove previous operator and shift down current one
-		// CAUTION - fiddling with our local copies like "previous_op = current_op" is not enough... ;)
-		op_stack[op_sp - 2] = op_stack[op_sp - 1];
-		--op_sp;	// decrement operator stack pointer
 	}
 }
 
@@ -2402,9 +2390,6 @@ static int parse_expression(struct expression *expression)
 			break;
 		case STATE_EXPECT_DYADIC_OP:
 			expect_dyadic_operator(expression);
-			break;
-		case STATE_TRY_TO_REDUCE_STACKS:
-			Bug_found("TryToReduce", 0);	// FIXME - add to docs or remove!
 			break;
 		case STATE_MAX_GO_ON:	// suppress
 		case STATE_ERROR:	// compiler
