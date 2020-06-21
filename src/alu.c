@@ -43,6 +43,7 @@ static const char	exception_no_value[]	= "No value given.";
 static const char	exception_paren_open[]	= "Too many '('.";
 static const char	exception_not_number[]	= "Expression did not return a number.";
 static const char	exception_float_to_int[]= "Converted to integer for binary logic operator.";
+static const char	exception_lengthnot1[]	= "String length is not 1.";
 
 enum op_group {
 	OPGROUP_SPECIAL,	// start/end of expression, and parentheses
@@ -2481,6 +2482,16 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 			*target = expression.result.u.number.val.fpval;
 		else
 			Bug_found("IllegalNumberType6", expression.result.u.number.ntype);
+	} else if (expression.result.type == &type_string) {
+		// accept single-char strings, to be more
+		// compatible with versions before 0.97:
+		if (expression.result.u.string->length != 1) {
+			Throw_error(exception_lengthnot1);
+		} else {
+			// FIXME - throw a warning?
+		}
+		string_to_byte(&(expression.result), 0);
+		*target = expression.result.u.number.val.intval;
 	} else {
 		*target = 0;
 		Throw_error(exception_not_number);
@@ -2518,6 +2529,15 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 		} else {
 			Bug_found("IllegalNumberType7", expression.result.u.number.ntype);
 		}
+	} else if (expression.result.type == &type_string) {
+		// accept single-char strings, to be more
+		// compatible with versions before 0.97:
+		if (expression.result.u.string->length != 1) {
+			Throw_error(exception_lengthnot1);
+		} else {
+			// FIXME - throw a warning?
+		}
+		string_to_byte(&(expression.result), 0);
 	} else {
 		Throw_serious_error(exception_not_number);
 	}
@@ -2544,12 +2564,12 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 	} else if (expression->result.type == &type_string) {
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:
-		if (expression->result.u.string->length == 1) {
-			// FIXME - throw a warning?
-			string_to_byte(&(expression->result), 0);
+		if (expression->result.u.string->length != 1) {
+			Throw_error(exception_lengthnot1);
 		} else {
-			Throw_error("String length is not 1.");
+			// FIXME - throw a warning?
 		}
+		string_to_byte(&(expression->result), 0);
 	} else {
 		Throw_error(exception_not_number);
 	}
