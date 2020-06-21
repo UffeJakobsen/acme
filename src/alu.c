@@ -71,6 +71,10 @@ enum op_id {
 	OPID_ARCCOS,		//	arccos(v)
 	OPID_ARCTAN,		//	arctan(v)
 	OPID_LEN,		//	len(v)
+	OPID_ISNUMBER,		//	is_number(v)
+	OPID_ISLIST,		//	is_list(v)
+	OPID_ISSTRING,		//	is_string(v)
+// add CHR function to create 1-byte string? or rather add \xAB escape sequence?
 	// dyadic operators:
 	OPID_POWEROF,		//	v^w
 	OPID_MULTIPLY,		//	v*w
@@ -155,6 +159,9 @@ static struct op ops_arcsin		= {42, OPGROUP_MONADIC, OPID_ARCSIN,	"arcsin()"	};
 static struct op ops_arccos		= {42, OPGROUP_MONADIC, OPID_ARCCOS,	"arccos()"	};
 static struct op ops_arctan		= {42, OPGROUP_MONADIC, OPID_ARCTAN,	"arctan()"	};
 static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
+static struct op ops_isnumber		= {42, OPGROUP_MONADIC, OPID_ISNUMBER,	"is_number()"	};
+static struct op ops_islist		= {42, OPGROUP_MONADIC, OPID_ISLIST,	"is_list()"	};
+static struct op ops_isstring		= {42, OPGROUP_MONADIC, OPID_ISSTRING,	"is_string()"	};
 
 
 // variables
@@ -199,6 +206,9 @@ static struct ronode	function_list[]	= {
 	PREDEFNODE("int",	&ops_int),
 	PREDEFNODE("float",	&ops_float),
 	PREDEFNODE("len",	&ops_len),
+	PREDEFNODE("is_number",	&ops_isnumber),
+	PREDEFNODE("is_list",	&ops_islist),
+	PREDEFNODE("is_string",	&ops_isstring),
 	PREDEFNODE("arcsin",	&ops_arcsin),
 	PREDEFNODE("arccos",	&ops_arccos),
 	PREDEFNODE("arctan",	&ops_arctan),
@@ -1444,9 +1454,6 @@ static void warn_float_to_int(void)
 static void undef_handle_monadic_operator(struct object *self, const struct op *op)
 {
 	switch (op->id) {
-	case OPID_ADDRESS:
-		self->u.number.addr_refs = 1;	// result now is an address
-		break;
 	case OPID_INT:
 	case OPID_FLOAT:
 		self->u.number.addr_refs = 0;
@@ -1490,9 +1497,6 @@ static void int_handle_monadic_operator(struct object *self, const struct op *op
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
 	switch (op->id) {
-	case OPID_ADDRESS:
-		refs = 1;	// result now is an address
-		break;
 	case OPID_INT:
 		break;
 	case OPID_FLOAT:
@@ -1563,9 +1567,6 @@ static void float_handle_monadic_operator(struct object *self, const struct op *
 	int	refs	= 0;	// default for "addr_refs", shortens this fn
 
 	switch (op->id) {
-	case OPID_ADDRESS:
-		refs = 1;	// result now is an address
-		break;
 	case OPID_INT:
 		float_to_int(self);
 		break;
@@ -1622,6 +1623,25 @@ static void float_handle_monadic_operator(struct object *self, const struct op *
 // handle monadic operator (includes functions)
 static void number_handle_monadic_operator(struct object *self, const struct op *op)
 {
+	// first check operators where we don't care about number type or value
+	switch (op->id) {
+	case OPID_ADDRESS:
+		self->u.number.addr_refs = 1;	// result now is an address
+		return;
+
+	case OPID_ISNUMBER:
+		int_create_byte(self, TRUE);
+		return;
+
+	case OPID_ISLIST:
+	case OPID_ISSTRING:
+		int_create_byte(self, FALSE);
+		return;
+
+	default:
+		break;
+	}
+	// it's none of those, so split according to number type
 	switch (self->u.number.ntype) {
 	case NUMTYPE_UNDEFINED:
 		undef_handle_monadic_operator(self, op);
@@ -1643,7 +1663,8 @@ static void list_handle_monadic_operator(struct object *self, const struct op *o
 {
 	int	length;
 
-	if (op->id == OPID_LEN) {
+	switch (op->id) {
+	case OPID_LEN:
 		length = self->u.listhead->u.listinfo.length;
 		self->u.listhead->u.listinfo.refs--;	// FIXME - call some list_decrement_refs() instead...
 		self->type = &type_number;
@@ -1651,7 +1672,15 @@ static void list_handle_monadic_operator(struct object *self, const struct op *o
 		self->u.number.flags = 0;
 		self->u.number.val.intval = length;
 		self->u.number.addr_refs = 0;
-	} else {
+		break;
+	case OPID_ISLIST:
+		int_create_byte(self, TRUE);
+		break;
+	case OPID_ISNUMBER:
+	case OPID_ISSTRING:
+		int_create_byte(self, FALSE);
+		break;
+	default:
 		unsupported_operation(NULL, op, self);
 	}
 }
@@ -1662,7 +1691,8 @@ static void string_handle_monadic_operator(struct object *self, const struct op 
 {
 	int	length;
 
-	if (op->id == OPID_LEN) {
+	switch (op->id) {
+	case OPID_LEN:
 		length = self->u.string->length;
 		self->u.string->refs--;	// FIXME - call some string_decrement_refs() instead...
 		self->type = &type_number;
@@ -1670,7 +1700,15 @@ static void string_handle_monadic_operator(struct object *self, const struct op 
 		self->u.number.flags = 0;
 		self->u.number.val.intval = length;
 		self->u.number.addr_refs = 0;
-	} else {
+		break;
+	case OPID_ISNUMBER:
+	case OPID_ISLIST:
+		int_create_byte(self, FALSE);
+		break;
+	case OPID_ISSTRING:
+		int_create_byte(self, TRUE);
+		break;
+	default:
 		unsupported_operation(NULL, op, self);
 	}
 }
@@ -2105,10 +2143,11 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 	case OPID_LIST_APPEND:
 		list_append_object(self->u.listhead, other);
 		// no need to check/update ref count of "other": it loses the ref on the stack and gains one in the list
-		break;
+		return;
+
 	case OPID_ATINDEX:
 		if (get_valid_index(&index, length, self, op, other))
-			return;	// error
+			return;	// error has been thrown
 
 		item = self->u.listhead->next;
 		while (index) {
@@ -2117,12 +2156,11 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 		}
 		self->u.listhead->u.listinfo.refs--;	// FIXME - call some fn for this (and do _after_ next line)
 		*self = item->u.payload;	// FIXME - if item is a list, it would gain a ref by this...
-		break;
+		return;
+
 	case OPID_ADD:
-		if (other->type != &type_list) {
-			unsupported_operation(self, op, other);
-			return;	// error
-		}
+		if (other->type != &type_list)
+			break;	// complain
 		item = self->u.listhead;	// get ref to first list
 		list_init_list(self);	// replace first list on arg stack with new one
 		list_append_list(self->u.listhead, item);
@@ -2131,10 +2169,26 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 		list_append_list(self->u.listhead, item);
 		item->u.listinfo.refs--;	// FIXME - call a function for this...
 		return;
-		
+
+	case OPID_EQUALS:
+		if (other->type != &type_list)
+			break;	// complain	FIXME - return FALSE?
+		int_create_byte(self, !list_differs(self, other));
+		// FIXME - call function to decrement refs!
+		return;
+
+	case OPID_NOTEQUAL:
+		if (other->type != &type_list)
+			break;	// complain	FIXME - return TRUE?
+		int_create_byte(self, list_differs(self, other));
+		// FIXME - call function to decrement refs!
+		return;
+
+	//case ...:	// maybe comparisons?
 	default:
-		unsupported_operation(self, op, other);
+		break;	// complain
 	}
+	unsupported_operation(self, op, other);
 }
 
 // string:
@@ -2172,7 +2226,7 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 		
 	case OPID_EQUALS:
 		if (other->type != &type_string)
-			break;	// complain
+			break;	// complain	FIXME - return FALSE?
 		arthur = self->u.string;
 		ford = other->u.string;
 		int_create_byte(self, !string_differs(self, other));
@@ -2182,7 +2236,7 @@ static void string_handle_dyadic_operator(struct object *self, const struct op *
 
 	case OPID_NOTEQUAL:
 		if (other->type != &type_string)
-			break;	// complain
+			break;	// complain	FIXME - return TRUE?
 		arthur = self->u.string;
 		ford = other->u.string;
 		int_create_byte(self, string_differs(self, other));
@@ -2485,8 +2539,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 			float_to_int(&(expression->result));
 		// FIXME - check for undefined?
 	} else {
-		Throw_error(exception_not_number);
-		// FIXME - accept and encode strings if length is 1?
+		Throw_error(exception_not_number);	// FIXME - accept and encode strings if length is 1! but throw a warning?
 	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
