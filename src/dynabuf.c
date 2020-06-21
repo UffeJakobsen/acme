@@ -109,7 +109,8 @@ static char *ensure_free_space(struct dynabuf *db, int size)
 void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 {
 	char	*read,
-		*write;
+		*write,
+		byte;
 
 	// make sure target can take it
 	if (source->size > target->reserved)
@@ -117,8 +118,12 @@ void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 	// convert to lower case
 	read = source->buffer;	// CAUTION - ptr may change when buf grows!
 	write = target->buffer;	// CAUTION - ptr may change when buf grows!
-	while (*read)
-		*write++ = (*read++) | 32;
+	while ((byte = *read++)) {
+		// we want to keep underscore, so this check restricts:
+		if (byte <= 'Z')
+			byte |= 32;
+		*write++ = byte;
+	}
 	// Okay, so this method of converting to lowercase is lousy.
 	// But actually it doesn't matter, because only pre-defined
 	// keywords are converted, and all of those are plain
