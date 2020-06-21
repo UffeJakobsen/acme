@@ -695,7 +695,7 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 	struct listitem	*item;
 
 	if (selfhead == otherhead)
-		Bug_found("ExtendingListWithItself", 0);	// TODO - add to docs!
+		Bug_found("ExtendingListWithItself", 0);
 	item = otherhead->next;
 	while (item != otherhead) {
 		list_append_object(selfhead, &item->u.payload);
@@ -1659,7 +1659,7 @@ static void number_handle_monadic_operator(struct object *self, const struct op 
 		float_handle_monadic_operator(self, op);
 		break;
 	default:
-		Bug_found("IllegalNumberType1", self->u.number.ntype);	// FIXME - add to docs!
+		Bug_found("IllegalNumberType1", self->u.number.ntype);
 	}
 }
 
@@ -2101,7 +2101,7 @@ static void number_handle_dyadic_operator(struct object *self, const struct op *
 	else if (self->u.number.ntype == NUMTYPE_FLOAT)
 		float_handle_dyadic_operator(self, op, other);
 	else
-		Bug_found("IllegalNumberType2", self->u.number.ntype);	// FIXME - add to docs!
+		Bug_found("IllegalNumberType2", self->u.number.ntype);
 }
 
 
@@ -2122,7 +2122,7 @@ static int get_valid_index(int *target, int length, const struct object *self, c
 	if (other->u.number.ntype == NUMTYPE_FLOAT)
 		float_to_int(other);
 	if (other->u.number.ntype != NUMTYPE_INT)
-		Bug_found("IllegalNumberType3", other->u.number.ntype);	// FIXME - add to docs!
+		Bug_found("IllegalNumberType3", other->u.number.ntype);
 
 	index = other->u.number.val.intval;
 	// negative indices access from the end
@@ -2279,7 +2279,7 @@ static void number_fix_result(struct object *self)
 		&& (self->u.number.val.fpval >= -128.0))
 			self->u.number.flags |= NUMBER_FITS_BYTE;	// FIXME - what for? isn't this flag only of use when undefined?
 	} else {
-		Bug_found("IllegalNumberType4", self->u.number.ntype);	// FIXME - add to docs!
+		Bug_found("IllegalNumberType4", self->u.number.ntype);
 	}
 }
 
@@ -2307,7 +2307,7 @@ static void number_print(const struct object *self, struct dynabuf *db)
 		sprintf(buffer, "%.30g", self->u.number.val.fpval);
 		DynaBuf_add_string(db, buffer);
 	} else {
-		Bug_found("IllegalNumberType5", self->u.number.ntype);	// FIXME - add to docs!
+		Bug_found("IllegalNumberType5", self->u.number.ntype);
 	}
 }
 
@@ -2480,7 +2480,7 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		else if (expression.result.u.number.ntype == NUMTYPE_FLOAT)
 			*target = expression.result.u.number.val.fpval;
 		else
-			Bug_found("IllegalNumberType6", expression.result.u.number.ntype);	// FIXME - add to docs!
+			Bug_found("IllegalNumberType6", expression.result.u.number.ntype);
 	} else {
 		*target = 0;
 		Throw_error(exception_not_number);
@@ -2510,13 +2510,13 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 		Throw_serious_error(exception_no_value);
 	if (expression.result.type == &type_number) {
 		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED) {
-			Throw_serious_error(exception_value_not_defined);
+			Throw_serious_error("Value not defined.");
 		} else if (expression.result.u.number.ntype == NUMTYPE_INT) {
 			// ok
 		} else if (expression.result.u.number.ntype == NUMTYPE_FLOAT) {
 			float_to_int(&expression.result);
 		} else {
-			Bug_found("IllegalNumberType7", expression.result.u.number.ntype);	// FIXME - add to docs!
+			Bug_found("IllegalNumberType7", expression.result.u.number.ntype);
 		}
 	} else {
 		Throw_serious_error(exception_not_number);
@@ -2548,7 +2548,7 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 			// FIXME - throw a warning?
 			string_to_byte(&(expression->result), 0);
 		} else {
-			Throw_error("String length is not 1.");	// FIXME - add to docs!
+			Throw_error("String length is not 1.");
 		}
 	} else {
 		Throw_error(exception_not_number);

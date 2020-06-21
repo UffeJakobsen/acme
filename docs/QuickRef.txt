@@ -106,6 +106,10 @@ Then there are local symbols (their names starting with a '.'
 character). These can only be accessed from inside the macro or zone
 they were defined in (for more about macros and zones, see the file
 "AllPOs.txt").
+There are also "cheap locals": their names start with a '@' character.
+The area where these can be accessed is limited automatically by the
+previous and the following global label (cheap locals are "cheap"
+because you don't have to put in any extra work to limit their range).
 And then there are anonymous labels (their names being sequences of
 either '-' or '+' characters). They are also local (bound to their
 macro/zone), but in addition to that, the "-" labels can only be used
@@ -113,6 +117,7 @@ for backward references, while the "+" labels can only be used for
 forward references.
 In contrast to global and local labels, anonymous labels can not be
 defined explicitly (as in SYMBOL = VALUE).
+Each macro call automatically gets its own scope for local symbols.
 
 Save the given example source code to a file called "tiny.a" and start
 acme by typing
@@ -149,7 +154,7 @@ found in the file "AllPOs.txt". Here's just a short overview:
 !convtab   !pet   !raw   !scr   !scrxor   !text
 ...for converting and outputting strings.
 
-!do   !endoffile   !for   !if   !ifdef   !ifndef   !set
+!do   !endoffile   !for   !if   !ifdef   !ifndef   !set   !while
 ...for flow control; looping assembly and conditional assembly.
 
 !binary   !source   !to
@@ -170,7 +175,7 @@ found in the file "AllPOs.txt". Here's just a short overview:
 !warn   !error   !serious
 ...for generating warnings, errors and serious errors.
 
-!addr
+!address
 ...to mark symbols as addresses, for the optional type check system.
 
 
@@ -276,6 +281,8 @@ Available options are:
         -Wno-old-for
             Disables warnings about the old "!for" syntax and at the
             same time enables warnings about the _new_ "!for" syntax.
+            Internally, this does exactly the same as what happens
+            when the "--dialect 0.94.8" CLI switch is used...
         -Wtype-mismatch
             Enables type checking system (warns about wrong types).
 
@@ -295,6 +302,15 @@ Available options are:
         This changes the prefix character used to mark pseudo opcodes
         from '!' to '.' (so sources intended for other assemblers can
         be converted with less effort).
+
+    --dialect VERSION      behave like different version
+        This CLI switch tells ACME to mimic the behavior of an older
+        version. Use this with a bogus version to get a list of all
+        supported ones.
+
+    --test                 enable experimental features
+        This is for people who want to help test new features before
+        they are officially announced.
 
     -V, --version          show version and exit.
 
@@ -389,8 +405,8 @@ $d011           hexadecimal values are indicated by either a
                     more readable, especially when building bitmapped
                     objects (like C64 sprites or fonts) in your source
                     code.
-"p"             character values are indicated by double or single
-'q'                 quotes. The actual numeric value depends on the
+'p'             character values are indicated by single or double
+"q"                 quotes. The actual numeric value depends on the
                     current conversion table (none/petscii/screen),
                     chosen using the "!ct" pseudo opcode.
 poll_joy2       a global symbol

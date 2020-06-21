@@ -57,7 +57,6 @@ const char	exception_number_out_of_range[]	= "Number out of range.";
 const char	exception_pc_undefined[]	= "Program counter undefined.";
 const char	exception_symbol_defined[]	= "Symbol already defined.";
 const char	exception_syntax[]		= "Syntax error.";
-const char	exception_value_not_defined[]	= "Value not defined.";
 // default value for number of errors before exiting
 #define MAXERRORS	10
 

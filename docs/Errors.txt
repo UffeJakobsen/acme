@@ -38,15 +38,16 @@ Assembling buggy JMP($xxff) instruction
     location ARGUMENT + 1, but from ARGUMENT - 255. Therefore ACME
     issues this warning if you are about to generate such an
     instruction.
-    Note that this warning is only given for CPU types 6502 and 6510,
-    because 65c02 and 65816 have been fixed in this respect.
+    Note that this warning is only given for some CPU types (6502,
+    nmos6502/6510, c64dtv2) because later ones like 65c02 and 65816
+    have been fixed in this regard.
 
 Assembling unstable ANE #NONZERO instruction
 Assembling unstable LXA #NONZERO instruction
-    These warnings are only ever given for CPU type 6510. ANE and LXA
-    are undocumented ("illegal") opcodes of this CPU, and they only
-    work reliably if the argument is zero or the accumulator contains
-    0xff.
+    These warnings are only ever given for CPU type nmos6502 (6510).
+    ANE and LXA are undocumented ("illegal") opcodes of this CPU, and
+    they only work reliably if the argument is zero or the accumulator
+    contains 0xff.
     Therefore ACME issues these warnings if it is about to generate
     these instructions with a non-zero argument.
 
@@ -64,7 +65,7 @@ C-style "==" comparison detected.
 
 Converted to integer for binary logic operator.
     Applying binary logic to float values does not make much sense,
-    therefore floats will be converted to integer in this case.
+    therefore floats will be converted to integer in such cases.
 
 "EOR" is deprecated; use "XOR" instead.
     This means the operator, not the mnemonic.
@@ -72,7 +73,9 @@ Converted to integer for binary logic operator.
 Found old "!for" syntax.
     Please update your sources to use the new "!for" syntax. See
     AllPOs.txt for details.
-    You can suppress this warning using the "-Wno-old-for" switch.
+    You can suppress this warning using the "--dialect" or the
+    "-Wno-old-for" CLI switch.
+    ("-Wno-old-for" does _exactly_ the same as "--dialect 0.94.8")
 
 Found new "!for" syntax.
     When using the "-Wno-old-for" switch to disable the warning about
@@ -187,14 +190,23 @@ Section:   Errors during assembly
 "!cbm" is obsolete; use "!ct pet" instead.
     This is given when the now obsolete "!cbm" pseudo opcode is
     encountered.
+    If you want to assemble an old source code without first updating
+    it, you can use the "--dialect" CLI switch to make ACME mimic an
+    older version.
 
 "!pseudopc/!realpc" is obsolete; use "!pseudopc {}" instead.
     This is given when one of the now obsolete !pseudopc/!realpc
     pseudo opcodes is encountered.
+    If you want to assemble an old source code without first updating
+    it, you can use the "--dialect" CLI switch to make ACME mimic an
+    older version.
 
 "!subzone {}" is obsolete; use "!zone {}" instead.
     This is given when the now obsolete "!subzone" pseudo opcode is
     encountered.
+    If you want to assemble an old source code without first updating
+    it, you can use the "--dialect" CLI switch to make ACME mimic an
+    older version.
 
 !error: ...
     This is given when the pseudo opcode "!error" is executed. The
@@ -293,7 +305,7 @@ Negative value - cannot choose addressing mode.
     your program to use positive addresses instead.
 
 No string given.
-    ACME expects a string but doesn't find it.
+    ACME expects a string but doesn't find it, or the string is empty.
 
 Number out of range.
     A value is too high or too low.
@@ -315,6 +327,9 @@ Quotes still open at end of line.
 Source file contains illegal character.
     Your source code file contained a null byte.
 
+String length is not 1.
+    You tried something like LDA#"X" with an illegal string length.
+
 Symbol already defined.
     You defined a symbol that already had a different type or value.
     To change a symbol's type or value, use the "!set" pseudo opcode.
@@ -334,8 +349,8 @@ Target out of range (N; M too far).
     away, the code would assemble.
 
 There's more than one character.
-    You used a text string in an arithmetic expression, but the string
-    contained more than a single character.
+    You used a text string containing more than one character in a
+    situation where only a string with length one is allowed.
 
 Too late for postfix.
     You can only postfix symbols at the start, before they are used for
@@ -346,8 +361,8 @@ Too many '('.
 
 Un-pseudopc operator '&' can only be applied to labels.
     You tried to apply the operator '&' to something that is not a
-    label. This operator only works on labels, it cannot be used on
-    other objects.
+    label. This operator only works on labels and on '*' (the program
+    counter), it cannot be used on other objects.
 
 Un-pseudopc operator '&' has no !pseudopc context.
     You either tried to apply the operator '&' to something that is
@@ -443,7 +458,7 @@ Too deeply nested. Recursive "!source"?
     The default limit is 64, this can be changed using the
     "--maxdepth" CLI switch.
 
-Value not yet defined.
+Value not defined.
     A value could not be worked out. Maybe you mistyped a symbol name.
     Whether this is given as a "normal" or as a serious error depends
     on the currently parsed pseudo opcode.
@@ -489,6 +504,9 @@ ArgStackNotEmpty
     The expression parser has finished though there are still
     arguments left to process.
 
+ExtendingListWithItself
+    There were multiple references to the same list.
+
 IllegalBlockTerminator
     A RAM block (macro or loop) was terminated incorrectly.
 
@@ -501,6 +519,9 @@ IllegalIfMode
 IllegalImmediateMode
     The mnemonic tree contains invalid info about the size of immediate
     arguments.
+
+IllegalNumberTypeX
+    A number was neither INT nor FLOAT nor UNDEFINED.
 
 IllegalOperatorId
 IllegalOperatorGroup
