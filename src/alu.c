@@ -455,13 +455,13 @@ static void parse_quoted(char closing_quote)
 			Throw_error("There's more than one character.");
 		// parse character
 		value = (intval_t) (unsigned char) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
-		PUSH_INT_ARG(value, NUMBER_FITS_BYTE, 0);	// FIXME - why set FITS_BYTE? it's only really useful for undefined values!
+		PUSH_INT_ARG(value, 0, 0);	// no flags, no addr refs
 	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
 	return;
 
 fail:
-	PUSH_INT_ARG(0, NUMBER_FITS_BYTE, 0);	// dummy
+	PUSH_INT_ARG(0, 0, 0);	// dummy, no flags, no addr refs
 	alu_state = STATE_ERROR;
 }
 
@@ -1265,7 +1265,7 @@ static void int_create_byte(struct object *self, intval_t byte)
 {
 	self->type = &type_number;
 	self->u.number.ntype = NUMTYPE_INT;
-	self->u.number.flags = NUMBER_FITS_BYTE;	// FIXME - if DEFINED anyway, what use is there for FITS_BYTE?
+	self->u.number.flags = 0;
 	self->u.number.val.intval = byte;
 	self->u.number.addr_refs = 0;
 }
@@ -1412,9 +1412,9 @@ static void number_assign(struct object *self, const struct object *new_value, b
 	if ((own_flags & (NUMBER_EVER_UNDEFINED | NUMBER_FITS_BYTE)) == NUMBER_EVER_UNDEFINED)
 		other_flags &= ~NUMBER_FITS_BYTE;
 	// now OR together "fits byte", "defined" and "tainted"
-	// (any hypothetical problems about "new value is later found out to
-	// _not_ fit byte" would be detected when assigning a different value
-	// raises an error in a later pass)
+	// (any hypothetical problems like "what if new value is later found out
+	// to _not_ fit byte?" would be detected in a later pass because trying
+	// to assign that new value would throw an error)
 	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_EVER_UNDEFINED);
 
 	self->u.number.flags = own_flags;
@@ -1720,7 +1720,7 @@ static void intfloat_fix_result_after_comparison(struct object *self, const stru
 	self->u.number.val.intval = result;
 	self->u.number.addr_refs = 0;
 	flags = (self->u.number.flags | other->u.number.flags) & NUMBER_EVER_UNDEFINED;	// EVER_UNDEFINED flags are ORd together
-	flags |= NUMBER_FITS_BYTE;	// FITS_BYTE gets set
+	flags |= NUMBER_FITS_BYTE;	// comparison results are either 0 or 1, so fit in byte
 	// (FORCEBITS are cleared)
 	self->u.number.flags = flags;
 }
@@ -1728,7 +1728,7 @@ static void intfloat_fix_result_after_comparison(struct object *self, const stru
 static void intfloat_fix_result_after_dyadic(struct object *self, const struct object *other)
 {
 	self->u.number.flags |= other->u.number.flags & (NUMBER_EVER_UNDEFINED | NUMBER_FORCEBITS);	// EVER_UNDEFINED and FORCEBITs are ORd together
-	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// FITS_BYTE is cleared
+	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// clear FITS_BYTE because result could be anything
 }
 
 // undefined/int/float:
@@ -1760,7 +1760,7 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 	case OPID_NOTEQUAL:
 	case OPID_EQUALS:
 		// only for comparisons:
-		self->u.number.flags |= NUMBER_FITS_BYTE;	// FITS_BYTE gets set
+		self->u.number.flags |= NUMBER_FITS_BYTE;	// result is either 0 or 1, so fits in byte
 		self->u.number.flags &= ~NUMBER_FORCEBITS;	// FORCEBITS are cleared
 		goto shared;
 
@@ -1782,7 +1782,7 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 	}
 	// CAUTION: comparisons goto label below instead of jumping here
 	self->u.number.flags |= (other->u.number.flags & NUMBER_FORCEBITS);	// FORCEBITs are ORd together
-	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// FITS_BYTE is cleared
+	self->u.number.flags &= ~NUMBER_FITS_BYTE;	// clear FITS_BYTE because result could be anything
 shared:
 	self->u.number.flags |= (other->u.number.flags & NUMBER_EVER_UNDEFINED);	// EVER_UNDEFINED flags are ORd together
 	self->u.number.ntype = NUMTYPE_UNDEFINED;
@@ -2253,23 +2253,8 @@ static void number_fix_result(struct object *self)
 	else if (self->u.number.flags & NUMBER_FORCES_16)
 		self->u.number.flags &= ~NUMBER_FORCES_8;
 
-	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
+	if (self->u.number.ntype == NUMTYPE_UNDEFINED)
 		self->u.number.val.intval = 0;	// FIXME - should not be needed!
-	} else if (self->u.number.ntype == NUMTYPE_INT) {
-		// if value is sure, check to set FITS BYTE
-		if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
-		&& (self->u.number.val.intval <= 255)
-		&& (self->u.number.val.intval >= -128))
-			self->u.number.flags |= NUMBER_FITS_BYTE;	// FIXME - what for? isn't this flag only of use when undefined?
-	} else if (self->u.number.ntype == NUMTYPE_FLOAT) {
-		// if value is sure, check to set FITS BYTE
-		if ((!(self->u.number.flags & NUMBER_EVER_UNDEFINED))
-		&& (self->u.number.val.fpval <= 255.0)
-		&& (self->u.number.val.fpval >= -128.0))
-			self->u.number.flags |= NUMBER_FITS_BYTE;	// FIXME - what for? isn't this flag only of use when undefined?
-	} else {
-		Bug_found("IllegalNumberType4", self->u.number.ntype);
-	}
 }
 
 // list/string:
