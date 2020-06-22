@@ -370,7 +370,6 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 		symbol->object.u.number.ntype = NUMTYPE_UNDEFINED;
 		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;	// reading undefined taints it
 		symbol->object.u.number.addr_refs = 0;
-		symbol->object.u.number.val.intval = 0;	// FIXME - should not be needed!
 	} else {
 		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> Bug_found()!
 		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
@@ -1482,7 +1481,6 @@ static void undef_handle_monadic_operator(struct object *self, const struct op *
 	default:
 		unsupported_operation(NULL, op, self);
 	}
-	self->u.number.val.intval = 0;	// FIXME - should not be needed...
 }
 
 // prototype for int/float passing
@@ -1788,7 +1786,6 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 shared:
 	self->u.number.flags |= (other->u.number.flags & NUMBER_EVER_UNDEFINED);	// EVER_UNDEFINED flags are ORd together
 	self->u.number.ntype = NUMTYPE_UNDEFINED;
-	self->u.number.val.intval = 0;	// FIXME - should not be needed...
 	self->u.number.addr_refs = refs;	// update address refs with local copy
 }
 
@@ -1903,17 +1900,29 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		self->u.number.val.intval = ((uintval_t) (self->u.number.val.intval)) >> other->u.number.val.intval;
 		break;
 	case OPID_LESSOREQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval <= other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval <= other->u.number.val.intval);
+		return;
+
 	case OPID_LESSTHAN:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval < other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval < other->u.number.val.intval);
+		return;
+
 	case OPID_GREATEROREQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval >= other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval >= other->u.number.val.intval);
+		return;
+
 	case OPID_GREATERTHAN:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval > other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval > other->u.number.val.intval);
+		return;
+
 	case OPID_NOTEQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval != other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval != other->u.number.val.intval);
+		return;
+
 	case OPID_EQUALS:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval == other->u.number.val.intval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.intval == other->u.number.val.intval);
+		return;
+
 	case OPID_AND:
 		self->u.number.val.intval &= other->u.number.val.intval;
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
@@ -2051,17 +2060,29 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		self->u.number.val.fpval /= (1 << other->u.number.val.intval);	// FIXME - why not use pow() as in SL above?
 		break;
 	case OPID_LESSOREQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval <= other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval <= other->u.number.val.fpval);
+		return;
+
 	case OPID_LESSTHAN:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval < other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval < other->u.number.val.fpval);
+		return;
+
 	case OPID_GREATEROREQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval >= other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval >= other->u.number.val.fpval);
+		return;
+
 	case OPID_GREATERTHAN:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval > other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval > other->u.number.val.fpval);
+		return;
+
 	case OPID_NOTEQUAL:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval != other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval != other->u.number.val.fpval);
+		return;
+
 	case OPID_EQUALS:
-		return intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval == other->u.number.val.fpval);
+		intfloat_fix_result_after_comparison(self, other, self->u.number.val.fpval == other->u.number.val.fpval);
+		return;
+
 // add new dyadic operators here
 //	case OPID_:
 //		break;
@@ -2254,9 +2275,6 @@ static void number_fix_result(struct object *self)
 		self->u.number.flags &= ~(NUMBER_FORCES_16 | NUMBER_FORCES_8);
 	else if (self->u.number.flags & NUMBER_FORCES_16)
 		self->u.number.flags &= ~NUMBER_FORCES_8;
-
-	if (self->u.number.ntype == NUMTYPE_UNDEFINED)
-		self->u.number.val.intval = 0;	// FIXME - should not be needed!
 }
 
 // list/string:
@@ -2363,7 +2381,7 @@ static int parse_expression(struct expression *expression)
 	// init
 	expression->is_empty = TRUE;	// becomes FALSE when first valid char gets parsed
 	expression->open_parentheses = 0;
-	expression->is_parenthesized = FALSE;	// toplevel operator will set this: '(' to TRUE, all others to FALSE
+	expression->is_parenthesized = FALSE;	// '(' operator sets this to TRUE, all others to FALSE. outermost operator wins!
 	//expression->number will be overwritten later, so no need to init
 
 	op_sp = 0;	// operator stack pointer
@@ -2404,7 +2422,6 @@ static int parse_expression(struct expression *expression)
 			result->type = &type_number;
 			result->u.number.ntype = NUMTYPE_UNDEFINED;
 			result->u.number.flags = NUMBER_EVER_UNDEFINED;
-			result->u.number.val.intval = 0;	// FIXME - should not be needed!
 			result->u.number.addr_refs = 0;
 		} else {
 			// not empty. undefined?
@@ -2423,7 +2440,7 @@ static int parse_expression(struct expression *expression)
 		result->type = &type_number;
 		result->u.number.ntype = NUMTYPE_UNDEFINED;	// maybe use NUMTYPE_INT to suppress follow-up errors?
 		result->u.number.flags = 0;
-		result->u.number.val.intval = 0;
+		//result->u.number.val.intval = 0;
 		result->u.number.addr_refs = 0;
 		// make sure no additional (spurious) errors are reported:
 		Input_skip_remainder();
