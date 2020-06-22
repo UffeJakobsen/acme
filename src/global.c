@@ -121,6 +121,7 @@ void config_default(struct config *conf)
 	conf->process_verbosity		= 0;	// level of additional output
 	conf->warn_on_indented_labels	= TRUE;	// warn if indented label is encountered
 	conf->warn_on_type_mismatch	= FALSE;	// use type-checking system
+	conf->warn_bin_mask		= 3;  // %11 -> warn if not divisible by four
 	conf->max_errors		= MAXERRORS;	// errors before giving up
 	conf->format_msvc		= FALSE;	// enabled by --msvc
 	conf->format_color		= FALSE;	// enabled by --color

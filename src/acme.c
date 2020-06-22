@@ -70,6 +70,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
 #define OPTIONWNO_OLD_FOR	"no-old-for"
+#define OPTIONWNO_BIN_LEN	"no-bin-len"
 #define OPTIONWTYPE_MISMATCH	"type-mismatch"
 
 
@@ -141,6 +142,7 @@ static void show_help_and_exit(void)
 // TODO: replace these:
 "  -W" OPTIONWNO_LABEL_INDENT "      suppress warnings about indented labels\n"
 "  -W" OPTIONWNO_OLD_FOR "           suppress warnings about old \"!for\" syntax\n"
+"  -W" OPTIONWNO_BIN_LEN "           suppress warnings about lengths of binary literals\n"
 "  -W" OPTIONWTYPE_MISMATCH "        enable type checking (warn about type mismatch)\n"
 // with this line and add a separate function:
 //"  -W                     show warning level options\n"
@@ -605,6 +607,9 @@ static char short_option(const char *argument)
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_OLD_FOR) == 0) {
 				config.wanted_version = VER_NEWFORSYNTAX - 1;
+				goto done;
+			} else if (strcmp(argument + 1, OPTIONWNO_BIN_LEN) == 0) {
+				config.warn_bin_mask = 0;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWTYPE_MISMATCH) == 0) {
 				config.warn_on_type_mismatch = TRUE;

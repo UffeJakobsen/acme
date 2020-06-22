@@ -283,6 +283,9 @@ Available options are:
             same time enables warnings about the _new_ "!for" syntax.
             Internally, this does exactly the same as what happens
             when the "--dialect 0.94.8" CLI switch is used...
+        -Wno-bin-len
+            Do not complain about unusual number of digits in a binary
+            literal.
         -Wtype-mismatch
             Enables type checking system (warns about wrong types).
 
@@ -398,7 +401,7 @@ Examples        Notes
 $d011           hexadecimal values are indicated by either a
 0xffd2              leading "$" or a leading "0x".
 &1701           an octal value, indicated by "&"
-%010010         binary values are indicated by either a leading "%"
+%1010           binary values are indicated by either a leading "%"
 %....#...           or a leading "0b". In binary values, you can
 0b01100110          substitute the characters "0" and "1" by "." and
                     "#" respectively. This way the values are much

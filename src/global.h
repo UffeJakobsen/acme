@@ -80,6 +80,7 @@ struct config {
 	int		process_verbosity;	// level of additional output
 	boolean		warn_on_indented_labels;	// warn if indented label is encountered
 	boolean		warn_on_type_mismatch;	// use type-checking system
+	int		warn_bin_mask;	// bitmask for digit counter of binary literals
 	signed long	max_errors;	// errors before giving up
 	boolean		format_msvc;		// enabled by --msvc
 	boolean		format_color;		// enabled by --color

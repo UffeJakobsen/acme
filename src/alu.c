@@ -491,6 +491,8 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 	}
 	if (!digits)
 		Throw_warning("Binary literal without any digits.");	// FIXME - make into error!
+	if (digits & config.warn_bin_mask)
+		Throw_first_pass_warning("Binary literal with strange number of digits.");
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {

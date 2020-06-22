@@ -56,6 +56,12 @@ Hex literal without any digits.
     A special literal was started, but then no digits followed. Expect
     this to become an error in future!
 
+Binary literal with strange number of digits.
+    This warning is given if the number of digits in a binary literal
+    is not a multiple of four. This is useful when you meant to write
+    %#....... but actually wrote %#........ by mistake. See? :P
+    You can disable this warning using the CLI switch "-Wno-bin-len".
+
 Bug in ACME, code follows
     A situation has been encountered implying there is a bug in ACME.
     See the last section in this file.
