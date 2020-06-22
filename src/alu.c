@@ -2265,14 +2265,19 @@ static void object_no_op(struct object *self)
 
 // int/float:
 // print value for user message
+#define NUMBUFSIZE	64	// large enough(tm) even for 64bit systems
 static void number_print(const struct object *self, struct dynabuf *db)
 {
-	char	buffer[40];	// large enough(tm)
+	char	buffer[NUMBUFSIZE];
 
 	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
 		DynaBuf_add_string(db, "<UNDEFINED NUMBER>");
 	} else if (self->u.number.ntype == NUMTYPE_INT) {
+#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
+		snprintf(buffer, NUMBUFSIZE, "%ld (0x%lx)", (long) self->u.number.val.intval, (long) self->u.number.val.intval);
+#else
 		sprintf(buffer, "%ld (0x%lx)", (long) self->u.number.val.intval, (long) self->u.number.val.intval);
+#endif
 		DynaBuf_add_string(db, buffer);
 	} else if (self->u.number.ntype == NUMTYPE_FLOAT) {
 		// write up to 30 significant characters.
@@ -2492,6 +2497,7 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	if (expression.result.type == &type_number) {
 		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED) {
 			Throw_serious_error("Value not defined.");
+			expression.result.u.number.val.intval = 0;
 		} else if (expression.result.u.number.ntype == NUMTYPE_INT) {
 			// ok
 		} else if (expression.result.u.number.ntype == NUMTYPE_FLOAT) {
@@ -2530,7 +2536,8 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 		// convert float to int
 		if (expression->result.u.number.ntype == NUMTYPE_FLOAT)
 			float_to_int(&(expression->result));
-		// FIXME - check for undefined?
+		else if (expression->result.u.number.ntype == NUMTYPE_UNDEFINED)
+			expression->result.u.number.val.intval = 0;
 	} else if (expression->result.type == &type_string) {
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:

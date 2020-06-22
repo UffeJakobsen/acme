@@ -60,7 +60,7 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	else if (symbol->object.u.number.ntype == NUMTYPE_FLOAT)
 		fprintf(fd, "%.30f", symbol->object.u.number.val.fpval);	//FIXME %g
 	else
-		Bug_found("BogusType", 0);	// FIXME - put in docs!
+		Bug_found("IllegalNumberType4", symbol->object.u.number.ntype);
 	if (symbol->object.u.number.flags & NUMBER_EVER_UNDEFINED)
 		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
 	if (!symbol->has_been_read)

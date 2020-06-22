@@ -547,8 +547,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_DIALECT) == 0)
 		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_TEST) == 0) {
-		if (config.test_new_features)
-			config.wanted_version = VER_FUTURE;	// giving "--test" twice enables every new feature
+		config.wanted_version = VER_FUTURE;
 		config.test_new_features = TRUE;
 	} PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
