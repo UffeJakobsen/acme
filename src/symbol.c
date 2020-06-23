@@ -175,12 +175,12 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 {
 	if (!force_bit)
-		Bug_found("ForceBitZero", 0);	// FIXME - add to docs!
+		Bug_found("ForceBitZero", 0);
 	if (symbol->object.type == NULL)
-		Bug_found("NullObject", 0);	// FIXME - add to docs!
+		Bug_found("NullTypeObject", 0);
 
 	if (symbol->object.type != &type_number) {
-		Throw_error("Force bits can only be given to numbers.");	// FIXME - add to docs!
+		Throw_error("Force bits can only be given to numbers.");
 		return;
 	}
 

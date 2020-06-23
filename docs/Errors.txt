@@ -255,6 +255,10 @@ File name quotes not found ("" or <>).
     File names have to be given in quotes. Either "" quoting for files
     located in the current directory or <> quoting for library files.
 
+Force bits can only be given to numbers.
+    You tried to give a force bit to a symbol and then assign a string
+    or list to it.
+
 Found '}' instead of end-of-file.
     ACME encountered a '}' character when it expected the file to end
     instead (because no blocks were open).
@@ -513,6 +517,9 @@ ArgStackNotEmpty
 ExtendingListWithItself
     There were multiple references to the same list.
 
+ForceBitZero
+    The function to handle force bits was called without a force bit.
+
 IllegalBlockTerminator
     A RAM block (macro or loop) was terminated incorrectly.
 
@@ -538,6 +545,10 @@ IllegalSymbolNameLength
 
 NotEnoughArgs
     There was not enough data for a dyadic operator to work on.
+
+NullTypeObject
+    A symbol is used that does not have a type (number/list/string)
+    associated with it.
 
 OperatorIsNotDyadic
 OperatorIsNotMonadic
