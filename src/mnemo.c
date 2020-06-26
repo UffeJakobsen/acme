@@ -1048,26 +1048,43 @@ static void group_relative16(int opcode, int preoffset)
 }
 
 // "mvn" and "mvp"
-// TODO - allow alternative syntax with '#' and 24-bit addresses (select via CLI switch)
+// TODO - allow alternative syntax with 24-bit addresses (select via CLI switch)?
 static void group_mvn_mvp(int opcode)
 {
+	boolean		unmatched_hash	= FALSE;
 	struct number	source,
 			target;
 
-	// assembler syntax: "mnemonic source, target"
+	// assembler syntax: "mnemonic source, target" or "mnemonic #source, #target"
+	// machine language order: "opcode target source"
+	SKIPSPACE();
+	// get first arg
+	if (GotByte == '#') {
+		GetByte();	// eat char
+		unmatched_hash = !unmatched_hash;
+	}
 	get_int_arg(&source, TRUE);
 	typesystem_want_nonaddr(&source);
-	if (Input_accept_comma()) {
-		get_int_arg(&target, TRUE);
-		typesystem_want_nonaddr(&target);
-		// machine language order: "opcode target source"
-		Output_byte(opcode);
-		output_8(target.val.intval);
-		output_8(source.val.intval);
-		Input_ensure_EOS();
-	} else {
+	// get comma
+	if (!Input_accept_comma()) {
 		Throw_error(exception_syntax);
+		return;
 	}
+	// get second arg
+	if (GotByte == '#') {
+		GetByte();	// eat char
+		unmatched_hash = !unmatched_hash;
+	}
+	get_int_arg(&target, TRUE);
+	typesystem_want_nonaddr(&target);
+	// output
+	Output_byte(opcode);
+	output_8(target.val.intval);
+	output_8(source.val.intval);
+	// sanity check
+	if (unmatched_hash)
+		Throw_error(exception_syntax);
+	Input_ensure_EOS();
 }
 
 // "rmb0..7" and "smb0..7"
