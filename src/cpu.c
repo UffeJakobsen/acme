@@ -32,22 +32,22 @@ static struct cpu_type	cpu_type_c64dtv2	= {
 };
 static struct cpu_type	cpu_type_65c02	= {
 	keyword_is_65c02_mnemo,
-	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_r65c02	= {
 	keyword_is_r65c02_mnemo,
-	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_w65c02	= {
 	keyword_is_w65c02_mnemo,
-	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
+	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65816	= {
 	keyword_is_65816_mnemo,
-	// TODO - what about CPUFLAG_WARN_ABOUT_FF_PTR? does this depend on native/emulation mode?
+	// TODO - what about CPUFLAG_WARN_ABOUT_FF_PTR? only needed for old opcodes in emulation mode!
 	CPUFLAG_SUPPORTSLONGREGS,	// allows A and XY to be 16bits wide
 	234	// !align fills with "NOP"
 };

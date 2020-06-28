@@ -73,7 +73,7 @@ enum mnemogroup {
 	GROUP_REL16_2,		// 16bit relative to pc+2			Byte value = opcode
 	GROUP_REL16_3,		// 16bit relative to pc+3			Byte value = opcode
 	GROUP_BOTHMOVES,	// the "move" commands MVP and MVN		Byte value = opcode
-	GROUP_ZPONLY,		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - use for IDX16COP,IDXeDEW,IDXeINW as well!
+	GROUP_ZPONLY,		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - use for IDXeDEW,IDXeINW as well!
 	GROUP_PREFIX,		// NOP on m65 (throws error)			Byte value = opcode
 };
 
