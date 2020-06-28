@@ -320,7 +320,7 @@ No string given.
 Number out of range.
     A value is too high or too low.
     This can also mean the desired addressing mode is not available,
-    as in "ldy $e000, x".
+    as in "sty $e000, x".
 
 Operation not supported: Cannot apply "OP" to "TYPE".
 Operation not supported: Cannot apply "OP" to "TYPE" and "TYPE".
