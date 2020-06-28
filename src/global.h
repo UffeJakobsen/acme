@@ -67,8 +67,8 @@ enum version {
 	VER_DISABLED_OBSOLETE_STUFF,	// v0.94.8 made *= work inside !pseudopc, disabled !cbm/!realpc/!subzone
 	VER_NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
 					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
+	VER_BACKSLASHESCAPING,		// v0.97 introduced backslash escaping (and therefore strings)
 	VER_CURRENT,			// "RELEASE"
-	VER_BACKSLASHESCAPING,		// v0.97 added backslash escaping (and therefore strings)
 					// possible changes in future versions:
 					//	paths should be relative to file, not start dir
 					//	ignore leading zeroes?
@@ -170,9 +170,9 @@ extern void Throw_serious_error(const char *msg);
 extern void Bug_found(const char *msg, int code);
 // insert object (in case of list, will iterate/recurse until done)
 struct iter_context {
-	void	(*fn)(intval_t);	// output function
-	boolean	accept_long_strings;	// if FALSE, only 1-char-strings work
-	char	stringxor;		// for !scrxor, 0 otherwise
+	void		(*fn)(intval_t);	// output function
+	boolean		accept_long_strings;	// if FALSE, only 1-char-strings work
+	unsigned char	stringxor;		// for !scrxor, 0 otherwise
 };
 extern void output_object(struct object *object, struct iter_context *iter);
 // output 8-bit value with range check

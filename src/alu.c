@@ -453,7 +453,7 @@ static void parse_quoted(char closing_quote)
 		if (GlobalDynaBuf->size != 1)
 			Throw_error("There's more than one character.");
 		// parse character
-		value = (intval_t) (unsigned char) encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
+		value = encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
 		PUSH_INT_ARG(value, 0, 0);	// no flags, no addr refs
 	}
 	// Now GotByte = char following closing quote (or CHAR_EOS on error)
@@ -490,7 +490,7 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 	}
 	if (!digits)
 		Throw_warning("Binary literal without any digits.");	// FIXME - make into error!
-	if ((digits & config.warn_bin_mask) && (config.wanted_version >= VER_BACKSLASHESCAPING))
+	if (digits & config.warn_bin_mask)
 		Throw_first_pass_warning("Binary literal with strange number of digits.");
 	// set force bits
 	if (config.honor_leading_zeroes) {
@@ -1293,7 +1293,7 @@ static void string_to_byte(struct object *self, int index)
 {
 	intval_t	byte;
 
-	byte = (intval_t) (unsigned char) encoding_encode_char(self->u.string->payload[index]);
+	byte = encoding_encode_char(self->u.string->payload[index]);
 	self->u.string->refs--;	// FIXME - call a function for this...
 	int_create_byte(self, byte);
 }

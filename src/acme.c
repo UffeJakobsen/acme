@@ -141,7 +141,7 @@ static void show_help_and_exit(void)
 "  -I PATH/TO/DIR         add search path for input files\n"
 // TODO: replace these:
 "  -W" OPTIONWNO_LABEL_INDENT "      suppress warnings about indented labels\n"
-"  -W" OPTIONWNO_OLD_FOR "           suppress warnings about old \"!for\" syntax\n"
+"  -W" OPTIONWNO_OLD_FOR "           (old, use \"--dialect 0.94.8\" instead)\n"
 "  -W" OPTIONWNO_BIN_LEN "           suppress warnings about lengths of binary literals\n"
 "  -W" OPTIONWTYPE_MISMATCH "        enable type checking (warn about type mismatch)\n"
 // with this line and add a separate function:
@@ -470,8 +470,8 @@ struct dialect	dialects[]	= {
 	{VER_DISABLED_OBSOLETE_STUFF,	"0.94.8",	"\"*=\" works inside \"!pseudopc\", disabled \"!cbm/!realpc/!subzone\""},
 	{VER_NEWFORSYNTAX,		"0.94.12",	"new \"!for\" syntax"},
 //	{VER_,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
+	{VER_BACKSLASHESCAPING,		"0.97",		"backslash escaping and strings"},
 //	{VER_CURRENT,			"default",	"default"},
-//	{VER_BACKSLASHESCAPING,		"0.97",		"backslash escaping and strings"},
 	{VER_FUTURE,			"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
 };

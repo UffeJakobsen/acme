@@ -17,41 +17,41 @@
 
 // struct definition
 struct encoder {
-	char	(*fn)(char);
+	unsigned char	(*fn)(unsigned char);
 	// maybe add table pointer?
 };
 
 
 // variables
-static char		outermost_table[256];	// space for encoding table...
+static unsigned char	outermost_table[256];	// space for encoding table...
 const struct encoder	*encoder_current;	// gets set before each pass
-char			*encoding_loaded_table	= outermost_table;	// ...loaded from file
+unsigned char		*encoding_loaded_table	= outermost_table;	// ...loaded from file
 
 
 // encoder functions:
 
 
 // convert raw to raw (do not convert at all)
-static char encoderfn_raw(char byte)
+static unsigned char encoderfn_raw(unsigned char byte)
 {
 	return byte;
 }
 // convert raw to petscii
-static char encoderfn_pet(char byte)
+static unsigned char encoderfn_pet(unsigned char byte)
 {
-	if ((byte >= 'A') && (byte <= 'Z'))
-		return (char) (byte | 0x80);	// FIXME - check why SAS-C
-	if ((byte >= 'a') && (byte <= 'z'))	//	wants these casts.
-		return (char) (byte - 32);	//	There are more below.
+	if ((byte >= (unsigned char) 'A') && (byte <= (unsigned char) 'Z'))
+		return byte | 0x80;
+	if ((byte >= (unsigned char) 'a') && (byte <= (unsigned char) 'z'))
+		return byte - 32;
 	return byte;
 }
 // convert raw to C64 screencode
-static char encoderfn_scr(char byte)
+static unsigned char encoderfn_scr(unsigned char byte)
 {
-	if ((byte >= 'a') && (byte <= 'z'))
-		return (char) (byte - 96);	// shift uppercase down
-	if ((byte >= '[') && (byte <= '_'))
-		return (char) (byte - 64);	// shift [\]^_ down
+	if ((byte >= (unsigned char) 'a') && (byte <= (unsigned char) 'z'))
+		return byte - 96;	// shift uppercase down
+	if ((byte >= (unsigned char) '[') && (byte <= (unsigned char) '_'))
+		return byte - 64;	// shift [\]^_ down
 	if (byte == '`')
 		return 64;	// shift ` down
 	if (byte == '@')
@@ -59,9 +59,9 @@ static char encoderfn_scr(char byte)
 	return byte;
 }
 // convert raw to whatever is defined in table
-static char encoderfn_file(char byte)
+static unsigned char encoderfn_file(unsigned char byte)
 {
-	return encoding_loaded_table[(unsigned char) byte];
+	return encoding_loaded_table[byte];
 }
 
 
@@ -97,7 +97,7 @@ static struct ronode	encoder_list[]	= {
 
 
 // convert character using current encoding (exported for use by alu.c and pseudoopcodes.c)
-char encoding_encode_char(char byte)
+unsigned char encoding_encode_char(unsigned char byte)
 {
 	return encoder_current->fn(byte);
 }
@@ -109,7 +109,7 @@ void encoding_passinit(void)
 }
 
 // try to load encoding table from given file
-void encoding_load_from_file(char target[256], FILE *stream)
+void encoding_load_from_file(unsigned char target[256], FILE *stream)
 {
 	if (fread(target, sizeof(char), 256, stream) != 256)
 		Throw_error("Conversion table incomplete.");

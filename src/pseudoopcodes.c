@@ -319,7 +319,7 @@ static enum eos po_cbm(void)
 // read encoding table from file
 static enum eos user_defined_encoding(FILE *stream)
 {
-	char			local_table[256],
+	unsigned char		local_table[256],
 				*buffered_table		= encoding_loaded_table;
 	const struct encoder	*buffered_encoder	= encoder_current;
 
@@ -345,7 +345,7 @@ static enum eos user_defined_encoding(FILE *stream)
 // use one of the pre-defined encodings (raw, pet, scr)
 static enum eos predefined_encoding(void)
 {
-	char			local_table[256],
+	unsigned char		local_table[256],
 				*buffered_table		= encoding_loaded_table;
 	const struct encoder	*buffered_encoder	= encoder_current;
 
@@ -382,7 +382,7 @@ static enum eos po_convtab(void)
 	}
 }
 // insert string(s)
-static enum eos encode_string(const struct encoder *inner_encoder, char xor)
+static enum eos encode_string(const struct encoder *inner_encoder, unsigned char xor)
 {
 	const struct encoder	*outer_encoder	= encoder_current;	// buffer encoder
 	struct iter_context	iter;
