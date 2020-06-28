@@ -102,39 +102,50 @@ of the 65c02. Among the improvements are:
 
 New mnemonics
 -------------
-	02  cop imm8
-	6b  rtl
-	82  brl rel16
+	02  cop imm8		coprocessor operation
+	6b  rtl			return long (fetches 24-bit address from stack)
+	82  brl rel16		branch long (16-bit offset)
 
-	0b  phd
-	2b  pld
-	4b  phk
-	62  per rel16
-	8b  phb
-	ab  plb
-	d4  pei (dp)
-	f4  pea abs16
+	0b  phd			push direct page register
+	4b  phk			push program bank register
+	8b  phb			push data bank register
+	62  per rel16		push effective relative address
+	d4  pei (dp)		push effective indirect address
+	f4  pea abs16		push effective absolute address
 
-	1b  tcs
-	3b  tsc
-	5b  tcd
-	7b  tdc
-	9b  txy
-	bb  tyx
+	2b  pld			pull direct page register
+	ab  plb			pull data bank register
 
-	eb  xba
-	fb  xce
+	1b  tcs			transfer C to stack pointer
+	3b  tsc			transfer stack pointer to C
+	5b  tcd			transfer C to direct page register
+	7b  tdc			transfer direct page register to C
+	('C' means the whole 16-bit accumulator, even in 8-bit mode)
+	9b  txy			transfer X to Y
+	bb  tyx			transfer Y to X
 
-	42  wdm
+	eb  xba			exchange high and low bytes of accumulator
+	fb  xce			exchange Carry and Emulation bits
 
-	44  mvp src, dst
-	54  mvn src, dst
+	c2  rep #imm8		clear bits in status register
+	e2  sep #imm8		set bits in status register
 
-	c2  rep #imm8
-	e2  sep #imm8
+	cb  wai			wait for interrupt
+	db  stp			wait for reset
 
-	cb  wai
-	db  stp
+	42  wdm			(reserved for future expansion)
+
+	block transfers:
+	44  mvp src, dst	move previous (decrementing addresses)
+	54  mvn src, dst	move next (incrementing addresses)
+	the arguments are bank numbers. block size minus one must be in 16-bit
+	accumulator. X holds source address, Y holds target address.
+	after these instructions, data bank register is set to "dst".
+	if blocks overlap:
+	when moving a block to a higher address, use mvp and put the highest
+	addresses in X/Y.
+	when moving a block to a lower address, use mvn and put the lowest
+	adresses in X/Y.
 
 New addressing modes for existing mnemonics
 -------------------------------------------
