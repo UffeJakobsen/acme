@@ -72,6 +72,8 @@ Fix: Characters are now unsigned (had been architecture-dependent).
 Improved error handling of "--cpu" and "--format" switches.
 Added opcode table for NMOS6502 cpu to docs.
 Added some test sources.
+Added support for "hashbang" lines (if file starts with a '#'
+    character, the first line is ignored)
 Fixed some minor bugs no-one ever seems to have encountered.
 Rewritten "docs/Upgrade.txt".
 
