@@ -48,7 +48,7 @@ void Input_new_file(const char *filename, FILE *fd)
 	Input_now->original_filename	= filename;
 	Input_now->line_number		= 1;
 	Input_now->source		= INPUTSRC_FILE;
-	Input_now->state		= INPUTSTATE_NORMAL;
+	Input_now->state		= INPUTSTATE_SOF;
 	Input_now->src.fd		= fd;
 }
 
@@ -117,6 +117,19 @@ static char get_processed_from_file(void)
 
 	for (;;) {
 		switch (Input_now->state) {
+		case INPUTSTATE_SOF:
+			// fetch first byte from the current source file
+			from_file = getc(Input_now->src.fd);
+			IF_WANTED_REPORT_SRCCHAR(from_file);
+			//TODO - check for bogus/malformed BOM and ignore?
+			// check for hashbang line and ignore
+			if (from_file == '#') {
+				// remember to skip remainder of line
+				Input_now->state = INPUTSTATE_COMMENT;
+				return CHAR_EOS;	// end of statement
+			}
+			Input_now->state = INPUTSTATE_AGAIN;
+			break;
 		case INPUTSTATE_NORMAL:
 			// fetch a fresh byte from the current source file
 			from_file = getc(Input_now->src.fd);

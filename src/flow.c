@@ -246,7 +246,6 @@ void flow_do_while(struct do_while *loop)
 // parse a whole source code file
 void flow_parse_and_close_file(FILE *fd, const char *filename)
 {
-	//TODO - check for bogus/malformed BOM and ignore!
 	// be verbose
 	if (config.process_verbosity > 2)
 		printf("Parsing source file '%s'\n", filename);

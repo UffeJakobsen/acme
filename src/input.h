@@ -15,6 +15,7 @@
 
 // values for input component "src.state"
 enum inputstate {
+	INPUTSTATE_SOF,		// start of file (check for hashbang)
 	INPUTSTATE_NORMAL,	// everything's fine
 	INPUTSTATE_AGAIN,	// re-process last byte
 	INPUTSTATE_SKIPBLANKS,	// shrink multiple spaces
