@@ -491,7 +491,7 @@ void output_object(struct object *object, struct iter_context *iter)
 		else if (object->u.number.ntype == NUMTYPE_FLOAT)
 			iter->fn(object->u.number.val.fpval);
 		else
-			Bug_found("IllegalNumberType7", object->u.number.ntype);	// FIXME - add to docs!
+			Bug_found("IllegalNumberType0", object->u.number.ntype);
 	} else if (object->type == &type_list) {
 		// iterate over list
 		item = object->u.listhead->next;
@@ -512,7 +512,7 @@ void output_object(struct object *object, struct iter_context *iter)
 			Throw_error("There's more than one character.");	// see alu.c for the original of this error
 		}
 	} else {
-		Bug_found("IllegalObjectType9", 0);	// FIXME - add to docs!
+		Bug_found("IllegalObjectType", 0);
 	}
 }
 

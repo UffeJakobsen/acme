@@ -358,6 +358,11 @@ Target out of range (N; M too far).
     difference to the limit - so if you succeed in optimizing M bytes
     away, the code would assemble.
 
+The chosen CPU uses opcode 0xXY as a prefix code, do not use this mnemonic!
+    The mnemonic is valid, but should not be used on this CPU. If you
+    know better, you can get around this error like this:
+	!cpu ANY_OTHER_CPU { PROBLEMATIC_MNEMONIC }
+
 There's more than one character.
     You used a text string containing more than one character in a
     situation where only a string with length one is allowed.
@@ -403,6 +408,13 @@ Unknown pseudo opcode.
 
 Unknown "*=" segment modifier.
     You used a modifier keyword ACME does not know.
+
+Unsupported backslash sequence.
+    The character following the backslash was not one of the allowed
+    ones. Backslash escaping was added in release 0.97 of ACME.
+    If you want to assemble an old source code without first updating
+    it, you can use the "--dialect" CLI switch to make ACME mimic an
+    older version.
 
 Unterminated index spec.
     An index was started with '[' but did not end with ']'.
@@ -533,8 +545,14 @@ IllegalImmediateMode
     The mnemonic tree contains invalid info about the size of immediate
     arguments.
 
+IllegalInputSource
+    Input is taken neither from a file nor from a RAM block.
+
 IllegalNumberTypeX
     A number was neither INT nor FLOAT nor UNDEFINED.
+
+IllegalObjectType
+    A symbol is used that is neither number nor list nor string.
 
 IllegalOperatorId
 IllegalOperatorGroup
@@ -547,6 +565,7 @@ NotEnoughArgs
     There was not enough data for a dyadic operator to work on.
 
 NullTypeObject
+ObjectHasNullType
     A symbol is used that does not have a type (number/list/string)
     associated with it.
 
@@ -557,6 +576,9 @@ OperatorIsNotMonadic
 OperatorStackNotEmpty
     The expression parser has finished though there are still
     operators left to process.
+
+PartialEscapeSequence
+    Buffered data ended on a backslash, which shouldn't be possible.
 
 SecondArgIsNotAnInt
     A sanity check failed: An argument should have been converted to

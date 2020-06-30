@@ -46,7 +46,7 @@ boolean check_ifdef_condition(void)
 	symbol = (struct symbol *) node->body;
 	symbol->has_been_read = TRUE;	// we did not really read the symbol's value, but checking for its existence still counts as "used it"
 	if (symbol->object.type == NULL)
-		Bug_found("ObjectHasNullType", 0);	// FIXME - add to docs!
+		Bug_found("ObjectHasNullType", 0);
 	return symbol->object.type->is_defined(&symbol->object);
 }
 

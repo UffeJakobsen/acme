@@ -7,11 +7,11 @@ file), so this file only contains information about the extensions.
 
 
 "quad mode" allows 32-bit data operations using a virtual register called 'Q'.
-The mnemonics aslq/lsrq/rolq/rorq/inq/deq have five addressing modes in quad
-mode.
-The mnemonics ldq/stq have nine addressing modes in quad mode.
+The mnemonics aslq/lsrq/rolq/rorq/inq/deq have five addressing modes.
+The mnemonics ldq/stq have nine addressing modes in quad mode, and a tenth
+when combined with long mode.
 The mnemonics cpq/adcq/sbcq/andq/eorq/orq have eight addressing modes in quad
-mode.
+mode, and a ninth when combined with long mode.
 This mode is entered after a NEG:NEG (42 42) prefix, the following opcode is
 then taken from this table:
 

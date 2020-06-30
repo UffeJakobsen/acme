@@ -1104,7 +1104,7 @@ static void group_prefix(int opcode)
 {
 	char	buffer[100];	// 640K should be enough for anybody
 
-	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);	// FIXME - add to docs!
+	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);
 	Throw_error(buffer);
 }
 

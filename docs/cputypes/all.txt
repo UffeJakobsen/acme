@@ -187,7 +187,7 @@ quad mode introduces several new mnemonics:
   The new mnemonics support all the addressing modes of the original
   mnemonics with two exceptions:
 	- there are no 32-bit immediate arguments
-	- indirect-z addressing becomes indirect addressing
+	- indirect-Z-indexed addressing becomes indirect addressing
   CAUTION: The STQ instruction clobbers the N and Z flags!
   There is no "real" Q register, instead A/X/Y/Z are combined to form
   the Q register (A holds lsb, Z holds msb), except for read-modify-

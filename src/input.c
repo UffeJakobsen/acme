@@ -278,7 +278,7 @@ char GetByte(void)
 			GotByte = get_processed_from_file();
 			break;
 		default:
-			Bug_found("InvalidInputSrc", Input_now->source);	// FIXME - add to docs
+			Bug_found("IllegalInputSrc", Input_now->source);
 		}
 //		// if start-of-line was read, increment line counter and repeat
 //		if (GotByte != CHAR_SOL)
@@ -329,7 +329,7 @@ static char GetQuotedByte(void)
 		}
 		break;
 	default:
-		Bug_found("InvalidInputSrc", Input_now->source);	// FIXME - add to docs!
+		Bug_found("IllegalInputSrc", Input_now->source);
 	}
 	// now check for end of statement
 	if (GotByte == CHAR_EOS)
@@ -429,7 +429,7 @@ int Input_unescape_dynabuf(int read_index)
 				break;
 			// TODO - 'a' to BEL? others?
 			default:
-				Throw_error("Unsupported backslash sequence.");	// TODO - add to docs (and add unexpected character to error message?)
+				Throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
 			}
 			GLOBALDYNABUF_CURRENT[write_index++] = byte;
 			escaped = FALSE;
@@ -442,7 +442,7 @@ int Input_unescape_dynabuf(int read_index)
 		}
 	}
 	if (escaped)
-		Bug_found("PartialEscapeSequence", 0);	// FIXME - add to docs!
+		Bug_found("PartialEscapeSequence", 0);
 	GlobalDynaBuf->size = write_index;
 	return 0;	// ok
 }
