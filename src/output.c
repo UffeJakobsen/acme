@@ -24,7 +24,6 @@
 
 
 // constants
-#define OUTBUFFERSIZE		65536
 #define NO_SEGMENT_START	(-1)	// invalid value to signal "not in a segment"
 
 
@@ -39,6 +38,7 @@ struct segment {
 // structure for all output stuff:
 struct output {
 	// output buffer stuff
+	intval_t	bufsize;	// either 64 KiB or 16 MiB
 	char		*buffer;	// holds assembled code
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
@@ -110,7 +110,7 @@ static void find_segment_max(intval_t new_pc)
 	while (test_segment->start <= new_pc)
 		test_segment = test_segment->next;
 	if (test_segment == &out->segment.list_head)
-		out->segment.max = OUTBUFFERSIZE - 1;
+		out->segment.max = out->bufsize - 1;
 	else
 		out->segment.max = test_segment->start - 1;	// last free address available
 }
@@ -119,8 +119,9 @@ static void find_segment_max(intval_t new_pc)
 //
 static void border_crossed(int current_offset)
 {
-	if (current_offset >= OUTBUFFERSIZE)
+	if (current_offset >= out->bufsize)
 		Throw_serious_error("Produced too much code.");
+	// TODO - get rid of FIRST_PASS condition, because user can suppress these warnings if they want
 	if (FIRST_PASS) {
 		// TODO: make warn/err an arg for a general "Throw" function
 		if (config.segment_warning_is_error)
@@ -139,7 +140,9 @@ void (*Output_byte)(intval_t byte);
 // send low byte to output buffer, automatically increasing program counter
 static void real_output(intval_t byte)
 {
-	// did we reach segment limit?
+	// CAUTION - there are two copies of these checks!
+	// TODO - add additional check for current segment's "limit" value
+	// did we reach next segment?
 	if (out->write_idx > out->segment.max)
 		border_crossed(out->write_idx);
 	// new minimum address?
@@ -182,7 +185,9 @@ void output_skip(int size)
 		Output_byte(0);	// trigger error with a dummy byte
 		--size;	// fix amount to cater for dummy byte
 	}
-	// did we reach segment limit?
+	// CAUTION - there are two copies of these checks!
+	// TODO - add additional check for current segment's "limit" value
+	// did we reach next segment?
 	if (out->write_idx + size - 1 > out->segment.max)
 		border_crossed(out->write_idx + size - 1);
 	// new minimum address?
@@ -200,7 +205,7 @@ void output_skip(int size)
 // fill output buffer with given byte value
 static void fill_completely(char value)
 {
-	memset(out->buffer, value, OUTBUFFERSIZE);
+	memset(out->buffer, value, out->bufsize);
 }
 
 
@@ -251,6 +256,7 @@ int outputfile_prefer_cbm_format(void)
 {
 	if (output_format != OUTPUT_FORMAT_UNSPECIFIED)
 		return 0;
+
 	output_format = OUTPUT_FORMAT_CBM;
 	return 1;
 }
@@ -272,9 +278,10 @@ int outputfile_set_filename(void)
 
 
 // init output struct (done later)
-void Output_init(signed long fill_value)
+void Output_init(signed long fill_value, boolean use_large_buf)
 {
-	out->buffer = safe_malloc(OUTBUFFERSIZE);
+	out->bufsize = use_large_buf ? 0x1000000 : 0x10000;
+	out->buffer = safe_malloc(out->bufsize);
 	if (fill_value == MEMINIT_USE_DEFAULT) {
 		fill_value = FILLVALUE_INITIAL;
 		out->initvalue_set = FALSE;
@@ -358,7 +365,7 @@ static void link_segment(intval_t start, intval_t length)
 
 
 // check whether given PC is inside segment.
-// only call in first pass, otherwise too many warnings might be thrown
+// only call in first pass, otherwise too many warnings might be thrown	(TODO - still?)
 static void check_segment(intval_t new_pc)
 {
 	struct segment	*test_segment	= out->segment.list_head.next;
@@ -389,7 +396,7 @@ void Output_passinit(void)
 
 //FIXME - why clear ring list in every pass?
 // Because later pass shouldn't complain about overwriting the same segment from earlier pass!
-// Currently this does not happen because segment checks are only done in first pass. FIXME!
+// Currently this does not happen because segment warnings are only generated in first pass. FIXME!
 	// delete segment list (and free blocks)
 //	while ((temp = segment_list)) {
 //		segment_list = segment_list->next;
@@ -397,13 +404,13 @@ void Output_passinit(void)
 //	}
 
 	// invalidate start and end (first byte actually written will fix them)
-	out->lowest_written = OUTBUFFERSIZE - 1;
+	out->lowest_written = out->bufsize - 1;
 	out->highest_written = 0;
 	// deactivate output - any byte written will trigger error:
 	Output_byte = no_output;
 	out->write_idx = 0;	// same as pc on pass init!
 	out->segment.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
-	out->segment.max = OUTBUFFERSIZE - 1;
+	out->segment.max = out->bufsize - 1;	// TODO - use end of bank?
 	out->segment.flags = 0;
 	out->xor = 0;
 
@@ -455,18 +462,20 @@ void Output_end_segment(void)
 
 
 // change output pointer and enable output
+// TODO - this only gets called from vcpu_set_pc so could be made static!
 void Output_start_segment(intval_t address_change, bits segment_flags)
 {
 	// properly finalize previous segment (link to list, announce)
 	Output_end_segment();
 
 	// calculate start of new segment
-	out->write_idx = (out->write_idx + address_change) & 0xffff;
+	out->write_idx = (out->write_idx + address_change) & (out->bufsize - 1);
 	out->segment.start = out->write_idx;
 	out->segment.flags = segment_flags;
 	// allow writing to output buffer
 	Output_byte = real_output;
 	// in first pass, check for other segments and maybe issue warning
+	// TODO - remove FIRST_PASS condition
 	if (FIRST_PASS) {
 		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
 			check_segment(out->segment.start);
@@ -490,7 +499,7 @@ void output_set_xor(char xor)
 // in addition to that, it will be called on each "*= VALUE".
 void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 {
-	intval_t	new_offset;
+	intval_t	pc_change;
 
 	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
 	if (pseudopc_current_context != NULL) {
@@ -506,12 +515,12 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 			// stuff happens! i see no reason to try to mimic that.
 		}
 	}
-	new_offset = (new_pc - CPU_state.pc.val.intval) & 0xffff;
+	pc_change = new_pc - CPU_state.pc.val.intval;
 	CPU_state.pc.val.intval = new_pc;
 	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	CPU_state.pc.addr_refs = 1;	// yes, PC counts as address
 	// now tell output buffer to start a new segment
-	Output_start_segment(new_offset, segment_flags);
+	Output_start_segment(pc_change, segment_flags);
 }
 /*
 TODO - overhaul program counter and memory pointer stuff:
@@ -560,7 +569,7 @@ int vcpu_get_statement_size(void)
 // adjust program counter (called at end of each statement)
 void vcpu_end_statement(void)
 {
-	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & 0xffff;
+	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & (out->bufsize - 1);
 	CPU_state.add_to_pc = 0;
 }
 
@@ -599,7 +608,7 @@ void pseudopc_end(void)
 		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
 			Bug_found("ClosingUnopenedPseudopcBlock", 0);
 	} else {
-		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & 0xffff;	// pc might have wrapped around
+		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & (out->bufsize - 1);	// pc might have wrapped around
 		CPU_state.pc.ntype = pseudopc_current_context->ntype;
 		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	}
@@ -623,7 +632,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 1;	// error
 		}
 		// FIXME - in future, check both target and context for NUMTYPE_UNDEFINED!
-		target->val.intval = (target->val.intval - context->offset) & 0xffff;	// FIXME - is masking really needed?
+		target->val.intval = (target->val.intval - context->offset) & (out->bufsize - 1);	// FIXME - is masking really needed?	TODO
 		context = context->outer;
 	}
 	return 0;	// ok

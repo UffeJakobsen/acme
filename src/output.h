@@ -42,7 +42,7 @@ extern void Output_passinit(void);
 // outbuf stuff:
 
 // alloc and init mem buffer (done later)
-extern void Output_init(signed long fill_value);
+extern void Output_init(signed long fill_value, boolean use_large_buf);
 // skip over some bytes in output buffer without starting a new segment
 // (used by "!skip", and also called by "!binary" if really calling
 // Output_byte would be a waste of time)

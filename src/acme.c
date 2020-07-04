@@ -422,6 +422,7 @@ static void set_starting_pc(const char expression[])
 	start_address = string_to_number(expression);
 	if ((start_address > -1) && (start_address < 65536))
 		return;
+
 	fprintf(stderr, "%sProgram counter out of range (0-0xffff).\n", cliargs_error);
 	exit(EXIT_FAILURE);
 }
@@ -433,6 +434,7 @@ static void set_mem_contents(const char expression[])
 	fill_value = string_to_number(expression);
 	if ((fill_value >= -128) && (fill_value <= 255))
 		return;
+
 	fprintf(stderr, "%sInitmem value out of range (0-0xff).\n", cliargs_error);
 	exit(EXIT_FAILURE);
 }
@@ -653,7 +655,7 @@ int main(int argc, const char *argv[])
 	ALU_init();
 	Macro_init();
 	Mnemo_init();
-	Output_init(fill_value);
+	Output_init(fill_value, config.test_new_features);
 	pseudoopcodes_init();	// setup keyword tree for pseudo opcodes
 	if (do_actual_work())
 		save_output_file();
