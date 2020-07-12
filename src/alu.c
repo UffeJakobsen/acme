@@ -188,15 +188,15 @@ static enum alu_state	alu_state;	// deterministic finite automaton
 // predefined stuff
 static struct ronode	*op_tree	= NULL;	// tree to hold operators
 static struct ronode	op_list[]	= {
-	PREDEFNODE(s_asr,	&ops_asr),
-	PREDEFNODE(s_lsr,	&ops_lsr),
-	PREDEFNODE(s_asl,	&ops_shift_left),
+	PREDEFNODE("asr",	&ops_asr),
+	PREDEFNODE("lsr",	&ops_lsr),
+	PREDEFNODE("asl",	&ops_shift_left),
 	PREDEFNODE("lsl",	&ops_shift_left),
 	PREDEFNODE("div",	&ops_intdiv),
 	PREDEFNODE("mod",	&ops_modulo),
-	PREDEFNODE(s_and,	&ops_and),
+	PREDEFNODE("and",	&ops_and),
 	PREDEFNODE("or",	&ops_or),
-	PREDEFNODE(s_eor,	&ops_eor),		// FIXME - remove
+	PREDEFNODE("eor",	&ops_eor),		// FIXME - remove
 	PREDEFLAST("xor",	&ops_xor),
 	//    ^^^^ this marks the last element
 };

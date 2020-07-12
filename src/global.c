@@ -29,20 +29,7 @@
 
 
 // constants
-
-const char	s_and[]		= "and";
-const char	s_asl[]		= "asl";
-const char	s_asr[]		= "asr";
-const char	s_bra[]		= "bra";
-const char	s_brl[]		= "brl";
-const char	s_eor[]		= "eor";
-const char	s_error[]	= "error";
-const char	s_lsr[]		= "lsr";
-const char	s_scrxor[]	= "scrxor";
 char		s_untitled[]	= "<untitled>";	// FIXME - this is actually const
-const char	s_pet[]		= "pet";
-const char	s_raw[]		= "raw";
-const char	s_scr[]		= "scr";
 
 
 // Exception messages during assembly

@@ -32,10 +32,6 @@ enum eos {
 };
 
 // constants
-static const char	s_08[]	= "08";
-#define s_8	(s_08 + 1)	// Yes, I know I'm sick
-#define s_sl	(s_asl + 1)	// Yes, I know I'm sick
-#define s_rl	(s_brl + 1)	// Yes, I know I'm sick
 static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
 
 
@@ -105,7 +101,7 @@ static enum eos po_initmem(void)
 
 	// get value
 	ALU_defined_int(&intresult);
-	if ((intresult.val.intval > 0xff) || (intresult.val.intval < -0x80))
+	if ((intresult.val.intval > 255) || (intresult.val.intval < -128))
 		Throw_error(exception_number_out_of_range);
 	if (output_initmem(intresult.val.intval & 0xff))
 		return SKIP_REMAINDER;
@@ -121,7 +117,7 @@ static enum eos po_xor(void)
 
 	old_value = output_get_xor();
 	ALU_any_int(&change);
-	if ((change > 0xff) || (change < -0x80)) {
+	if ((change > 255) || (change < -128)) {
 		Throw_error(exception_number_out_of_range);
 		change = 0;
 	}
@@ -195,7 +191,7 @@ static enum eos iterate(void (*fn)(intval_t))
 }
 
 
-// Insert 8-bit values ("!08" / "!8" / "!by" / "!byte" pseudo opcode)
+// insert 8-bit values ("!8" / "!08" / "!by" / "!byte" pseudo opcode)
 static enum eos po_byte(void)
 {
 	return iterate(output_8);
@@ -329,7 +325,7 @@ static enum eos user_defined_encoding(FILE *stream)
 	}
 	encoder_current = &encoder_file;	// activate new encoding
 	encoding_loaded_table = local_table;		// activate local table
-	// If there's a block, parse that and then restore old values
+	// if there's a block, parse that and then restore old values
 	if (Parse_optional_block()) {
 		encoder_current = buffered_encoder;
 	} else {
@@ -457,7 +453,7 @@ static enum eos po_scrxor(void)
 	return encode_string(&encoder_scr, xor);
 }
 
-// Include binary file ("!binary" pseudo opcode)
+// include binary file ("!binary" pseudo opcode)
 // FIXME - split this into "parser" and "worker" fn and move worker fn somewhere else.
 static enum eos po_binary(void)
 {
@@ -760,13 +756,12 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;
 	}
 
-	// TODO: in versions before 0.97, force bit handling was broken
-	// in both "!set" and "!for":
-	// trying to change a force bit correctly raised an error, but
-	// in any case, ALL FORCE BITS WERE CLEARED in symbol. only
-	// cases like !set N=N+1 worked, because the force bit was
-	// taken from result.
-	// maybe support this behaviour via --dialect?
+	// TODO: in versions before 0.97, force bit handling was broken in both
+	// "!set" and "!for":
+	// trying to change a force bit raised an error (which is correct), but
+	// in any case, ALL FORCE BITS WERE CLEARED in symbol. only cases like
+	// !set N=N+1 worked, because the force bit was taken from result.
+	// maybe support this behaviour via --dialect? I'd rather not...
 	parse_assignment(scope, force_bit, POWER_CHANGE_VALUE | POWER_CHANGE_OBJTYPE);
 	return ENSURE_EOS;
 }
@@ -814,10 +809,10 @@ static enum eos po_zone(void)
 	// set default values in case there is no valid title
 	new_title = s_untitled;
 	allocated = FALSE;
-	// Check whether a zone title is given. If yes and it can be read,
+	// check whether a zone title is given. if yes and it can be read,
 	// get copy, remember pointer and remember to free it later on.
 	if (BYTE_CONTINUES_KEYWORD(GotByte)) {
-		// Because we know of one character for sure,
+		// because we know of one character for sure,
 		// there's no need to check the return value.
 		Input_read_keyword();
 		new_title = DynaBuf_get_copy(GlobalDynaBuf);
@@ -827,7 +822,7 @@ static enum eos po_zone(void)
 	// section type is "subzone", just in case a block follows
 	section_new(section_now, "Subzone", new_title, allocated);
 	if (Parse_optional_block()) {
-		// Block has been parsed, so it was a SUBzone.
+		// block has been parsed, so it was a SUBzone.
 		section_finalize(section_now);	// end inner zone
 		*section_now = entry_values;	// restore entry values
 	} else {
@@ -1157,6 +1152,60 @@ static enum eos po_macro(void)	// now GotByte = illegal char
 	return ENSURE_EOS;
 }
 
+/*
+// trace/watch
+#define TRACEWATCH_LOAD		(1u << 0)
+#define TRACEWATCH_STORE	(1u << 1)
+#define TRACEWATCH_EXEC		(1u << 2)
+#define TRACEWATCH_DEFAULT	(TRACEWATCH_LOAD | TRACEWATCH_STORE | TRACEWATCH_EXEC)
+#define TRACEWATCH_BREAK	(1u << 3)
+static enum eos tracewatch(boolean enter_monitor)
+{
+	struct number	pc;
+	bits		flags	= 0;
+
+	vcpu_read_pc(&pc);
+	SKIPSPACE();
+	// check for flags
+	if (GotByte != CHAR_EOS) {
+		do {
+			// parse flag. if no keyword given, give up
+			if (Input_read_and_lower_keyword() == 0)
+				return SKIP_REMAINDER;	// fail (error has been reported)
+
+			if (strcmp(GlobalDynaBuf->buffer, "load") == 0) {
+				flags |= TRACEWATCH_LOAD;
+			} else if (strcmp(GlobalDynaBuf->buffer, "store") == 0) {
+				flags |= TRACEWATCH_STORE;
+			} else if (strcmp(GlobalDynaBuf->buffer, "exec") == 0) {
+				flags |= TRACEWATCH_EXEC;
+			} else {
+				Throw_error("Unknown flag (known are: load, store, exec).");	// FIXME - add to docs!
+				return SKIP_REMAINDER;
+			}
+		} while (Input_accept_comma());
+	}
+	// shortcut: no flags at all -> set all flags!
+	if (!flags)
+		flags = TRACEWATCH_DEFAULT;
+	if (enter_monitor)
+		flags |= TRACEWATCH_BREAK;
+	if (pc.ntype != NUMTYPE_UNDEFINED) {
+		//FIXME - store pc and flags!
+	}
+	return ENSURE_EOS;
+}
+// make next byte a trace point (for VICE debugging)
+static enum eos po_trace(void)
+{
+	return tracewatch(FALSE);	// do not enter monitor, just output
+}
+// make next byte a watch point (for VICE debugging)
+static enum eos po_watch(void)
+{
+	return tracewatch(TRUE);	// break into monitor
+}
+*/
 
 // constants
 #define USERMSG_DYNABUF_INITIALSIZE	80
@@ -1250,10 +1299,10 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("initmem",		po_initmem),
 	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("to",		po_to),
-	PREDEFNODE(s_8,			po_byte),
-	PREDEFNODE(s_08,		po_byte),
 	PREDEFNODE("by",		po_byte),
 	PREDEFNODE("byte",		po_byte),
+	PREDEFNODE("8",			po_byte),
+	PREDEFNODE("08",		po_byte),	// legacy alias, don't ask...
 	PREDEFNODE("wo",		po_16),
 	PREDEFNODE("word",		po_16),
 	PREDEFNODE("16",		po_16),
@@ -1272,10 +1321,10 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("convtab",		po_convtab),
 	PREDEFNODE("tx",		po_text),
 	PREDEFNODE("text",		po_text),
-	PREDEFNODE(s_raw,		po_raw),
-	PREDEFNODE(s_pet,		po_pet),
-	PREDEFNODE(s_scr,		po_scr),
-	PREDEFNODE(s_scrxor,		po_scrxor),
+	PREDEFNODE("raw",		po_raw),
+	PREDEFNODE("pet",		po_pet),
+	PREDEFNODE("scr",		po_scr),
+	PREDEFNODE("scrxor",		po_scrxor),
 	PREDEFNODE("bin",		po_binary),
 	PREDEFNODE("binary",		po_binary),
 	PREDEFNODE("fi",		po_fill),
@@ -1287,13 +1336,13 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("cpu",		po_cpu),
 	PREDEFNODE("al",		po_al),
 	PREDEFNODE("as",		po_as),
-	PREDEFNODE(s_rl,		po_rl),
+	PREDEFNODE("rl",		po_rl),
 	PREDEFNODE("rs",		po_rs),
 	PREDEFNODE("addr",		po_address),
 	PREDEFNODE("address",		po_address),
 //	PREDEFNODE("enum",		po_enum),
 	PREDEFNODE("set",		po_set),
-	PREDEFNODE(s_sl,		po_symbollist),
+	PREDEFNODE("sl",		po_symbollist),
 	PREDEFNODE("symbollist",	po_symbollist),
 	PREDEFNODE("zn",		po_zone),
 	PREDEFNODE("zone",		po_zone),
@@ -1308,10 +1357,12 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("do",		po_do),
 	PREDEFNODE("while",		po_while),
 	PREDEFNODE("macro",		po_macro),
+/*	PREDEFNODE("trace",		po_trace),
+	PREDEFNODE("watch",		po_watch),	*/
 //	PREDEFNODE("debug",		po_debug),
 //	PREDEFNODE("info",		po_info),
 	PREDEFNODE("warn",		po_warn),
-	PREDEFNODE(s_error,		po_error),
+	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),
 	PREDEFNODE("eof",		po_endoffile),
 	PREDEFLAST("endoffile",		po_endoffile),

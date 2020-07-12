@@ -86,9 +86,9 @@ const struct encoder	encoder_file	= {
 static struct ronode	*encoder_tree	= NULL;	// tree to hold encoders
 static struct ronode	encoder_list[]	= {
 //no!	PREDEFNODE("file",	&encoder_file),	"!ct file" is not needed; just use {} after initial loading of table!
-	PREDEFNODE(s_pet,	&encoder_pet),
-	PREDEFNODE(s_raw,	&encoder_raw),
-	PREDEFLAST(s_scr,	&encoder_scr),
+	PREDEFNODE("pet",	&encoder_pet),
+	PREDEFNODE("raw",	&encoder_raw),
+	PREDEFLAST("scr",	&encoder_scr),
 	//    ^^^^ this marks the last element
 };
 

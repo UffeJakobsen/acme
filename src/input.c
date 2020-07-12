@@ -76,14 +76,15 @@ static void report_srcchar(char new_char)
 		// show line number...
 		fprintf(report->fd, "%6d  ", Input_now->line_number - 1);
 		// prepare outbytes' start address
-		if (report->bin_used)
+		if (report->bin_used) {
 #if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
 			snprintf(hex_address, HEXBUFSIZE, "%04x", report->bin_address);
 #else
 			sprintf(hex_address, "%04x", report->bin_address);
 #endif
-		else
+		} else {
 			hex_address[0] = '\0';
+		}
 		// prepare outbytes
 		hexdump[0] = '\0';
 		for (ii = 0; ii < report->bin_used; ++ii)

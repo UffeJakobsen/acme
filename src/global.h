@@ -21,19 +21,7 @@
 
 #define SF_FOUND_BLANK		(1u << 0)	// statement had space or tab
 #define SF_IMPLIED_LABEL	(1u << 1)	// statement had implied label def
-extern const char	s_and[];
-extern const char	s_asl[];
-extern const char	s_asr[];
-extern const char	s_bra[];
-extern const char	s_brl[];
-extern const char	s_eor[];
-extern const char	s_error[];
-extern const char	s_lsr[];
-extern const char	s_scrxor[];
 extern char		s_untitled[];
-extern const char	s_pet[];
-extern const char	s_raw[];
-extern const char	s_scr[];
 // error messages during assembly
 extern const char	exception_cannot_open_input_file[];
 extern const char	exception_missing_string[];

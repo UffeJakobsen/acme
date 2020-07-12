@@ -232,6 +232,7 @@ void symbols_vicelabels(FILE *fd)
 	fputc('\n', fd);
 	// dump address symbols
 	Tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_address, fd);
+	// TODO - add trace points and watch points with load/store/exec args!
 }
 
 
