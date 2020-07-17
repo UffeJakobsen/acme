@@ -257,6 +257,8 @@ static struct ronode	mnemos_6502undoc1[]	= {
 	PREDEFNODE("nop", MERGE(GROUP_MISC, IDXuNOP)),	// combines documented $ea and the undocumented dop/top below
 	PREDEFNODE("dop", MERGE(GROUP_MISC, IDXuDOP)),	// "double nop" (skip next byte)
 	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
+// FIXME: make sure GROUP_IMPLIEDONLY outputs "Illegal combination of command and addressing mode" instead of "Garbage data at end of statement",
+// and then remove IDXuJAM column from table and change next line to "GROUP_IMPLIEDONLY, 0x02".
 	PREDEFNODE("jam", MERGE(GROUP_MISC, IDXuJAM)),	// jam/crash/kill/halt-and-catch-fire
 	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA)
 	PREDEFLAST("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
