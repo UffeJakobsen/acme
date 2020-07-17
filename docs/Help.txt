@@ -69,7 +69,7 @@ The files in the docs directory and what they contain:
 IMPORTANT: If you upgrade from an earlier version of ACME, don't
 forget to read the files "Changes.txt" and "Upgrade.txt". Adding new
 features can not always be done in a 100% compatible way, so newer
-version may behave slightly different. To solve this problem, the
+versions may behave slightly differently. To solve this problem, the
 "--dialect" CLI switch can be used.
 
 If you want to start using ACME right away, read the file
