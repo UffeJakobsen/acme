@@ -112,12 +112,12 @@ Label name starts with a shift-space character.
     warning is issued.
 
 Memory already initialised.
-    The "!initmem" command was given more than once (or in addition to
-    the "--initmem" command line option). Only use it once.
+    The "!initmem" pseudo opcode was given more than once, or in
+    addition to the "--initmem" command line option. Only use it once.
 
 Output file already chosen.
-    The "!to" command was given more than once (or in addition to the
-    "--outfile" command line option). Only use it once.
+    The "!to" pseudo opcode was given more than once, or in addition
+    to the "--outfile" command line option. Only use it once.
 
 Segment reached another one, overwriting it.
     The program counter has just reached the start of another segment.
@@ -129,7 +129,7 @@ Segment reached another one, overwriting it.
     ACME this might become the default.
 
 Segment starts inside another one, overwriting it.
-    The given value in a "*=" command is located inside another
+    The given value in a "*=" assignment is located inside another
     segment. Because some people might want to assemble "onto" a
     binary file that was loaded before, this warning can be inhibited
     using modifier keywords when changing the program counter via
@@ -139,8 +139,8 @@ Segment starts inside another one, overwriting it.
     ACME this might become the default.
 
 Symbol list file name already chosen.
-    The "!sl" command was given more than once (or in addition to the
-    "--symbollist" command line option). Only use it once.
+    The "!sl" pseudo opcode was given more than once, or in addition
+    to the "--symbollist" command line option. Only use it once.
 
 Used "!to" without file format indicator. Defaulting to "cbm".
     Now that "!to" can be given a file format keyword (either "plain"
@@ -148,19 +148,19 @@ Used "!to" without file format indicator. Defaulting to "cbm".
     works though.
 
 Using oversized addressing mode.
-    ACME just assembled a command using an addressing mode that was
-    larger than needed. This only happens if ACME could not work out
-    the argument's value in the first pass, therefore assuming a 16-
-    bit addressing mode. If, in a later pass, ACME finds out that the
-    argument is small enough to fit in 8 bits, then this warning is
-    shown. If you define all your zeropage symbols *before* they are
-    first used, this shouldn't happen. If you know that a specific
+    ACME just assembled an instruction using an addressing mode that
+    was larger than needed. This only happens if ACME could not work
+    out the argument's value in the first pass, therefore assuming a
+    16-bit addressing mode. If, in a later pass, ACME finds out that
+    the argument is small enough to fit in 8 bits, then this warning
+    is shown. If you define all your zeropage symbols *before* they
+    are first used, this shouldn't happen. If you know that a specific
     argument fits in 8 bits, you can force ACME to use 8 bits
-    addressing by postfixing the command with "+1". Example:
+    addressing by postfixing the mnemonic with "+1". Example:
 		lda+1 label
     ACME will then use an 8-bit addressing mode, regardless of whether
     the label is known or not. If the label value happens to be too
-    large to fit in 8 bits, ACME will show an error of course (To
+    large to fit in 8 bits, ACME will show an error of course (to
     always truncate a value to 8 bits, use the '<' operator).
     More about the postfixing method can be found in "AddrModes.txt".
 
@@ -233,6 +233,15 @@ Conversion table incomplete.
     The conversion table file is too small. It needs to be exactly 256
     bytes in size.
 
+CPU does not support this addressing mode for this mnemonic.
+    The given mnemonic cannot be combined with the given addressing
+    mode on the CPU you have chosen.
+
+CPU does not support this postfix for this mnemonic.
+    The given mnemonic cannot be combined with the addressing mode
+    indicated by the given postfix, at least not on the CPU you have
+    chosen.
+
 Division by zero.
     Guess what - you attempted to divide by zero.
 
@@ -270,14 +279,6 @@ Garbage data at end of statement (unexpected 'CHAR').
 Hex digits are not given in pairs.
     The two digits of a hex byte are separated by another character,
     or there is an odd number of digits.
-
-Illegal combination of command and addressing mode.
-    The given command cannot be used with the given addressing mode on
-    the CPU you have chosen.
-
-Illegal combination of command and postfix.
-    The given command cannot be used with the addressing mode
-    indicated by the given postfix.
 
 Illegal postfix.
     You used a postfix other than "+1", "+2" or "+3".
@@ -317,8 +318,9 @@ Negative value - cannot choose addressing mode.
 No string given.
     ACME expects a string but doesn't find it, or the string is empty.
 
+Number does not fit in N bits.
 Number out of range.
-    A value is too high or too low.
+    A value is too high or too low to be stored in 8/16/24 bits.
     This can also mean the desired addressing mode is not available,
     as in "sty $e000, x".
 
@@ -349,14 +351,14 @@ Syntax error.
 
 Target not in bank (0xTARGET).
     You tried to branch to an address not in the 0x0000..0xffff range.
-    Relative addressing (branch commands or PER) cannot leave the
+    Relative addressing (branch instructions or PER) cannot leave the
     current code bank of 64 KiB.
 
 Target out of range (N; M too far).
-    Branch commands use relative addressing, which only has a limited
-    range. You exceeded it. N is the attempted offset, M is the
-    difference to the limit - so if you succeed in optimizing M bytes
-    away, the code would assemble.
+    Branch instructions use relative addressing, which only has a
+    limited range. You exceeded it. N is the attempted offset, M is
+    the difference to the limit - so if you succeed in optimizing M
+    bytes away, the code would assemble.
 
 The chosen CPU uses opcode 0xXY as a prefix code, do not use this mnemonic!
     The mnemonic is valid, but should not be used on this CPU. If you
@@ -389,7 +391,8 @@ Un-pseudopc operator '&' has no !pseudopc context.
     around the definition.
 
 Unknown encoding.
-    You used the "!convtab" command with a keyword ACME does not know.
+    You used the "!convtab" pseudo opcode with a keyword ACME does not
+    know.
 
 Unknown function.
     You used a mathematical function ACME does not know.
@@ -398,13 +401,15 @@ Unknown operator.
     You used an arithmetic/logical operator ACME does not know.
 
 Unknown output format.
-    You used the "!to" command with a keyword ACME does not know.
+    You used the "!to" pseudo opcode with a format specifier ACME does
+    not know.
 
 Unknown processor.
-    You used the "!cpu" command with a keyword ACME does not know.
+    You used the "!cpu" pseudo opcode with a cpu specifier ACME does
+    not know.
 
 Unknown pseudo opcode.
-    You have mistyped a "!" command.
+    You have mistyped the keyword after "!".
 
 Unknown "*=" segment modifier.
     You used a modifier keyword ACME does not know.
@@ -441,8 +446,9 @@ Found end-of-file instead of '}'.
     (because there was at least one block left open).
 
 Loop count is negative.
-    You used the "!for" command with a negative loop count (getting
-    this error is only possible when using the now deprecated syntax).
+    You used the "!for" pseudo opcode with a negative loop count
+    (getting this error is only possible when using the now deprecated
+    syntax).
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
@@ -452,7 +458,7 @@ Macro already defined.
 
 Missing '{'.
     ACME didn't find the expected '{' character. Remember that '{'
-    characters must be given on the same line as the command they
+    characters must be given on the same line as the keyword they
     belong to.
 
 Out of memory.

@@ -102,7 +102,7 @@ static enum eos po_initmem(void)
 	// get value
 	ALU_defined_int(&intresult);
 	if ((intresult.val.intval > 255) || (intresult.val.intval < -128))
-		Throw_error(exception_number_out_of_range);
+		Throw_error(exception_number_out_of_8b_range);
 	if (output_initmem(intresult.val.intval & 0xff))
 		return SKIP_REMAINDER;
 	return ENSURE_EOS;
@@ -118,7 +118,7 @@ static enum eos po_xor(void)
 	old_value = output_get_xor();
 	ALU_any_int(&change);
 	if ((change > 255) || (change < -128)) {
-		Throw_error(exception_number_out_of_range);
+		Throw_error(exception_number_out_of_8b_range);
 		change = 0;
 	}
 	output_set_xor(old_value ^ change);

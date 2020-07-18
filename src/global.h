@@ -31,6 +31,7 @@ extern const char	exception_no_memory_left[];
 extern const char	exception_no_right_brace[];
 //extern const char	exception_not_yet[];
 extern const char	exception_number_out_of_range[];
+extern const char	exception_number_out_of_8b_range[];
 extern const char	exception_pc_undefined[];
 extern const char	exception_symbol_defined[];
 extern const char	exception_syntax[];

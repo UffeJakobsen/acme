@@ -54,7 +54,7 @@
 // only for m65:
 #define LONG_INDIRECT_Z_INDEXED_ADDRESSING		(AMB_LONGINDIRECT | AMB_INDEX(INDEX_Z))
 
-// Constant values, used to mark the possible parameter lengths of commands.
+// constant values, used to mark the possible parameter lengths of instructions.
 // Not all of the eight possible combinations are actually used, however (because of the supported CPUs).
 #define MAYBE______	0
 #define MAYBE_1____	NUMBER_FORCES_8
@@ -71,10 +71,13 @@ enum mnemogroup {
 	GROUP_BITBRANCH,	// bbr0..7 and bbs0..7				Byte value = opcode
 	GROUP_REL16_2,		// 16bit relative to pc+2			Byte value = opcode
 	GROUP_REL16_3,		// 16bit relative to pc+3			Byte value = opcode
-	GROUP_BOTHMOVES,	// the "move" commands MVP and MVN		Byte value = opcode
-	GROUP_ZPONLY,		// rmb0..7 and smb0..7				Byte value = opcode	FIXME - use for IDXeDEW,IDXeINW as well!
+	GROUP_BOTHMOVES,	// the "move" instructions MVP and MVN		Byte value = opcode
+	GROUP_ZPONLY,		// rmb0..7, smb0..7, inw, dew			Byte value = opcode
 	GROUP_PREFIX,		// NOP on m65 (throws error)			Byte value = opcode
 };
+// TODO: make sure groups like IMPLIEDONLY and ZPONLY output
+// "Mnemonic does not support this addressing mode" instead of
+// "Garbage data at end of statement".
 
 // save some space
 #define SCB	static const unsigned char
@@ -109,13 +112,13 @@ SCB accu_lindz8[] = {      0,      0,       0,      0,   0x12,      0,      0,  
 // mnemotable), the assembler finds out the column to use here. The row
 // depends on the used addressing mode. A zero entry in these tables means
 // that the combination of mnemonic and addressing mode is illegal.
-//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                                         65ce02                        |               65816               |                                        NMOS 6502 undocumented opcodes                                         |    C64DTV2    |
-enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeDEW,IDXeINW,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANC,IDXuASR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuJAM,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
-SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0xea,   0x80,   0x0c,   0x02,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
-SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,      0,      0,   0xa3,   0xf4,      0,   0x62,       0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,   0x80,      0,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
-SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4,   0xc3,   0xe3, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,      0,      0,      0,      0, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
-SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0,      0,      0, 0xbb00,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0, 0x1c14,   0x14, 0x1c00,      0,      0,      0,      0,      0,      0, 0x9c00,      0,      0};	// $ff,x    $ffff,x
-SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0,      0,      0};	// $ff,y    $ffff,y
+//                |                             6502                              |                             6502/65c02/65ce02                                 |         65c02         |                         65ce02                        |               65816               |                                    NMOS 6502 undocumented opcodes                                     |    C64DTV2    |
+enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANC,IDXuASR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
+SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0xea,   0x80,   0x0c,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
+SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,   0xa3,   0xf4,      0,   0x62, /*2?*/0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,   0x80,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
+SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,      0,      0,      0,      0, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
+SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0, 0xbb00,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0, 0x1c14,   0x14, 0x1c00,      0,      0,      0,      0,      0, 0x9c00,      0,      0};	// $ff,x    $ffff,x
+SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0,      0,      0};	// $ff,y    $ffff,y
 
 // Code tables for group GROUP_ALLJUMPS:
 // These tables are needed for finding out the correct code when the mnemonic
@@ -136,7 +139,7 @@ SCS jump_lind[]  = {      0,      0,  0xdc00,      0,      0,       0,  0xdc00, 
 #undef SCL
 
 // error message strings
-static const char	exception_illegal_combination[]	= "Illegal combination of command and addressing mode.";
+static const char	exception_illegal_combination[]	= "CPU does not support this addressing mode for this mnemonic.";
 static const char	exception_oversized_addrmode[]	= "Using oversized addressing mode.";
 
 
@@ -157,7 +160,7 @@ static struct ronode	*mnemo_aug_tree		= NULL;	// CSG 65ce02's "aug" instruction
 static struct ronode	*mnemo_map_eom_tree	= NULL;	// CSG 4502's "map" and "eom" instructions
 static struct ronode	*mnemo_m65_tree		= NULL;	// MEGA65 extensions
 
-// Command's code, flags and group values are stored together in a single integer.
+// mnemonic's code, flags and group values are stored together in a single integer.
 // ("code" is either a table index or the opcode itself, depending on group value)
 // To extract the code, use "& CODEMASK".
 // To extract the flags, use "& FLAGSMASK".
@@ -257,11 +260,9 @@ static struct ronode	mnemos_6502undoc1[]	= {
 	PREDEFNODE("nop", MERGE(GROUP_MISC, IDXuNOP)),	// combines documented $ea and the undocumented dop/top below
 	PREDEFNODE("dop", MERGE(GROUP_MISC, IDXuDOP)),	// "double nop" (skip next byte)
 	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
-// FIXME: make sure GROUP_IMPLIEDONLY outputs "Illegal combination of command and addressing mode" instead of "Garbage data at end of statement",
-// and then remove IDXuJAM column from table and change next line to "GROUP_IMPLIEDONLY, 0x02".
-	PREDEFNODE("jam", MERGE(GROUP_MISC, IDXuJAM)),	// jam/crash/kill/halt-and-catch-fire
 	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA)
-	PREDEFLAST("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
+	PREDEFNODE("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
+	PREDEFLAST("jam", MERGE(GROUP_IMPLIEDONLY, 0x02)),	// jam/crash/kill/halt-and-catch-fire
 	//    ^^^^ this marks the last element
 };
 
@@ -350,7 +351,7 @@ static struct ronode	mnemos_stp_wai[]	= {
 	//    ^^^^ this marks the last element
 };
 
-// most of the 65816 stuff
+// the 65816 stuff
 static struct ronode	mnemos_65816[]	= {
 	// CAUTION - these use 6502/65c02 indices, because the opcodes are the same - but I need flags for immediate mode!
 	PREDEFNODE("ldy", MERGE(GROUP_MISC, IDX_LDY | IM_INDEXREGS)),
@@ -433,8 +434,8 @@ static struct ronode	mnemos_65ce02[]	= {
 	PREDEFNODE("asr", MERGE(GROUP_MISC,	IDXeASR)),
 	PREDEFNODE("asw", MERGE(GROUP_MISC,	IDXeASW)),
 	PREDEFNODE("cpz", MERGE(GROUP_MISC,	IDXeCPZ)),
-	PREDEFNODE("dew", MERGE(GROUP_MISC,	IDXeDEW)),
-	PREDEFNODE("inw", MERGE(GROUP_MISC,	IDXeINW)),
+	PREDEFNODE("dew", MERGE(GROUP_ZPONLY,	0xc3)),
+	PREDEFNODE("inw", MERGE(GROUP_ZPONLY,	0xe3)),
 	PREDEFNODE("ldz", MERGE(GROUP_MISC,	IDXeLDZ)),
 	PREDEFNODE("phw", MERGE(GROUP_MISC,	IDXePHW | IM_FORCE16)),	// when using immediate addressing, arg is 16 bit
 	PREDEFNODE("row", MERGE(GROUP_MISC,	IDXeROW)),
@@ -682,18 +683,18 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 		Throw_error(exception_illegal_combination);
 		return 0;
 	}
-	// if command has force bit, act upon it
+	// if a force bit postfix was given, act upon it
 	if (force_bit) {
-		// if command allows this force bit, return it
+		// if mnemonic supports this force bit, return it
 		if (addressing_modes & force_bit)
 			return force_bit;
 
 		// if not, complain
-		Throw_error("Illegal combination of command and postfix.");
+		Throw_error("CPU does not support this postfix for this mnemonic.");
 		return 0;
 	}
 
-	// Command has no force bit. Check whether value has one
+	// mnemonic did not have a force bit postfix.
 	// if value has force bit, act upon it
 	if (argument->flags & NUMBER_FORCEBITS) {
 		// Value has force bit set, so return this or bigger size
@@ -844,7 +845,7 @@ static void far_branch(int preoffset)
 
 // set addressing mode bits depending on which opcodes exist, then calculate
 // argument size and output both opcode and argument
-static void make_command(bits force_bit, struct number *result, unsigned long opcodes)
+static void make_instruction(bits force_bit, struct number *result, unsigned long opcodes)
 {
 	int	addressing_modes	= MAYBE______;
 
@@ -925,52 +926,52 @@ static void group_main(int index, bits flags)
 		immediate_opcodes = imm_ops(&force_bit, accu_imm[index], flags & IMMASK);
 		// CAUTION - do not incorporate the line above into the line
 		// below - "force_bit" might be undefined (depends on compiler).
-		make_command(force_bit, &result, immediate_opcodes);
+		make_instruction(force_bit, &result, immediate_opcodes);
 		break;
 	case ABSOLUTE_ADDRESSING:	// $ff, $ffff, $ffffff
-		make_command(force_bit, &result, accu_abs[index]);
+		make_instruction(force_bit, &result, accu_abs[index]);
 		break;
 	case X_INDEXED_ADDRESSING:	// $ff,x, $ffff,x, $ffffff,x
-		make_command(force_bit, &result, accu_xabs[index]);
+		make_instruction(force_bit, &result, accu_xabs[index]);
 		break;
 	case Y_INDEXED_ADDRESSING:	// $ffff,y (in theory, "$ff,y" as well)
-		make_command(force_bit, &result, accu_yabs[index]);
+		make_instruction(force_bit, &result, accu_yabs[index]);
 		break;
 	case STACK_INDEXED_ADDRESSING:	// $ff,s
-		make_command(force_bit, &result, accu_sabs8[index]);
+		make_instruction(force_bit, &result, accu_sabs8[index]);
 		break;
 	case X_INDEXED_INDIRECT_ADDRESSING:	// ($ff,x)
-		make_command(force_bit, &result, accu_xind8[index]);
+		make_instruction(force_bit, &result, accu_xind8[index]);
 		break;
 	case INDIRECT_ADDRESSING:	// ($ff)
-		make_command(force_bit, &result, accu_ind8[index]);
+		make_instruction(force_bit, &result, accu_ind8[index]);
 		check_zp_wraparound(&result);
 		break;
 	case INDIRECT_Y_INDEXED_ADDRESSING:	// ($ff),y
-		make_command(force_bit, &result, accu_indy8[index]);
+		make_instruction(force_bit, &result, accu_indy8[index]);
 		check_zp_wraparound(&result);
 		break;
 	case INDIRECT_Z_INDEXED_ADDRESSING:	// ($ff),z	only for 65ce02/4502/m65
-		make_command(force_bit, &result, accu_indz8[index]);
+		make_instruction(force_bit, &result, accu_indz8[index]);
 		check_zp_wraparound(&result);
 		break;
 	case LONG_INDIRECT_ADDRESSING:	// [$ff]	for 65816 and m65
 		// if in quad mode, m65 encodes this as NOP + ($ff),z
 		if (flags & LI_PREFIX_NOP)
 			Output_byte(0xea);
-		make_command(force_bit, &result, accu_lind8[index]);
+		make_instruction(force_bit, &result, accu_lind8[index]);
 		break;
 	case LONG_INDIRECT_Y_INDEXED_ADDRESSING:	// [$ff],y	only for 65816
-		make_command(force_bit, &result, accu_lindy8[index]);
+		make_instruction(force_bit, &result, accu_lindy8[index]);
 		break;
 	case STACK_INDEXED_INDIRECT_Y_INDEXED_ADDRESSING:	// ($ff,s),y	only for 65816 and 65ce02/4502/m65
-		make_command(force_bit, &result, accu_sindy8[index]);
+		make_instruction(force_bit, &result, accu_sindy8[index]);
 		break;
 	case LONG_INDIRECT_Z_INDEXED_ADDRESSING:	// [$ff],z	only for m65
 		// if not in quad mode, m65 encodes this as NOP + ($ff),z
 		if (flags & LI_PREFIX_NOP)
 			Output_byte(0xea);
-		make_command(force_bit, &result, accu_lindz8[index]);
+		make_instruction(force_bit, &result, accu_lindz8[index]);
 		break;
 	default:	// other combinations are illegal
 		Throw_error(exception_illegal_combination);
@@ -995,7 +996,7 @@ static void group_misc(int index, bits immediate_mode)
 		immediate_opcodes = imm_ops(&force_bit, misc_imm[index], immediate_mode);
 		// CAUTION - do not incorporate the line above into the line
 		// below - "force_bit" might be undefined (depends on compiler).
-		make_command(force_bit, &result, immediate_opcodes);
+		make_instruction(force_bit, &result, immediate_opcodes);
 		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
 		if ((CPU_state.type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
 		&& (result.ntype == NUMTYPE_INT)
@@ -1007,13 +1008,13 @@ static void group_misc(int index, bits immediate_mode)
 		}
 		break;
 	case ABSOLUTE_ADDRESSING:	// $ff or  $ffff
-		make_command(force_bit, &result, misc_abs[index]);
+		make_instruction(force_bit, &result, misc_abs[index]);
 		break;
 	case X_INDEXED_ADDRESSING:	// $ff,x  or  $ffff,x
-		make_command(force_bit, &result, misc_xabs[index]);
+		make_instruction(force_bit, &result, misc_xabs[index]);
 		break;
 	case Y_INDEXED_ADDRESSING:	// $ff,y  or  $ffff,y
-		make_command(force_bit, &result, misc_yabs[index]);
+		make_instruction(force_bit, &result, misc_yabs[index]);
 		break;
 	default:	// other combinations are illegal
 		Throw_error(exception_illegal_combination);
@@ -1119,10 +1120,10 @@ static void group_jump(int index)
 
 	switch (get_addr_mode(&result)) {
 	case ABSOLUTE_ADDRESSING:	// absolute16 or absolute24
-		make_command(force_bit, &result, jump_abs[index]);
+		make_instruction(force_bit, &result, jump_abs[index]);
 		break;
 	case INDIRECT_ADDRESSING:	// ($ffff)
-		make_command(force_bit, &result, jump_ind[index]);
+		make_instruction(force_bit, &result, jump_ind[index]);
 		// check whether to warn about 6502's JMP() bug
 		if ((result.ntype == NUMTYPE_INT)
 		&& ((result.val.intval & 0xff) == 0xff)
@@ -1130,10 +1131,10 @@ static void group_jump(int index)
 			Throw_warning("Assembling buggy JMP($xxff) instruction");
 		break;
 	case X_INDEXED_INDIRECT_ADDRESSING:	// ($ffff,x)
-		make_command(force_bit, &result, jump_xind[index]);
+		make_instruction(force_bit, &result, jump_xind[index]);
 		break;
 	case LONG_INDIRECT_ADDRESSING:	// [$ffff]
-		make_command(force_bit, &result, jump_lind[index]);
+		make_instruction(force_bit, &result, jump_lind[index]);
 		break;
 	default:	// other combinations are illegal
 		Throw_error(exception_illegal_combination);
@@ -1185,7 +1186,7 @@ static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 	case GROUP_BOTHMOVES:	// "mvp" and "mvn"
 		group_mvn_mvp(code);
 		break;
-	case GROUP_ZPONLY:	// "rmb0..7" and "smb0..7"
+	case GROUP_ZPONLY:	// "rmb0..7", "smb0..7", "inw", "dew"
 		group_only_zp(code);
 		break;
 	case GROUP_PREFIX:	// NOP for m65 cpu

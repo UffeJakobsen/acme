@@ -40,7 +40,11 @@ const char	exception_no_left_brace[]	= "Missing '{'.";
 const char	exception_no_memory_left[]	= "Out of memory.";
 const char	exception_no_right_brace[]	= "Found end-of-file instead of '}'.";
 //const char	exception_not_yet[]	= "Sorry, feature not yet implemented.";
+// TODO - show actual value in error message
 const char	exception_number_out_of_range[]	= "Number out of range.";
+const char	exception_number_out_of_8b_range[]	= "Number does not fit in 8 bits.";
+static const char	exception_number_out_of_16b_range[]	= "Number does not fit in 16 bits.";
+static const char	exception_number_out_of_24b_range[]	= "Number does not fit in 24 bits.";
 const char	exception_pc_undefined[]	= "Program counter undefined.";
 const char	exception_symbol_defined[]	= "Symbol already defined.";
 const char	exception_syntax[]		= "Syntax error.";
@@ -507,86 +511,79 @@ void output_object(struct object *object, struct iter_context *iter)
 // output 8-bit value with range check
 void output_8(intval_t value)
 {
-	if ((value <= 0xff) && (value >= -0x80))
-		Output_byte(value);
-	else
-		Throw_error(exception_number_out_of_range);
+	if ((value < -0x80) || (value > 0xff))
+		Throw_error(exception_number_out_of_8b_range);
+	Output_byte(value);
 }
 
 
 // output 16-bit value with range check big-endian
 void output_be16(intval_t value)
 {
-	if ((value <= 0xffff) && (value >= -0x8000)) {
-		Output_byte(value >> 8);
-		Output_byte(value);
-	} else {
-		Throw_error(exception_number_out_of_range);
-	}
+	if ((value < -0x8000) || (value > 0xffff))
+		Throw_error(exception_number_out_of_16b_range);
+	Output_byte(value >> 8);
+	Output_byte(value);
 }
 
 
 // output 16-bit value with range check little-endian
 void output_le16(intval_t value)
 {
-	if ((value <= 0xffff) && (value >= -0x8000)) {
-		Output_byte(value);
-		Output_byte(value >> 8);
-	} else {
-		Throw_error(exception_number_out_of_range);
-	}
+	if ((value < -0x8000) || (value > 0xffff))
+		Throw_error(exception_number_out_of_16b_range);
+	Output_byte(value);
+	Output_byte(value >> 8);
 }
 
 
 // output 24-bit value with range check big-endian
 void output_be24(intval_t value)
 {
-	if ((value <= 0xffffff) && (value >= -0x800000)) {
-		Output_byte(value >> 16);
-		Output_byte(value >> 8);
-		Output_byte(value);
-	} else {
-		Throw_error(exception_number_out_of_range);
-	}
+	if ((value < -0x800000) || (value > 0xffffff))
+		Throw_error(exception_number_out_of_24b_range);
+	Output_byte(value >> 16);
+	Output_byte(value >> 8);
+	Output_byte(value);
 }
 
 
 // output 24-bit value with range check little-endian
 void output_le24(intval_t value)
 {
-	if ((value <= 0xffffff) && (value >= -0x800000)) {
-		Output_byte(value);
-		Output_byte(value >> 8);
-		Output_byte(value >> 16);
-	} else {
-		Throw_error(exception_number_out_of_range);
-	}
+	if ((value < -0x800000) || (value > 0xffffff))
+		Throw_error(exception_number_out_of_24b_range);
+	Output_byte(value);
+	Output_byte(value >> 8);
+	Output_byte(value >> 16);
 }
+
+
+// FIXME - the range checks below are commented out because 32-bit
+// signed integers cannot exceed the range of 32-bit signed integers.
+// But now that 64-bit machines are the norm, "intval_t" might be a
+// 64-bit int. I need to address this problem one way or another.
 
 
 // output 32-bit value (without range check) big-endian
 void output_be32(intval_t value)
 {
-//  if ((Value <= 0x7fffffff) && (Value >= -0x80000000)) {
+//	if ((value < -0x80000000) || (value > 0xffffffff))
+//		Throw_error(exception_number_out_of_32b_range);
 	Output_byte(value >> 24);
 	Output_byte(value >> 16);
 	Output_byte(value >> 8);
 	Output_byte(value);
-//  } else {
-//	Throw_error(exception_number_out_of_range);
-//  }
 }
 
 
 // output 32-bit value (without range check) little-endian
 void output_le32(intval_t value)
 {
-//  if ((Value <= 0x7fffffff) && (Value >= -0x80000000)) {
+//	if ((value < -0x80000000) || (value > 0xffffffff))
+//		Throw_error(exception_number_out_of_32b_range);
 	Output_byte(value);
 	Output_byte(value >> 8);
 	Output_byte(value >> 16);
 	Output_byte(value >> 24);
-//  } else {
-//	Throw_error(exception_number_out_of_range);
-//  }
 }

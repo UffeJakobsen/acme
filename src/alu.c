@@ -2445,8 +2445,8 @@ static int parse_expression(struct expression *expression)
 		// make sure no additional (spurious) errors are reported:
 		Input_skip_remainder();
 		// FIXME - remove this when new function interface gets used:
-		// callers must decide for themselves what to do when expression parser returns error
-		// (currently LDA'' results in both "no string given" AND "illegal combination of command and addressing mode"!)
+		// callers must decide for themselves what to do when expression
+		// parser returns error (and may decide to call Input_skip_remainder)
 		return 1;	// error
 	}
 }

@@ -163,8 +163,8 @@ The mnemonic BIT can no longer be assembled without any argument. If
 you want to insert the opcode only to mask the next instruction, use
 	!src <6502/std.a>
 to get the definitions for these two macros:
-	+bit8	; output $24 to mask following 1-byte command
-	+bit16	; output $2c to mask following 2-byte command
+	+bit8	; output $24 to mask following 1-byte instruction
+	+bit16	; output $2c to mask following 2-byte instruction
 
 When using the 65816 cpu, ACME now uses the correct argument order for
 the MVN and MVP mnemonics, which is:

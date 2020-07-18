@@ -12,10 +12,10 @@ ACME.
 
 
 ----------------------------------------------------------------------
-Section:   Command aliases for "long" JMPs and JSRs
+Section:   Aliases for "long" JMPs and JSRs
 ----------------------------------------------------------------------
 
-In addition to the commands JMP and JSR, the 65816 processor also
+In addition to the mnemonics JMP and JSR, the 65816 processor also
 knows JML and JSL, which are JMP and JSR using new (long) addressing
 modes. ACME also accepts the new addressing modes when using the old
 mnemonics JMP and JSR, but the old addressing modes cannot be used
@@ -55,13 +55,13 @@ this at any time using the following pseudo opcodes:
 		!rs	; switch to short index registers
 
 Please note that ACME, unlike some other assemblers, does *not* track
-SEP/REP commands: I don't like that method - it fails when
+SEP/REP instructions: I don't like that method - it fails when
 encountering PLPs, for example. So if it doesn't work reliably in the
 first place, why use it? :)
 
 If you don't like that you always have to use a pseudo opcode
-alongside SEP/REP commands, then have a look at the file <65816/std.a>
-(in the library). There are some predefined macros that you can use.
+alongside SEP/REP instructions, then have a look at the library file
+<65816/std.a> which has some predefined macros you can use.
 
 
 ----------------------------------------------------------------------
