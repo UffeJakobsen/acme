@@ -2,4 +2,4 @@
 	!cpu 6502
 	!to "out-6502.o", plain
 	*=$1000
-	!src "std.a"
+	!src "include-6502.a"
