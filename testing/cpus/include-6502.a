@@ -139,7 +139,9 @@
 		inc $05		; e6
 		inx		; e8
 		sbc #$09	; e9
-		nop		; ea
+	!ifndef M65 {
+		nop		; ea	(m65 re-uses this opcode as a prefix)
+	}
 		cpx $0d0e	; ec
 		sbc $0d0e	; ed
 		inc $0d0e	; ee
