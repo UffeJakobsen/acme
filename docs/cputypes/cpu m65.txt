@@ -12,6 +12,8 @@ The mnemonics ldq/stq have nine addressing modes in quad mode, and a tenth
 when combined with long mode.
 The mnemonics cpq/adcq/sbcq/andq/eorq/orq have eight addressing modes in quad
 mode, and a ninth when combined with long mode.
+The mnemonic bitq has four addressing modes.
+The mnemonic asrq has three addressing modes.
 This mode is entered after a NEG:NEG (42 42) prefix, the following opcode is
 then taken from this table:
 
@@ -25,20 +27,20 @@ then taken from this table:
 1c                  1d orq abs16, x     1e aslq abs16, x    1f
 
 20                  21 andq (zp, x)     22                  23
-24                  25 andq zp          26 rolq zp          27
+24 bitq zp          25 andq zp          26 rolq zp          27
 28                  29                  2a rolq             2b
-2c                  2d andq abs16       2e rolq abs16       2f
+2c bitq abs16       2d andq abs16       2e rolq abs16       2f
 30                  31 andq (zp), y     32 andq (zp)        33
-34                  35 andq zp, x       36 rolq zp, x       37
+34 bitq zp, x       35 andq zp, x       36 rolq zp, x       37
 38                  39 andq abs16, y    3a deq              3b
-3c                  3d andq abs16, x    3e rolq abs16, x    3f
+3c bitq abs16, x    3d andq abs16, x    3e rolq abs16, x    3f
 
-40                  41 eorq (zp, x)     42                  43
-44                  45 eorq zp          46 lsrq zp          47
+40                  41 eorq (zp, x)     42                  43 asrq
+44 asrq zp          45 eorq zp          46 lsrq zp          47
 48                  49                  4a lsrq             4b
 4c                  4d eorq abs16       4e lsrq abs16       4f
 50                  51 eorq (zp), y     52 eorq (zp)        53
-54                  55 eorq zp, x       56 lsrq zp, x       57
+54 asrq zp, x       55 eorq zp, x       56 lsrq zp, x       57
 58                  59 eorq abs16, y    5a                  5b
 5c                  5d eorq abs16, x    5e lsrq abs16, x    5f
 

@@ -28,20 +28,26 @@ M65 = 1	; make next include skip the NOP mnemonic (re-used as prefix code by M65
 		orq $1d1e, x	; 1d
 		aslq $1d1e, x	; 1e
 		andq ($01, x)	; 21
+		bitq $05	; 24
 		andq $05	; 25
 		rolq $05	; 26
 		rolq		; 2a
+		bitq $0d0e	; 2c
 		andq $0d0e	; 2d
 		rolq $0d0e	; 2e
 		andq ($11), y	; 31
 		andq ($12)	; 32
+		bitq $15, x	; 34
 		andq $15, x	; 35
 		rolq $15, x	; 36
 		andq $1919, y	; 39
 		deq		; 3a
+		bitq $1d1e, x	; 3c
 		andq $1d1e, x	; 3d
 		rolq $1d1e, x	; 3e
 		eorq ($01, x)	; 41
+		asrq		; 43
+		asrq $05	; 44
 		eorq $05	; 45
 		lsrq $05	; 46
 		lsrq		; 4a
@@ -49,6 +55,7 @@ M65 = 1	; make next include skip the NOP mnemonic (re-used as prefix code by M65
 		lsrq $0d0e	; 4e
 		eorq ($11), y	; 51
 		eorq ($12)	; 52
+		asrq $15, x	; 54
 		eorq $15, x	; 55
 		lsrq $15, x	; 56
 		eorq $1919, y	; 59
