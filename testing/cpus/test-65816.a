@@ -63,7 +63,7 @@
 		lda [$17], y	; b7
 		tyx		; bb
 		lda $1f1f1f, x	; bf
-;		rep #$c2	; c2, see below
+		rep #$c2	; c2, see below
 		cmp $03, s	; c3
 		cmp [$07]	; c7
 		wai		; cb
@@ -74,7 +74,7 @@
 		stp		; db
 		jmp [$dcdc]	; dc
 		cmp $1f1f1f, x	; df
-;		sep #$e2	; e2, see below
+		sep #$e2	; e2, see below
 		sbc $03, s	; e3
 		sbc [$07]	; e7
 		xba		; eb
@@ -86,31 +86,33 @@
 		jsr ($fcfc, x)	; fc
 		sbc $1f1f1f, x	; ff
 
-; immediate addressing for register length checks:
+; check sizes of immediate arguments:
 !macro immediates {
+				;	arg size depends on:
 ; from 6502:
-		ora #$09	; 09, a
-		and #$09	; 29, a
-		eor #$09	; 49, a
-		adc #$09	; 69, a
-		ldy #$09	; a0, r
-		ldx #$09	; a2, r
-		lda #$09	; a9, a
-		cpy #$09	; c0, r
-		cmp #$09	; c9, a
-		cpx #$09	; e0, r
-		sbc #$09	; e9, a
+		ora #$09	; 09	accumulator size
+		and #$09	; 29	accumulator size
+		eor #$09	; 49	accumulator size
+		adc #$09	; 69	accumulator size
+		ldy #$09	; a0	index register size
+		ldx #$09	; a2	index register size
+		lda #$09	; a9	accumulator size
+		cpy #$09	; c0	index register size
+		cmp #$09	; c9	accumulator size
+		cpx #$09	; e0	index register size
+		sbc #$09	; e9	accumulator size
 ; from 65c02:
-		bit #$89	; 89, a
+		bit #$89	; 89	accumulator size
 ; from 65816:
-		rep #$c2	; c2, always 8 bits
-		sep #$e2	; e2, always 8 bits
+		rep #$c2	; c2	always 8 bits
+		sep #$e2	; e2	always 8 bits
 }
-	!al
-	+immediates
-	!as
-	!rl
-	+immediates
-	!al
-	!rl
-	+immediates
+		; before this, all sizes were 8 bits
+		!al
+		+immediates	; now repeat immediates with long accumulator
+		!as
+		!rl
+		+immediates	; repeat immediates with short A and long index regs
+		!al
+		!rl
+		+immediates	; repeat immediates with long A and long index regs
