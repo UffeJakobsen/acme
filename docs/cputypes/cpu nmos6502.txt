@@ -27,7 +27,7 @@ marked using '+' or '!' signs:
 
 40  rti             41  eor (zp, x)     42! jam             43+ sre (zp, x)
 44! nop zp          45  eor zp          46  lsr zp          47+ sre zp
-48  pha             49  eor #imm8       4a  lsr             4b+ asr #imm8
+48  pha             49  eor #imm8       4a  lsr             4b+ alr #imm8
 4c  jmp abs16       4d  eor abs16       4e  lsr abs16       4f+ sre abs16
 50  bvc rel8        51  eor (zp), y     52! jam             53+ sre (zp), y
 54! nop zp, x       55  eor zp, x       56  lsr zp, x       57+ sre zp, x

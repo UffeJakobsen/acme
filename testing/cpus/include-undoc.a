@@ -2,17 +2,22 @@
 ; undocumented opcodes of NMOS 6502:
 		jam		; 02
 		slo ($03, x)	; 03
+		dop $04		; 04
 		nop $04		; 04
 		slo $04		; 07
 	!ifndef C64DTV2 {
 		anc #$0b	; 0b	(dtv does not support this)
 	}
+		top		; 0c
+		top $0c0f	; 0c
 		nop $0c0f	; 0c
 		slo $0c0f	; 0f
 		slo ($13), y	; 13
+		dop $14, x	; 14
 		nop $14, x	; 14
 		slo $14, x	; 17
 		slo $1b1b, y	; 1b
+		top $1c1f, x	; 1c
 		nop $1c1f, x	; 1c
 		slo $1c1f, x	; 1f
 		rla ($03, x)	; 23
@@ -24,6 +29,7 @@
 		rla $1c1f, x	; 3f
 		sre ($03, x)	; 43
 		sre $04	; 47
+		alr #$0b	; 4b
 		asr #$0b	; 4b
 		sre $0c0f	; 4f
 		sre ($13), y	; 53
@@ -38,6 +44,8 @@
 		rra $14, x	; 77
 		rra $1b1b, y	; 7b
 		rra $1c1f, x	; 7f
+		dop		; 80
+		dop #$0b	; 80
 		nop #$0b	; 80
 		sax ($03, x)	; 83
 		sax $04	; 87

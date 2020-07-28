@@ -40,7 +40,7 @@ opcodes (mnemonics in parentheses are used by other sources):
  mnemonic       | implied #8    8   8,x  16  16,x | performs:
 ----------------+---------------------------------+-----------------------
  anc (ana, anb) |         0b*                     | A = A & arg, then C=N
- asr (alr)      |         4b                      | A = A & arg, then lsr
+ alr/asr        |         4b                      | A = A & arg, then lsr
  arr            |         6b                      | A = A & arg, then ror
  sbx (axs, sax) |         cb                      | X = (A & X) - arg
  dop (nop, skb) |   80**  80   04   14            | skips next byte

@@ -113,7 +113,7 @@ SCB accu_lindz8[] = {      0,      0,       0,      0,   0x12,      0,      0,  
 // depends on the used addressing mode. A zero entry in these tables means
 // that the combination of mnemonic and addressing mode is illegal.
 //                |                             6502                              |                                 6502/65c02/65ce02/m65                                  |         65c02         |                         65ce02                        |               65816               |                                    NMOS 6502 undocumented opcodes                                     |    C64DTV2    |
-enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDXmBITQ,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANC,IDXuASR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
+enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDXmBITQ,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANC,IDXuALR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
 SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,       0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,      0,      0,      0,      0,   0xea,   0x80,   0x0c,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
 SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,   0xa3,   0xf4,      0,   0x62, /*2?*/0,    0xc2,    0xe2,       0,   0x0b,   0x4b,   0x6b,   0xcb,   0x80,   0x80,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
 SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24,  0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,      0,      0,      0,      0, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
@@ -242,33 +242,34 @@ static struct ronode	mnemos_6502[]	= {
 // undocumented opcodes of the NMOS 6502 that are also supported by c64dtv2:
 static struct ronode	mnemos_6502undoc1[]	= {
 	PREDEFNODE("slo", MERGE(GROUP_ACCU, IDXuSLO)),	// ASL + ORA (aka ASO)
-	PREDEFNODE("rla", MERGE(GROUP_ACCU, IDXuRLA)),	// ROL + AND
+	PREDEFNODE("rla", MERGE(GROUP_ACCU, IDXuRLA)),	// ROL + AND (aka RLN)
 	PREDEFNODE("sre", MERGE(GROUP_ACCU, IDXuSRE)),	// LSR + EOR (aka LSE)
-	PREDEFNODE("rra", MERGE(GROUP_ACCU, IDXuRRA)),	// ROR + ADC
-	PREDEFNODE("sax", MERGE(GROUP_ACCU, IDXuSAX)),	// STX + STA (aka AXS aka AAX)
+	PREDEFNODE("rra", MERGE(GROUP_ACCU, IDXuRRA)),	// ROR + ADC (aka RRD)
+	PREDEFNODE("sax", MERGE(GROUP_ACCU, IDXuSAX)),	// store A & X (aka AXS/AAX)
 	PREDEFNODE("lax", MERGE(GROUP_ACCU, IDXuLAX)),	// LDX + LDA
 	PREDEFNODE("dcp", MERGE(GROUP_ACCU, IDXuDCP)),	// DEC + CMP (aka DCM)
-	PREDEFNODE("isc", MERGE(GROUP_ACCU, IDXuISC)),	// INC + SBC (aka ISB aka INS)
-	PREDEFNODE("las", MERGE(GROUP_MISC, IDXuLAS)),	// A,X,S = {addr} & S (aka LAR aka LAE)
-	PREDEFNODE("tas", MERGE(GROUP_MISC, IDXuTAS)),	// S = A & X	{addr} = A&X& {H+1} (aka SHS aka XAS)
-	PREDEFNODE("sha", MERGE(GROUP_ACCU, IDXuSHA)),	// {addr} = A & X & {H+1} (aka AXA aka AHX)
-	PREDEFNODE("shx", MERGE(GROUP_MISC, IDXuSHX)),	// {addr} = X & {H+1} (aka XAS aka SXA)
-	PREDEFNODE("shy", MERGE(GROUP_MISC, IDXuSHY)),	// {addr} = Y & {H+1} (aka SAY aka SYA)
-	PREDEFNODE("asr", MERGE(GROUP_MISC, IDXuASR)),	// LSR + EOR (aka ALR)
-	PREDEFNODE("arr", MERGE(GROUP_MISC, IDXuARR)),	// ROR + ADC
-	PREDEFNODE("sbx", MERGE(GROUP_MISC, IDXuSBX)),	// DEX + CMP (aka AXS aka SAX)
+	PREDEFNODE("isc", MERGE(GROUP_ACCU, IDXuISC)),	// INC + SBC (aka ISB/INS)
+	PREDEFNODE("las", MERGE(GROUP_MISC, IDXuLAS)),	// A,X,S = {addr} & S (aka LAR/LAE)
+	PREDEFNODE("tas", MERGE(GROUP_MISC, IDXuTAS)),	// S = A & X	{addr} = A&X& {H+1} (aka SHS/XAS)
+	PREDEFNODE("sha", MERGE(GROUP_ACCU, IDXuSHA)),	// {addr} = A & X & {H+1} (aka AXA/AHX)
+	PREDEFNODE("shx", MERGE(GROUP_MISC, IDXuSHX)),	// {addr} = X & {H+1} (aka XAS/SXA)
+	PREDEFNODE("shy", MERGE(GROUP_MISC, IDXuSHY)),	// {addr} = Y & {H+1} (aka SAY/SYA)
+	PREDEFNODE("alr", MERGE(GROUP_MISC, IDXuALR)),	// A = A & arg, then LSR (aka ASR)
+	PREDEFNODE("asr", MERGE(GROUP_MISC, IDXuALR)),	// A = A & arg, then LSR (aka ALR)
+	PREDEFNODE("arr", MERGE(GROUP_MISC, IDXuARR)),	// A = A & arg, then ROR
+	PREDEFNODE("sbx", MERGE(GROUP_MISC, IDXuSBX)),	// X = (A & X) - arg (aka AXS/SAX)
 	PREDEFNODE("nop", MERGE(GROUP_MISC, IDXuNOP)),	// combines documented $ea and the undocumented dop/top below
 	PREDEFNODE("dop", MERGE(GROUP_MISC, IDXuDOP)),	// "double nop" (skip next byte)
 	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
-	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA)
-	PREDEFNODE("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka OAL aka ATX)
+	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA/AXM)
+	PREDEFNODE("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka LAX/ATX/OAL)
 	PREDEFLAST("jam", MERGE(GROUP_IMPLIEDONLY, 0x02)),	// jam/crash/kill/halt-and-catch-fire
 	//    ^^^^ this marks the last element
 };
 
 // undocumented opcodes of the NMOS 6502 that are _not_ supported by c64dtv2:
 static struct ronode	mnemos_6502undoc2[]	= {
-	PREDEFLAST("anc", MERGE(GROUP_MISC, IDXuANC)),	// ROL + AND, ASL + ORA (aka AAC)
+	PREDEFLAST("anc", MERGE(GROUP_MISC, IDXuANC)),	// A = A & arg, then C=N (aka ANA, ANB)
 	//    ^^^^ this marks the last element
 };
 
