@@ -551,10 +551,9 @@ void Mnemo_init(void)
 // Address mode parsing
 
 // utility function for parsing indices. result must be processed via AMB_PREINDEX() or AMB_INDEX() macro!
-static int get_index(boolean next)
+// TODO: add pointer arg for result, use return value to indicate parse error!
+static int get_index(void)
 {
-	if (next)
-		GetByte();
 	if (!Input_accept_comma())
 		return INDEX_NONE;
 
@@ -605,6 +604,7 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 
 // wrapper function to detect addressing mode, and, if not IMPLIED, read arg.
 // argument is stored in given result structure, addressing mode is returned.
+// TODO: add pointer arg for result, use return value to indicate parse error!
 static bits get_addr_mode(struct number *result)
 {
 	struct expression	expression;
@@ -625,13 +625,15 @@ static bits get_addr_mode(struct number *result)
 		GetByte();	// proceed with next char
 		get_int_arg(result, FALSE);
 		typesystem_want_addr(result);
-		if (GotByte == ']')
-			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index(TRUE));
-		else
+		if (GotByte == ']') {
+			GetByte();
+			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index());
+		} else {
 			Throw_error(exception_syntax);
+		}
 		break;
 	default:
-		ALU_addrmode_int(&expression, 1);	// direct call instead of wrapper, to allow for "(...,"
+		ALU_addrmode_int(&expression, 1);	// direct call instead of wrapper, to allow for "(EXPR,x)" where parsing stops at comma
 		*result = expression.result.u.number;
 		typesystem_want_addr(result);
 		// check for indirect addressing
@@ -641,14 +643,15 @@ static bits get_addr_mode(struct number *result)
 		if (expression.open_parentheses) {
 			// in case there are still open parentheses,
 			// read internal index
-			address_mode_bits |= AMB_PREINDEX(get_index(FALSE));
-			if (GotByte == ')')
+			address_mode_bits |= AMB_PREINDEX(get_index());
+			if (GotByte == ')') {
 				GetByte();	// go on with next char
-			else
+			} else {
 				Throw_error(exception_syntax);
+			}
 		}
 		// check for external index (after closing parenthesis)
-		address_mode_bits |= AMB_INDEX(get_index(FALSE));
+		address_mode_bits |= AMB_INDEX(get_index());
 	}
 	// ensure end of line
 	Input_ensure_EOS();
@@ -685,6 +688,7 @@ static bits check_oversize(bits size_bit, struct number *argument)
 // argument		value and flags of parameter
 // addressing_modes	adressing modes (8b, 16b, 24b or any combination)
 // Return value = force bit for number of parameter bytes to send (0 = error)
+// TODO: add pointer arg for result, use return value to indicate error ONLY!
 static bits calc_arg_size(bits force_bit, struct number *argument, bits addressing_modes)
 {
 	// if there are no possible addressing modes, complain
@@ -724,26 +728,30 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	// if only one addressing mode, use that
 	if ((addressing_modes == NUMBER_FORCES_8)
 	|| (addressing_modes == NUMBER_FORCES_16)
-	|| (addressing_modes == NUMBER_FORCES_24))
+	|| (addressing_modes == NUMBER_FORCES_24)) {
 		return addressing_modes;	// There's only one, so use it
+	}
 
 	// There's more than one addressing mode. Check whether value is sure
 	// if value is unsure, use default size
 	if (argument->flags & NUMBER_EVER_UNDEFINED) {
 		// if there is an 8-bit addressing mode *and* the value
 		// is sure to fit into 8 bits, use the 8-bit mode
-		if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE))
+		if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE)) {
 			return NUMBER_FORCES_8;
+		}
 
 		// if there is a 16-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
-		if (NUMBER_FORCES_16 & addressing_modes)
+		if (NUMBER_FORCES_16 & addressing_modes) {
 			return check_oversize(NUMBER_FORCES_16, argument);
+		}
 
 		// if there is a 24-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
-		if (NUMBER_FORCES_24 & addressing_modes)
+		if (NUMBER_FORCES_24 & addressing_modes) {
 			return check_oversize(NUMBER_FORCES_24, argument);
+		}
 
 		// otherwise, use 8-bit-addressing, which will raise an
 		// error later on if the value won't fit
@@ -759,17 +767,20 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 
 	// Value is positive or zero. Check size ranges
 	// if there is an 8-bit addressing mode and value fits, use 8 bits
-	if ((addressing_modes & NUMBER_FORCES_8) && (argument->val.intval < 256))
+	if ((addressing_modes & NUMBER_FORCES_8) && (argument->val.intval < 256)) {
 		return NUMBER_FORCES_8;
+	}
 
 	// if there is a 16-bit addressing mode and value fits, use 16 bits
-	if ((addressing_modes & NUMBER_FORCES_16) && (argument->val.intval < 65536))
+	if ((addressing_modes & NUMBER_FORCES_16) && (argument->val.intval < 65536)) {
 		return NUMBER_FORCES_16;
+	}
 
 	// if there is a 24-bit addressing mode, use that. In case the
 	// value doesn't fit, the output function will do the complaining.
-	if (addressing_modes & NUMBER_FORCES_24)
+	if (addressing_modes & NUMBER_FORCES_24) {
 		return NUMBER_FORCES_24;
+	}
 
 	// Value is too big for all possible addressing modes
 	Throw_error(exception_number_out_of_range);
@@ -779,6 +790,8 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 // Mnemonics using only implied addressing.
 static void group_only_implied_addressing(int opcode)
 {
+	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
 	if ((opcode == 0xf8) && (CPU_state.type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY))
 		Throw_first_pass_warning("Found SED instruction for CPU with known decimal SBC bug.");
@@ -1033,6 +1046,7 @@ static void group_misc(int index, bits immediate_mode)
 // mnemonics using only 8bit relative addressing (short branch instructions).
 static void group_std_branches(int opcode)
 {
+	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	Output_byte(opcode);
 	near_branch(2);
 }
@@ -1041,6 +1055,7 @@ static void group_std_branches(int opcode)
 static void group_bbr_bbs(int opcode)
 {
 	struct number	zpmem;
+	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
@@ -1056,6 +1071,7 @@ static void group_bbr_bbs(int opcode)
 // mnemonics using only 16bit relative addressing (BRL and PER of 65816, and the long branches of 65ce02)
 static void group_relative16(int opcode, int preoffset)
 {
+	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	Output_byte(opcode);
 	far_branch(preoffset);
 }
@@ -1067,6 +1083,7 @@ static void group_mvn_mvp(int opcode)
 	boolean		unmatched_hash	= FALSE;
 	struct number	source,
 			target;
+	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	// assembler syntax: "mnemonic source, target" or "mnemonic #source, #target"
 	// machine language order: "opcode target source"
@@ -1103,6 +1120,7 @@ static void group_mvn_mvp(int opcode)
 // "rmb0..7" and "smb0..7"
 static void group_only_zp(int opcode)
 {
+	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	struct number	target;
 
 	get_int_arg(&target, TRUE);
@@ -1115,6 +1133,7 @@ static void group_only_zp(int opcode)
 // NOP on m65 cpu (FIXME - "!align" outputs NOPs, what about that? what if user writes NEG:NEG?)
 static void group_prefix(int opcode)
 {
+	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	char	buffer[100];	// 640K should be enough for anybody
 
 	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);
