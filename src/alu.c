@@ -186,8 +186,8 @@ enum alu_state {
 };
 static enum alu_state	alu_state;	// deterministic finite automaton
 // predefined stuff
-static struct ronode	*op_tree	= NULL;	// tree to hold operators
-static struct ronode	op_list[]	= {
+static struct ronode	op_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("asr",	&ops_asr),
 	PREDEFNODE("lsr",	&ops_lsr),
 	PREDEFNODE("asl",	&ops_shift_left),
@@ -197,11 +197,11 @@ static struct ronode	op_list[]	= {
 	PREDEFNODE("and",	&ops_and),
 	PREDEFNODE("or",	&ops_or),
 	PREDEFNODE("eor",	&ops_eor),		// FIXME - remove
-	PREDEFLAST("xor",	&ops_xor),
+	PREDEF_END("xor",	&ops_xor),
 	//    ^^^^ this marks the last element
 };
-static struct ronode	*function_tree	= NULL;	// tree to hold functions
-static struct ronode	function_list[]	= {
+static struct ronode	function_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("addr",	&ops_addr),
 	PREDEFNODE("address",	&ops_addr),
 	PREDEFNODE("int",	&ops_int),
@@ -215,7 +215,7 @@ static struct ronode	function_list[]	= {
 	PREDEFNODE("arctan",	&ops_arctan),
 	PREDEFNODE("sin",	&ops_sin),
 	PREDEFNODE("cos",	&ops_cos),
-	PREDEFLAST("tan",	&ops_tan),
+	PREDEF_END("tan",	&ops_tan),
 	//    ^^^^ this marks the last element
 };
 
@@ -269,8 +269,6 @@ void ALU_init(void)
 {
 	errormsg_dyna_buf = DynaBuf_create(ERRORMSG_DYNABUF_INITIALSIZE);
 	function_dyna_buf = DynaBuf_create(FUNCTION_DYNABUF_INITIALSIZE);
-	Tree_add_table(&op_tree, op_list);
-	Tree_add_table(&function_tree, function_list);
 	enlarge_operator_stack();
 	enlarge_argument_stack();
 }

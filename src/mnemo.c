@@ -148,19 +148,6 @@ static const char	exception_oversized_addrmode[]	= "Using oversized addressing m
 // Variables
 
 static struct dynabuf	*mnemo_dyna_buf;	// dynamic buffer for mnemonics
-// predefined stuff
-static struct ronode	*mnemo_6502_tree	= NULL;	// 6502 mnemonics
-static struct ronode	*mnemo_6502undoc1_tree	= NULL;	// 6502 undocumented ("illegal") opcodes supported by DTV2
-static struct ronode	*mnemo_6502undoc2_tree	= NULL;	// remaining 6502 undocumented ("illegal") opcodes (currently ANC only, maybe more will get moved)
-static struct ronode	*mnemo_c64dtv2_tree	= NULL;	// C64DTV2 extensions (BRA/SAC/SIR)
-static struct ronode	*mnemo_65c02_tree	= NULL;	// 65c02 extensions
-static struct ronode	*mnemo_bitmanips_tree	= NULL;	// Rockwell's bit manipulation extensions
-static struct ronode	*mnemo_stp_wai_tree	= NULL;	// WDC's "stp" and "wai" instructions
-static struct ronode	*mnemo_65816_tree	= NULL;	// WDC 65816 extensions
-static struct ronode	*mnemo_65ce02_tree	= NULL;	// CSG 65ce02/4502 extensions
-static struct ronode	*mnemo_aug_tree		= NULL;	// CSG 65ce02's "aug" instruction
-static struct ronode	*mnemo_map_eom_tree	= NULL;	// CSG 4502's "map" and "eom" instructions
-static struct ronode	*mnemo_m65_tree		= NULL;	// MEGA65 extensions
 
 // mnemonic's code, flags and group values are stored together in a single integer.
 // ("code" is either a table index or the opcode itself, depending on group value)
@@ -181,7 +168,9 @@ static struct ronode	*mnemo_m65_tree		= NULL;	// MEGA65 extensions
 #define MERGE(g, v)	(((g) << 12) | (v))
 #define GROUP(v)	((v) >> 12)
 
-static struct ronode	mnemos_6502[]	= {
+// 6502 mnemonics
+static struct ronode	mnemo_6502_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("ora", MERGE(GROUP_ACCU, IDX_ORA)),
 	PREDEFNODE("and", MERGE(GROUP_ACCU, IDX_AND)),
 	PREDEFNODE("eor", MERGE(GROUP_ACCU, IDX_EOR)),
@@ -237,12 +226,13 @@ static struct ronode	mnemos_6502[]	= {
 	PREDEFNODE("cld", MERGE(GROUP_IMPLIEDONLY, 0xd8)),
 	PREDEFNODE("inx", MERGE(GROUP_IMPLIEDONLY, 0xe8)),
 	PREDEFNODE("nop", MERGE(GROUP_IMPLIEDONLY, 0xea)),
-	PREDEFLAST("sed", MERGE(GROUP_IMPLIEDONLY, 0xf8)),
+	PREDEF_END("sed", MERGE(GROUP_IMPLIEDONLY, 0xf8)),
 	//    ^^^^ this marks the last element
 };
 
 // undocumented opcodes of the NMOS 6502 that are also supported by c64dtv2:
-static struct ronode	mnemos_6502undoc1[]	= {
+static struct ronode	mnemo_6502undoc1_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("slo", MERGE(GROUP_ACCU, IDXuSLO)),	// ASL + ORA (aka ASO)
 	PREDEFNODE("rla", MERGE(GROUP_ACCU, IDXuRLA)),	// ROL + AND (aka RLN)
 	PREDEFNODE("sre", MERGE(GROUP_ACCU, IDXuSRE)),	// LSR + EOR (aka LSE)
@@ -265,26 +255,30 @@ static struct ronode	mnemos_6502undoc1[]	= {
 	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
 	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA/AXM)
 	PREDEFNODE("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka LAX/ATX/OAL)
-	PREDEFLAST("jam", MERGE(GROUP_IMPLIEDONLY, 0x02)),	// jam/crash/kill/halt-and-catch-fire
+	PREDEF_END("jam", MERGE(GROUP_IMPLIEDONLY, 0x02)),	// jam/crash/kill/halt-and-catch-fire
 	//    ^^^^ this marks the last element
 };
 
 // undocumented opcodes of the NMOS 6502 that are _not_ supported by c64dtv2:
-static struct ronode	mnemos_6502undoc2[]	= {
-	PREDEFLAST("anc", MERGE(GROUP_MISC, IDXuANC)),	// A = A & arg, then C=N (aka ANA, ANB)
+// (currently ANC only, maybe more will get moved)
+static struct ronode	mnemo_6502undoc2_tree[]	= {
+	PREDEF_START,
+	PREDEF_END("anc", MERGE(GROUP_MISC, IDXuANC)),	// A = A & arg, then C=N (aka ANA, ANB)
 	//    ^^^^ this marks the last element
 };
 
 // additional opcodes of c64dtv2:
-static struct ronode	mnemos_c64dtv2[]	= {
+static struct ronode	mnemo_c64dtv2_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("bra", MERGE(GROUP_RELATIVE8, 0x12)),	// branch always
 	PREDEFNODE("sac", MERGE(GROUP_MISC, IDX_SAC)),	// set accumulator mapping
-	PREDEFLAST("sir", MERGE(GROUP_MISC, IDX_SIR)),	// set index register mapping
+	PREDEF_END("sir", MERGE(GROUP_MISC, IDX_SIR)),	// set index register mapping
 	//    ^^^^ this marks the last element
 };
 
 // new stuff in CMOS re-design:
-static struct ronode	mnemos_65c02[]	= {
+static struct ronode	mnemo_65c02_tree[]	= {
+	PREDEF_START,
 	// more addressing modes for some mnemonics:
 	PREDEFNODE("ora", MERGE(GROUP_ACCU,	IDXcORA)),
 	PREDEFNODE("and", MERGE(GROUP_ACCU,	IDXcAND)),
@@ -306,12 +300,13 @@ static struct ronode	mnemos_65c02[]	= {
 	PREDEFNODE("plx", MERGE(GROUP_IMPLIEDONLY,	0xfa)),
 	PREDEFNODE("tsb", MERGE(GROUP_MISC,	IDXcTSB)),
 	PREDEFNODE("trb", MERGE(GROUP_MISC,	IDXcTRB)),
-	PREDEFLAST("stz", MERGE(GROUP_MISC,	IDXcSTZ)),
+	PREDEF_END("stz", MERGE(GROUP_MISC,	IDXcSTZ)),
 	//    ^^^^ this marks the last element
 };
 
 // bit-manipulation extensions (by Rockwell?)
-static struct ronode	mnemos_bitmanips[]	= {
+static struct ronode	mnemo_bitmanips_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("rmb0", MERGE(GROUP_ZPONLY, 0x07)),
 	PREDEFNODE("rmb1", MERGE(GROUP_ZPONLY, 0x17)),
 	PREDEFNODE("rmb2", MERGE(GROUP_ZPONLY, 0x27)),
@@ -343,19 +338,21 @@ static struct ronode	mnemos_bitmanips[]	= {
 	PREDEFNODE("bbs4", MERGE(GROUP_BITBRANCH, 0xcf)),
 	PREDEFNODE("bbs5", MERGE(GROUP_BITBRANCH, 0xdf)),
 	PREDEFNODE("bbs6", MERGE(GROUP_BITBRANCH, 0xef)),
-	PREDEFLAST("bbs7", MERGE(GROUP_BITBRANCH, 0xff)),
+	PREDEF_END("bbs7", MERGE(GROUP_BITBRANCH, 0xff)),
 	//    ^^^^ this marks the last element
 };
 
 // "stp" and "wai" extensions by WDC:
-static struct ronode	mnemos_stp_wai[]	= {
+static struct ronode	mnemo_stp_wai_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("wai", MERGE(GROUP_IMPLIEDONLY, 0xcb)),
-	PREDEFLAST("stp", MERGE(GROUP_IMPLIEDONLY, 0xdb)),
+	PREDEF_END("stp", MERGE(GROUP_IMPLIEDONLY, 0xdb)),
 	//    ^^^^ this marks the last element
 };
 
 // the 65816 stuff
-static struct ronode	mnemos_65816[]	= {
+static struct ronode	mnemo_65816_tree[]	= {
+	PREDEF_START,
 	// CAUTION - these use 6502/65c02 indices, because the opcodes are the same - but I need flags for immediate mode!
 	PREDEFNODE("ldy", MERGE(GROUP_MISC, IDX_LDY | IM_INDEXREGS)),
 	PREDEFNODE("ldx", MERGE(GROUP_MISC, IDX_LDX | IM_INDEXREGS)),
@@ -401,12 +398,13 @@ static struct ronode	mnemos_65816[]	= {
 	// 0xdb is STP
 	PREDEFNODE("xba", MERGE(GROUP_IMPLIEDONLY,	0xeb)),
 	PREDEFNODE("xce", MERGE(GROUP_IMPLIEDONLY,	0xfb)),
-	PREDEFLAST("wdm", MERGE(GROUP_IMPLIEDONLY,	0x42)),
+	PREDEF_END("wdm", MERGE(GROUP_IMPLIEDONLY,	0x42)),
 	//    ^^^^ this marks the last element
 };
 
 // 65ce02 has 46 new opcodes and a few changes:
-static struct ronode	mnemos_65ce02[]	= {
+static struct ronode	mnemo_65ce02_tree[]	= {
+	PREDEF_START,
 	// 65ce02 changes (zp) addressing of 65c02 to (zp),z addressing:
 	PREDEFNODE("ora", MERGE(GROUP_ACCU,	IDXeORA)),
 	PREDEFNODE("and", MERGE(GROUP_ACCU,	IDXeAND)),
@@ -455,25 +453,28 @@ static struct ronode	mnemos_65ce02[]	= {
 	PREDEFNODE("tza", MERGE(GROUP_IMPLIEDONLY, 0x6b)),
 	PREDEFNODE("tba", MERGE(GROUP_IMPLIEDONLY, 0x7b)),
 	PREDEFNODE("phz", MERGE(GROUP_IMPLIEDONLY, 0xdb)),
-	PREDEFLAST("plz", MERGE(GROUP_IMPLIEDONLY, 0xfb)),
+	PREDEF_END("plz", MERGE(GROUP_IMPLIEDONLY, 0xfb)),
 	//    ^^^^ this marks the last element
 };
 
 // 65ce02's "aug" opcode:
-static struct ronode	mnemos_aug[]	= {
-	PREDEFLAST("aug", MERGE(GROUP_IMPLIEDONLY, 0x5c)),	// actually a "4-byte NOP reserved for future expansion"
+static struct ronode	mnemo_aug_tree[]	= {
+	PREDEF_START,
+	PREDEF_END("aug", MERGE(GROUP_IMPLIEDONLY, 0x5c)),	// actually a "4-byte NOP reserved for future expansion"
 	//    ^^^^ this marks the last element
 };
 
 // 4502's "map" and "eom" opcodes:
-static struct ronode	mnemos_map_eom[]	= {
+static struct ronode	mnemo_map_eom_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("map", MERGE(GROUP_IMPLIEDONLY, 0x5c)),	// change memory mapping
-	PREDEFLAST("eom", MERGE(GROUP_IMPLIEDONLY, 0xea)),	// actually the NOP opcode
+	PREDEF_END("eom", MERGE(GROUP_IMPLIEDONLY, 0xea)),	// actually the NOP opcode
 	//    ^^^^ this marks the last element
 };
 
 // m65 has a few extensions using prefix codes:
-static struct ronode	mnemos_m65[]	= {
+static struct ronode	mnemo_m65_tree[]	= {
+	PREDEF_START,
 	//	extension 1:
 	// a NOP prefix changes ($ff),z addressing from using 16-bit pointers to
 	// using 32-bit pointers. I chose "[$ff],z" to indicate this.
@@ -523,7 +524,7 @@ static struct ronode	mnemos_m65[]	= {
 	PREDEFNODE("bitq", MERGE(GROUP_MISC,	IDXmBITQ | PREFIX_NEGNEG)),
 	PREDEFNODE("asrq", MERGE(GROUP_MISC,	IDXeASR  | PREFIX_NEGNEG)),
 	// because the NOP opcode is used as a prefix code, the mnemonic was disabled:
-	PREDEFLAST("nop", MERGE(GROUP_PREFIX,	0xea)),
+	PREDEF_END("nop", MERGE(GROUP_PREFIX,	0xea)),
 	//    ^^^^ this marks the last element
 };
 
@@ -533,18 +534,6 @@ static struct ronode	mnemos_m65[]	= {
 void Mnemo_init(void)
 {
 	mnemo_dyna_buf = DynaBuf_create(MNEMO_DYNABUF_INITIALSIZE);
-	Tree_add_table(&mnemo_6502_tree, mnemos_6502);
-	Tree_add_table(&mnemo_6502undoc1_tree, mnemos_6502undoc1);
-	Tree_add_table(&mnemo_6502undoc2_tree, mnemos_6502undoc2);
-	Tree_add_table(&mnemo_c64dtv2_tree, mnemos_c64dtv2);
-	Tree_add_table(&mnemo_65c02_tree, mnemos_65c02);
-	Tree_add_table(&mnemo_bitmanips_tree, mnemos_bitmanips);
-	Tree_add_table(&mnemo_stp_wai_tree, mnemos_stp_wai);
-	Tree_add_table(&mnemo_65816_tree, mnemos_65816);
-	Tree_add_table(&mnemo_65ce02_tree, mnemos_65ce02);
-	Tree_add_table(&mnemo_aug_tree, mnemos_aug);
-	Tree_add_table(&mnemo_map_eom_tree, mnemos_map_eom);
-	Tree_add_table(&mnemo_m65_tree, mnemos_m65);
 }
 
 

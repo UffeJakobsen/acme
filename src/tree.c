@@ -28,14 +28,15 @@ hash_t make_hash(struct ronode *node) {
 }
 
 // Link a predefined data set to a tree
-void add_node_to_tree(struct ronode **tree, struct ronode *node_to_add)
+static void add_node_to_tree(struct ronode **tree, struct ronode *node_to_add)
 {
 	hash_t	hash;
 
 	// compute hash value
 	hash = make_hash(node_to_add);
+	// search for NULL pointer to replace
 	while (*tree) {
-		// compare HashValue
+		// decide which way to go
 		if (hash > (*tree)->hash_value)
 			tree = &((*tree)->greater_than);
 		else
@@ -48,10 +49,11 @@ void add_node_to_tree(struct ronode **tree, struct ronode *node_to_add)
 // fields.
 }
 
-// Add predefined tree items to given tree. The PREDEF* macros set HashValue
-// to 1 in all entries but the last. The last entry contains 0.
-void Tree_add_table(struct ronode **tree, struct ronode *table_to_add)
+// Add predefined tree items to given tree. The PREDEF* macros set the hash
+// to 1 in all entries but the last, and to 0 in the last entry.
+static void tree_from_list(struct ronode **tree, struct ronode *table_to_add)
 {
+	//printf("Building tree from list.\n");
 	// Caution when trying to optimise this. :)
 	while (table_to_add->hash_value)
 		add_node_to_tree(tree, table_to_add++);
@@ -71,6 +73,15 @@ int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf *dyna_b
 	char		b1,
 			b2;
 	hash_t		hash;
+
+	// check if tree is actually ready to use. if not, build it from list.
+	// (list's first item does not contain real data, so "greater_than" is
+	// used to hold pointer to tree root)
+	if (tree->greater_than == NULL)
+		tree_from_list(&tree->greater_than, tree + 1);	// real data starts at next list item
+	tree = tree->greater_than;	// go from list head to tree root
+	// ok, we're done with this setup stuff.
+	// from now on, "greater_than" really means "greater_than"!
 
 	wanted.id_string = dyna_buf->buffer;
 	hash = make_hash(&wanted);

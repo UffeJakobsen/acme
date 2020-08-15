@@ -12,9 +12,9 @@
 
 
 // macros for pre-defining tree node tables
+#define PREDEF_START		{NULL, NULL, 0, NULL, NULL}	// this is used to determine if list has been made into tree yet
 #define PREDEFNODE(s, v)	{NULL, NULL, 1, s, (void *) (v)}
-#define PREDEFLAST(s, v)	{NULL, NULL, 0, s, (void *) (v)}
-// TODO: add macro to define tree struct as "pointer-to-root (initially NULL) and pointer-to-init-table" combination
+#define PREDEF_END(s, v)	{NULL, NULL, 0, s, (void *) (v)}
 
 // type definitions
 
@@ -42,12 +42,8 @@ struct rwnode {
 
 // prototypes
 
-// Add predefined tree items to given tree.
-// TODO: change this to an internal function. convert table to tree on first lookup.
-extern void Tree_add_table(struct ronode **tree, struct ronode *table_to_add);
 // Search for a given ID string in a given tree. Store "body" component in
 // node_body and return TRUE. Return FALSE if no matching item found.
-// TODO: change tree passing from "pointer to root" to "pointer to struct containing pointer to root and pointer to table", so first lookup can create tree.
 struct dynabuf;
 extern int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf *dyna_buf);
 // Search for a "RAM tree" item. Save pointer to found tree item in given

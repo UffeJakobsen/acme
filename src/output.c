@@ -72,13 +72,14 @@ enum output_format {
 	OUTPUT_FORMAT_PLAIN		// code only
 };
 // predefined stuff
-static struct ronode	*file_format_tree	= NULL;	// tree to hold output formats (FIXME - a tree for three items, really?)
-static struct ronode	file_format_list[]	= {
+// tree to hold output formats (FIXME - a tree for three items, really?)
+static struct ronode	file_format_tree[]	= {
+	PREDEF_START,
 #define KNOWN_FORMATS	"'plain', 'cbm', 'apple'"	// shown in CLI error message for unknown formats
 	PREDEFNODE("apple",	OUTPUT_FORMAT_APPLE),
 	PREDEFNODE("cbm",	OUTPUT_FORMAT_CBM),
 //	PREDEFNODE("o65",	OUTPUT_FORMAT_O65),
-	PREDEFLAST("plain",	OUTPUT_FORMAT_PLAIN),
+	PREDEF_END("plain",	OUTPUT_FORMAT_PLAIN),
 	//    ^^^^ this marks the last element
 };
 // chosen file format
@@ -239,9 +240,6 @@ int outputfile_set_format(void)
 {
 	void	*node_body;
 
-	// make sure tree is initialised
-	if (file_format_tree == NULL)
-		Tree_add_table(&file_format_tree, file_format_list);
 	// perform lookup
 	if (!Tree_easy_scan(file_format_tree, &node_body, GlobalDynaBuf))
 		return 1;

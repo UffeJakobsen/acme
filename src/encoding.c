@@ -83,12 +83,12 @@ const struct encoder	encoder_file	= {
 
 
 // keywords for "!convtab" pseudo opcode
-static struct ronode	*encoder_tree	= NULL;	// tree to hold encoders
-static struct ronode	encoder_list[]	= {
+static struct ronode	encoder_tree[]	= {
+	PREDEF_START,
 //no!	PREDEFNODE("file",	&encoder_file),	"!ct file" is not needed; just use {} after initial loading of table!
 	PREDEFNODE("pet",	&encoder_pet),
 	PREDEFNODE("raw",	&encoder_raw),
-	PREDEFLAST("scr",	&encoder_scr),
+	PREDEF_END("scr",	&encoder_scr),
 	//    ^^^^ this marks the last element
 };
 
@@ -120,9 +120,6 @@ const struct encoder *encoding_find(void)
 {
 	void	*node_body;
 
-	// make sure tree is initialised
-	if (encoder_tree == NULL)
-		Tree_add_table(&encoder_tree, encoder_list);
 	// perform lookup
 	if (!Tree_easy_scan(encoder_tree, &node_body, GlobalDynaBuf)) {
 		Throw_error("Unknown encoding.");

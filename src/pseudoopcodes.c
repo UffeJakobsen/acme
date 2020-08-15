@@ -35,10 +35,6 @@ enum eos {
 static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
 
 
-// variables
-static struct ronode	*pseudo_opcode_tree	= NULL;	// tree to hold pseudo opcodes
-
-
 // this is not really a pseudo opcode, but similar enough to be put here:
 // called when "*= EXPRESSION" is parsed, to set the program counter
 void notreallypo_setpc(void)	// GotByte is '*'
@@ -1295,7 +1291,8 @@ static enum eos po_endoffile(void)
 }
 
 // pseudo opcode table
-static struct ronode	pseudo_opcode_list[]	= {
+static struct ronode	pseudo_opcode_tree[]	= {
+	PREDEF_START,
 	PREDEFNODE("initmem",		po_initmem),
 	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("to",		po_to),
@@ -1365,7 +1362,7 @@ static struct ronode	pseudo_opcode_list[]	= {
 	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),
 	PREDEFNODE("eof",		po_endoffile),
-	PREDEFLAST("endoffile",		po_endoffile),
+	PREDEF_END("endoffile",		po_endoffile),
 	//    ^^^^ this marks the last element
 };
 
@@ -1374,7 +1371,6 @@ static struct ronode	pseudo_opcode_list[]	= {
 void pseudoopcodes_init(void)
 {
 	user_message = DynaBuf_create(USERMSG_DYNABUF_INITIALSIZE);
-	Tree_add_table(&pseudo_opcode_tree, pseudo_opcode_list);
 }
 
 
