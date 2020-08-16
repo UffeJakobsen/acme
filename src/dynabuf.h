@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2016 Marco Baye
+// Copyright (C) 1998-2020 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Dynamic buffer stuff
@@ -8,14 +8,14 @@
 
 
 #include "config.h"
+#include <stdlib.h>	// for size_t
 
 
 // macros
-#define DYNABUF_CLEAR(db)		do {db->size = 0;} while (0)
 #define DYNABUF_APPEND(db, byte)	\
 do {					\
 	if (db->size == db->reserved)	\
-		DynaBuf_enlarge(db);	\
+		dynabuf_enlarge(db);	\
 	db->buffer[(db->size)++] = byte;\
 } while (0)
 // the next one is dangerous - the buffer location can change when a character
@@ -27,21 +27,28 @@ do {					\
 // dynamic buffer structure
 struct dynabuf {
 	char	*buffer;	// pointer to buffer
-	int	size;		// size of buffer's used portion
-	int	reserved;	// total size of buffer
+	size_t	size;		// size of buffer's used portion
+	size_t	reserved;	// total size of buffer
 };
+// new way of declaration/definition:
+// the small struct above is static, only the buffer itself gets malloc'd (on
+// first "clear").
+#define STRUCT_DYNABUF_REF(name, size)	struct dynabuf name[1]	= {{NULL, 0, size}}
+// the "[1]" makes sure the name refers to the address and not the struct
+// itself, so existing code where the name referred to a pointer does not need
+// to be changed.
 
 
 // variables
-extern struct dynabuf *GlobalDynaBuf;	// global dynamic buffer
+extern struct dynabuf	GlobalDynaBuf[1];	// global dynamic buffer
+// TODO - get rid of this, or move to global.c
 
 
-// create global DynaBuf (call once on program startup)
-extern void DynaBuf_init(void);
-// create (private) DynaBuf
-extern struct dynabuf *DynaBuf_create(int initial_size);
+// (ensure buffer is ready to use, then) clear dynamic buffer
+#define DYNABUF_CLEAR(db)	dynabuf_clear(db)	// TODO - remove old macro
+extern void dynabuf_clear(struct dynabuf *db);
 // call whenever buffer is too small
-extern void DynaBuf_enlarge(struct dynabuf *db);
+extern void dynabuf_enlarge(struct dynabuf *db);
 // return malloc'd copy of buffer contents
 extern char *DynaBuf_get_copy(struct dynabuf *db);
 // copy string to buffer (without terminator)

@@ -126,8 +126,6 @@ extern bits Input_get_force_bit(void);
 
 // include path stuff - should be moved to its own file:
 
-// init list
-extern void includepaths_init(void);
 // add entry
 extern void includepaths_add(const char *path);
 // open file for reading (trying list entries as prefixes)

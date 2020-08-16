@@ -12,8 +12,6 @@
 
 // Prototypes
 
-// create dynamic buffers and arg table
-extern void Macro_init(void);	// create private dynabuf
 // only call once (during first pass)
 extern void Macro_parse_definition(void);
 // Parse macro call ("+MACROTITLE"). Has to be re-entrant.

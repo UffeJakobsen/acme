@@ -1204,11 +1204,11 @@ static enum eos po_watch(void)
 */
 
 // constants
-#define USERMSG_DYNABUF_INITIALSIZE	80
+#define USERMSG_INITIALSIZE	80
 
 
 // variables
-static struct dynabuf	*user_message;	// dynamic buffer (!warn/error/serious)
+static	STRUCT_DYNABUF_REF(user_message, USERMSG_INITIALSIZE);	// for !warn/error/serious
 
 
 // helper function to show user-defined messages
@@ -1365,13 +1365,6 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEF_END("endoffile",		po_endoffile),
 	//    ^^^^ this marks the last element
 };
-
-
-// register pseudo opcodes and create dynamic buffer
-void pseudoopcodes_init(void)
-{
-	user_message = DynaBuf_create(USERMSG_DYNABUF_INITIALSIZE);
-}
 
 
 // parse a pseudo opcode. has to be re-entrant.

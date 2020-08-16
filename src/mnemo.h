@@ -10,8 +10,6 @@
 #include "config.h"
 
 
-// create dynamic buffer, build keyword trees
-extern void Mnemo_init(void);
 // check whether mnemonic in GlobalDynaBuf is supported by standard 6502 cpu.
 extern boolean keyword_is_6502_mnemo(int length);
 // check whether mnemonic in GlobalDynaBuf is supported by NMOS 6502 cpu (includes undocumented opcodes).

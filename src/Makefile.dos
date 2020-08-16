@@ -32,7 +32,7 @@ encoding.o: config.h alu.h acme.h dynabuf.h global.h output.h input.h tree.h enc
 
 flow.o: config.h acme.h alu.h dynabuf.h global.h input.h mnemo.h symbol.h tree.h flow.h flow.c
 
-global.o: config.h platform.h acme.h cpu.h encoding.h input.h macro.h pseudoopcodes.h section.h symbol.h global.h global.c
+global.o: config.h platform.h acme.h cpu.h dynabuf.h encoding.h input.h macro.h pseudoopcodes.h section.h symbol.h global.h global.c
 
 input.o: config.h alu.h dynabuf.h global.h section.h symbol.h tree.h input.h input.c
 

@@ -50,19 +50,16 @@ struct expression {
 	// labels that are undefined, we can't simply get the addressing mode
 	// from looking at the parameter's value.	FIXME - rename to TAINTED :)
 
-
-// create dynamic buffer, operator/function trees and operator/operand stacks
-extern void ALU_init(void);
-
 /*
 // FIXME - replace all the functions below with a single one using a "flags" arg!
 // its return value would then be "error"/"ok".
 // input flags:
 #define ACCEPT_UNDEFINED	(1u << 0)	// if not given, undefined throws serious error
-#define ACCEPT_INT		(1u << 1)	needed when strings come along!
+#define ACCEPT_INT		(1u << 1)
 #define ACCEPT_FLOAT		(1u << 2)	// if not given, floats are converted to integer
 #define ACCEPT_OPENPARENTHESIS	(1u << 3)	// if not given, throws syntax error
-//#define ACCEPT_STRING
+#define ACCEPT_STRING		(1u << 4)	// if not given, convert 1-char strings to int?
+#define ACCEPT_LIST		(1u << 5)
 // do I need ACCEPT_NONADDR and/or ACCEPT_ADDRESS?
 */
 

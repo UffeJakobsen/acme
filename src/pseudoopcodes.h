@@ -9,8 +9,6 @@
 
 // call when "*= EXPRESSION" is parsed
 extern void notreallypo_setpc(void);
-// register pseudo opcodes
-extern void pseudoopcodes_init(void);
 // parse pseudo opcode. has to be re-entrant.
 extern void pseudoopcode_parse(void);
 

@@ -639,24 +639,15 @@ int main(int argc, const char *argv[])
 	if (argc == 1)
 		show_help_and_exit();
 	cliargs_init(argc, argv);
-	DynaBuf_init();	// inits *global* dynamic buffer - important, so first
-	// Init platform-specific stuff.
-	// For example, this could read the library path from an
-	// environment variable, which in turn may need DynaBuf already.
+	// init platform-specific stuff.
+	// this may read the library path from an environment variable.
 	PLATFORM_INIT;
-	// prepare a buffer large enough to hold pointers to "-D" switch values
-//	cli_defines = safe_malloc(argc * sizeof(*cli_defines));
-	includepaths_init();	// must be done before cli arg handling
 	// handle command line arguments
 	cliargs_handle_options(short_option, long_option);
 	// generate list of files to process
 	cliargs_get_rest(&toplevel_src_count, &toplevel_sources, "No top level sources given");
-	// Init modules (most of them will just build keyword trees)
-	ALU_init();
-	Macro_init();
-	Mnemo_init();
+	// init output buffer
 	Output_init(fill_value, config.test_new_features);
-	pseudoopcodes_init();	// setup keyword tree for pseudo opcodes
 	if (do_actual_work())
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted

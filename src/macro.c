@@ -18,7 +18,7 @@
 
 
 // Constants
-#define MACRONAME_DYNABUF_INITIALSIZE	128
+#define NAME_INITIALSIZE	128
 #define ARG_SEPARATOR	' '	// separates macro title from arg types
 #define ARGTYPE_VALUE	'v'
 #define ARGTYPE_REF	'r'
@@ -46,8 +46,8 @@ union macro_arg_t {
 
 
 // Variables
-static struct dynabuf	*user_macro_name;	// original macro title
-static struct dynabuf	*internal_name;		// plus param type chars
+static	STRUCT_DYNABUF_REF(user_macro_name, NAME_INITIALSIZE);	// original macro title
+static	STRUCT_DYNABUF_REF(internal_name, NAME_INITIALSIZE);	// plus param type chars
 static struct rwnode	*macro_forest[256];	// trees (because of 8b hash)
 // Dynamic argument table
 static union macro_arg_t	*arg_table	= NULL;
@@ -60,17 +60,10 @@ static int			argtable_size	= HALF_INITIAL_ARG_TABLE_SIZE;
 static void enlarge_arg_table(void)
 {
 	argtable_size *= 2;
+	//printf("Doubling arg table size to %d.\n", argtable_size);
 	arg_table = realloc(arg_table, argtable_size * sizeof(*arg_table));
 	if (arg_table == NULL)
 		Throw_serious_error(exception_no_memory_left);
-}
-
-// create dynamic buffers and arg table
-void Macro_init(void)
-{
-	user_macro_name = DynaBuf_create(MACRONAME_DYNABUF_INITIALSIZE);
-	internal_name = DynaBuf_create(MACRONAME_DYNABUF_INITIALSIZE);
-	enlarge_arg_table();
 }
 
 // Read macro scope and title. Title is read to GlobalDynaBuf and then copied
@@ -240,6 +233,10 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 			symbol_scope;
 	int		arg_count	= 0;
 	int		outer_err_count;
+
+	// make sure arg_table is ready (if not yet initialised, do it now)
+	if (arg_table == NULL)
+		enlarge_arg_table();
 
 	// Enter deeper nesting level
 	// Quit program if recursion too deep.

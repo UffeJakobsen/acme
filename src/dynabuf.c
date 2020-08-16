@@ -21,10 +21,12 @@
 // initial size for global dynabuf
 // (as it holds macros, loop bodies, etc., make it large to begin with)
 #define GLOBALDYNABUF_INITIALSIZE	1024	// should be >0 (see above)
+// TODO - get rid of this, or move to global.c
 
 
 // Variables
-struct dynabuf	*GlobalDynaBuf;	// global dynamic buffer
+STRUCT_DYNABUF_REF(GlobalDynaBuf, GLOBALDYNABUF_INITIALSIZE);	// global dynamic buffer
+// TODO - get rid of this, or move to global.c
 
 
 // Functions
@@ -34,37 +36,42 @@ static void resize(struct dynabuf *db, size_t new_size)
 {
 	char	*new_buf;
 
+	//printf("Growing dynabuf to size %d.\n", new_size);
 	new_buf = realloc(db->buffer, new_size);
 	if (new_buf == NULL)
 		Throw_serious_error(exception_no_memory_left);
 	db->reserved = new_size;
 	db->buffer = new_buf;
 }
+// get buffer mem and fill in struct
+static void initstruct(struct dynabuf *db, size_t initial_size)
+{
+	//printf("dynabuf-init: %d.\n", initial_size);
+	if (initial_size < DYNABUF_MINIMUM_INITIALSIZE)
+		initial_size = DYNABUF_MINIMUM_INITIALSIZE;
+	db->size = 0;
+	db->reserved = initial_size;
+	db->buffer = malloc(initial_size);
+	if (db->buffer == NULL) {
+		// scream and die because there is not enough memory 
+		fputs("Error: No memory for dynamic buffer.\n", stderr);
+		exit(EXIT_FAILURE);
+	}
+}
 
 
 // Exported functions
 
-// Create and init a dynamic buffer and return pointer
-struct dynabuf *DynaBuf_create(int initial_size)
+// (ensure buffer is ready to use, then) clear dynamic buffer
+void dynabuf_clear(struct dynabuf *db)
 {
-	struct dynabuf	*db;
-
-	if (initial_size < DYNABUF_MINIMUM_INITIALSIZE)
-		initial_size = DYNABUF_MINIMUM_INITIALSIZE;
-	if ((db = malloc(sizeof(*db)))) {
-		db->size = 0;
-		db->reserved = initial_size;
-		db->buffer = malloc(initial_size);
-		if (db->buffer)
-			return db;	// if both pointers are != NULL, no error
-	}
-	// otherwise, complain
-	fputs("Error: No memory for dynamic buffer.\n", stderr);
-	exit(EXIT_FAILURE);
+	if (db->buffer == NULL)
+		initstruct(db, db->reserved);	// get initial buffer
+	db->size = 0;	// clear buffer
 }
 
 // Enlarge buffer
-void DynaBuf_enlarge(struct dynabuf *db)
+void dynabuf_enlarge(struct dynabuf *db)
 {
 	resize(db, MAKE_LARGER_THAN(db->reserved));
 }
@@ -112,6 +119,11 @@ void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 		*write,
 		byte;
 
+	// if target has not been initialised yet, do it now
+	// (do not clear it unconditionally, because it may equal source!)
+	if (target->buffer == NULL)
+		initstruct(target, target->reserved);	// get initial buffer
+
 	// make sure target can take it
 	if (source->size > target->reserved)
 		resize(target, source->size);
@@ -130,10 +142,4 @@ void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 	// old-fashioned 7-bit ASCII anyway. So I guess it'll do.
 	// FIXME - use BYTE_ macro from global.h
 	*write = '\0';	// terminate
-}
-
-// Initialisation - allocate global dynamic buffer
-void DynaBuf_init(void)
-{
-	GlobalDynaBuf = DynaBuf_create(GLOBALDYNABUF_INITIALSIZE);
 }

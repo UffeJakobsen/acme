@@ -16,7 +16,7 @@
 
 
 // constants
-#define MNEMO_DYNABUF_INITIALSIZE	8	// 4 + terminator should suffice
+#define MNEMO_INITIALSIZE	8	// 4 + terminator should suffice
 
 // These values are needed to recognize addressing modes:
 // indexing:
@@ -147,7 +147,7 @@ static const char	exception_oversized_addrmode[]	= "Using oversized addressing m
 
 // Variables
 
-static struct dynabuf	*mnemo_dyna_buf;	// dynamic buffer for mnemonics
+static	STRUCT_DYNABUF_REF(mnemo_dyna_buf, MNEMO_INITIALSIZE);	// for mnemonics
 
 // mnemonic's code, flags and group values are stored together in a single integer.
 // ("code" is either a table index or the opcode itself, depending on group value)
@@ -529,13 +529,6 @@ static struct ronode	mnemo_m65_tree[]	= {
 };
 
 // Functions
-
-// create dynamic buffer, build keyword trees
-void Mnemo_init(void)
-{
-	mnemo_dyna_buf = DynaBuf_create(MNEMO_DYNABUF_INITIALSIZE);
-}
-
 
 // Address mode parsing
 

@@ -35,8 +35,8 @@
 
 // constants
 
-#define ERRORMSG_DYNABUF_INITIALSIZE	256	// ad hoc
-#define FUNCTION_DYNABUF_INITIALSIZE	8	// enough for "arctan"
+#define ERRORMSG_INITIALSIZE	256	// ad hoc
+#define FUNCTION_INITIALSIZE	8	// enough for "arctan"
 #define HALF_INITIAL_STACK_SIZE	8
 static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
@@ -167,8 +167,8 @@ static struct op ops_isstring		= {42, OPGROUP_MONADIC, OPID_ISSTRING,	"is_string
 
 
 // variables
-static struct dynabuf	*errormsg_dyna_buf;	// dynamic buffer to build variable-length error messages
-static struct dynabuf	*function_dyna_buf;	// dynamic buffer for fn names
+static	STRUCT_DYNABUF_REF(errormsg_dyna_buf, ERRORMSG_INITIALSIZE);	// to build variable-length error messages
+static	STRUCT_DYNABUF_REF(function_dyna_buf, FUNCTION_INITIALSIZE);	// for fn names
 // operator stack, current size and stack pointer:
 static struct op	**op_stack	= NULL;
 static int		opstack_size	= HALF_INITIAL_STACK_SIZE;
@@ -248,6 +248,7 @@ do {							\
 static void enlarge_operator_stack(void)
 {
 	opstack_size *= 2;
+	//printf("Doubling op stack size to %d.\n", opstack_size);
 	op_stack = realloc(op_stack, opstack_size * sizeof(*op_stack));
 	if (op_stack == NULL)
 		Throw_serious_error(exception_no_memory_left);
@@ -258,19 +259,10 @@ static void enlarge_operator_stack(void)
 static void enlarge_argument_stack(void)
 {
 	argstack_size *= 2;
+	//printf("Doubling arg stack size to %d.\n", argstack_size);
 	arg_stack = realloc(arg_stack, argstack_size * sizeof(*arg_stack));
 	if (arg_stack == NULL)
 		Throw_serious_error(exception_no_memory_left);
-}
-
-
-// create dynamic buffer, operator/function trees and operator/argument stacks
-void ALU_init(void)
-{
-	errormsg_dyna_buf = DynaBuf_create(ERRORMSG_DYNABUF_INITIALSIZE);
-	function_dyna_buf = DynaBuf_create(FUNCTION_DYNABUF_INITIALSIZE);
-	enlarge_operator_stack();
-	enlarge_argument_stack();
 }
 
 
@@ -2376,6 +2368,12 @@ static int parse_expression(struct expression *expression)
 {
 	struct object	*result	= &expression->result;
 
+	// make sure stacks are ready (if not yet initialised, do it now)
+	if (arg_stack == NULL)
+		enlarge_argument_stack();
+	if (op_stack == NULL)
+		enlarge_operator_stack();
+
 	// init
 	expression->is_empty = TRUE;	// becomes FALSE when first valid char gets parsed
 	expression->open_parentheses = 0;
@@ -2388,9 +2386,10 @@ static int parse_expression(struct expression *expression)
 	PUSH_OP(&ops_start_expression);
 	alu_state = STATE_EXPECT_ARG_OR_MONADIC_OP;
 	do {
-		// check stack sizes. enlarge if needed
+		// check arg stack size. enlarge if needed
 		if (arg_sp >= argstack_size)
 			enlarge_argument_stack();
+		// (op stack size is checked whenever pushing an operator)
 		switch (alu_state) {
 		case STATE_EXPECT_ARG_OR_MONADIC_OP:
 			if (expect_argument_or_monadic_operator(expression))
