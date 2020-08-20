@@ -686,25 +686,14 @@ struct ipi {
 			*prev;
 	const char	*path;
 };
-// TODO - just use &ipi_head as init values!
-static struct ipi	ipi_head	= {NULL, NULL, NULL};	// head element
+static struct ipi	ipi_head	= {&ipi_head, &ipi_head, NULL};	// head element
 static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
 
-// make sure list is ready
-static void check_includepaths_list(void)
-{
-	if (ipi_head.next == NULL) {
-		// init ring list
-		ipi_head.next = &ipi_head;
-		ipi_head.prev = &ipi_head;
-	}
-}
 // add entry
 void includepaths_add(const char *path)
 {
 	struct ipi	*ipi;
 
-	check_includepaths_list();
 	ipi = safe_malloc(sizeof(*ipi));
 	ipi->path = path;
 	ipi->next = &ipi_head;
@@ -720,7 +709,6 @@ FILE *includepaths_open_ro(boolean uses_lib)
 	FILE		*stream;
 	struct ipi	*ipi;
 
-	check_includepaths_list();
 	// first try directly, regardless of whether lib or not:
 	stream = fopen(GLOBALDYNABUF_CURRENT, FILE_READBINARY);
 	// if failed and not lib, try include paths:
