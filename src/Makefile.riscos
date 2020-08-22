@@ -1,4 +1,5 @@
 CFLAGS		= -O3 -mthrowback -mlibscl -Wall -Wstrict-prototypes
+LINKFLAGS	= -mlibscl -Wall
 LIBS		= -lm
 CC		= gcc
 RM		= rm
@@ -13,7 +14,7 @@ OBJS		= acme.o alu.o cliargs.o cpu.o dynabuf.o encoding.o flow.o global.o input.
 all: $(PROGS)
 
 acme: $(OBJS)
-	$(CC) $(CFLAGS) -o !Unsqueezed $(OBJS) $(LIBS)
+	$(CC) $(LINKFLAGS) -o !Unsqueezed $(OBJS) $(LIBS)
 	Squeeze -f -v !Unsqueezed !ACME.!RunImage
 
 acme.o: config.h platform.h acme.h alu.h cpu.h dynabuf.h encoding.h flow.h global.h input.h macro.h mnemo.h output.h pseudoopcodes.h section.h symbol.h version.h acme.h acme.c
