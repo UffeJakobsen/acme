@@ -33,7 +33,6 @@ char		s_untitled[]	= "<untitled>";	// FIXME - this is actually const
 
 
 // Exception messages during assembly
-const char	exception_cannot_open_input_file[] = "Cannot open input file.";
 const char	exception_missing_string[]	= "No string given.";
 const char	exception_negative_size[]	= "Negative size argument.";
 const char	exception_no_left_brace[]	= "Missing '{'.";

@@ -737,8 +737,15 @@ FILE *includepaths_open_ro(boolean uses_lib)
 			}
 		}
 	}
-	if (stream == NULL)
-		Throw_error(exception_cannot_open_input_file);
+	if (stream == NULL) {
+		// CAUTION, I'm re-using the path dynabuf to assemble the error message:
+		DYNABUF_CLEAR(pathbuf);
+		DynaBuf_add_string(pathbuf, "Cannot open input file \"");
+		DynaBuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
+		DynaBuf_add_string(pathbuf, "\".");
+		DynaBuf_append(pathbuf, '\0');
+		Throw_error(pathbuf->buffer);
+	}
 	//fprintf(stderr, "File is [%s]\n", GLOBALDYNABUF_CURRENT);
 	return stream;
 }

@@ -23,7 +23,6 @@
 #define SF_IMPLIED_LABEL	(1u << 1)	// statement had implied label def
 extern char		s_untitled[];
 // error messages during assembly
-extern const char	exception_cannot_open_input_file[];
 extern const char	exception_missing_string[];
 extern const char	exception_negative_size[];
 extern const char	exception_no_left_brace[];
