@@ -4,6 +4,11 @@
 # new in version 5: changed mnemo colors
 # new in version 6: added !ifndef, !addr
 # new in version 7: added !symbollist
+# new in version 8: adjusted for ACME 0.97
+#	added backslash escaping,
+#	added "//" comments,
+#	added new mnemonics, keywords and pseudo opcodes,
+#	reduced colors for different instruction sets
 
 # define colors
 #
@@ -18,16 +23,13 @@
 =Call		bold
 =Comment 	green
 =Constant 	cyan
+=Escape		bold cyan
 =Keyword 	bold
 =Pseudo		bold
 =Mnemo6502	bold yellow
 =PCMnemo6502	bold red
-=Mnemo6510	bg_red bold yellow
-=PCMnemo6510	bg_red bold red
-=Mnemo65c02	bg_cyan bold yellow
-=PCMnemo65c02	bg_cyan bold red
-=Mnemo65816	bg_blue bold yellow
-=PCMnemo65816	bg_blue bold red
+=MnemoExt	bg_blue bold yellow
+=PCMnemoExt	bg_blue bold red
 
 :reset Idle
 	*		idle		noeat
@@ -36,6 +38,7 @@
 :idle Idle
 	*		idle
 	";"		line_comment	recolor=-1
+	"//"		line_comment	recolor=-1
 	":{\n"		reset
 	"!.a-zA-Z_€-"	checkstring	recolor=-1 buffer
 	"+"		anonf_or_macro	recolor=-1
@@ -101,10 +104,18 @@
 :string	Constant
 	*		string
 	"\""		idle
+	"\\"		string_escape	recolor=-1
+
+:string_escape Escape
+	*		string
 
 :char Constant
 	*		char
 	"'"		idle
+	"\\"		char_escape	recolor=-1
+
+:char_escape Escape
+	*		char
 
 :ident Idle
 	*		idle		noeat
@@ -117,10 +128,16 @@
 	"!by"		pseudo
 	"!byte"		pseudo
 	"!16"		pseudo
+	"!le16"		pseudo
+	"!be16"		pseudo
 	"!wo"		pseudo
 	"!word"		pseudo
 	"!24"		pseudo
+	"!le24"		pseudo
+	"!be24"		pseudo
 	"!32"		pseudo
+	"!le32"		pseudo
+	"!be32"		pseudo
 	"!tx"		pseudo
 	"!text"		pseudo
 	"!raw"		pseudo
@@ -148,10 +165,17 @@
 	"!set"		pseudo
 	"!macro"	pseudo
 	"!if"		pseudo
-	"!do"		pseudo
-	"!for"		pseudo
 	"!ifdef"	pseudo
 	"!ifndef"	pseudo
+	"else"		keyword
+	"if"		keyword
+	"ifdef"		keyword
+	"ifndef"	keyword
+	"!for"		pseudo
+	"!while"	pseudo
+	"!do"		pseudo
+	"until"		keyword
+	"while"		keyword
 	"!al"		pseudo
 	"!as"		pseudo
 	"!rl"		pseudo
@@ -162,6 +186,10 @@
 	"!serious"	pseudo
 	"!addr"		pseudo
 	"!address"	pseudo
+	"!h"		pseudo
+	"!hex"		pseudo
+	"!xor"		pseudo
+	"!skip"		pseudo
 	"ora"	mnemo6502
 	"asl"	mnemo6502
 	"and"	mnemo6502
@@ -205,9 +233,9 @@
 	"inx"	mnemo6502
 	"nop"	mnemo6502
 	"sed"	mnemo6502
+	"jsr"	mnemo6502
 	"brk"	pcmnemo6502
 	"jmp"	pcmnemo6502
-	"jsr"	pcmnemo6502
 	"bpl"	pcmnemo6502
 	"bmi"	pcmnemo6502
 	"bvc"	pcmnemo6502
@@ -218,61 +246,149 @@
 	"beq"	pcmnemo6502
 	"rti"	pcmnemo6502
 	"rts"	pcmnemo6502
-	"phy"	mnemo65c02
-	"ply"	mnemo65c02
-	"phx"	mnemo65c02
-	"plx"	mnemo65c02
-	"tsb"	mnemo65c02
-	"trb"	mnemo65c02
-	"stz"	mnemo65c02
-	"bra"	pcmnemo65c02
-	"wai"	mnemo65816
-	"pei"	mnemo65816
-	"per"	mnemo65816
-	"mvp"	mnemo65816
-	"mvn"	mnemo65816
-	"rep"	mnemo65816
-	"sep"	mnemo65816
-	"pea"	mnemo65816
-	"phd"	mnemo65816
-	"tcs"	mnemo65816
-	"pld"	mnemo65816
-	"tsc"	mnemo65816
-	"wdm"	mnemo65816
-	"phk"	mnemo65816
-	"tcd"	mnemo65816
-	"tdc"	mnemo65816
-	"phb"	mnemo65816
-	"txy"	mnemo65816
-	"plb"	mnemo65816
-	"tyx"	mnemo65816
-	"xba"	mnemo65816
-	"xce"	mnemo65816
-	"brl"	pcmnemo65816
-	"cop"	pcmnemo65816
-	"jml"	pcmnemo65816
-	"jsl"	pcmnemo65816
-	"rtl"	pcmnemo65816
-	"stp"	pcmnemo65816
-	"slo"	mnemo6510
-	"rla"	mnemo6510
-	"sre"	mnemo6510
-	"rra"	mnemo6510
-	"sax"	mnemo6510
-	"lax"	mnemo6510
-	"dcp"	mnemo6510
-	"isc"	mnemo6510
-	"anc"	mnemo6510
-	"asr"	mnemo6510
-	"arr"	mnemo6510
-	"sbx"	mnemo6510
-	"dop"	mnemo6510
-	"top"	mnemo6510
-	"lxa"	mnemo6510
-	"jam"	pcmnemo6510
-	"else"	keyword
-	"until"	keyword
-	"while"	keyword
+	"phy"	mnemoExt
+	"ply"	mnemoExt
+	"phx"	mnemoExt
+	"plx"	mnemoExt
+	"tsb"	mnemoExt
+	"trb"	mnemoExt
+	"stz"	mnemoExt
+	"bra"	pcmnemoExt
+	"rmb0"	mnemoExt
+	"bbr0"	mnemoExt
+	"smb0"	mnemoExt
+	"bbs0"	mnemoExt
+	"rmb1"	mnemoExt
+	"bbr1"	mnemoExt
+	"smb1"	mnemoExt
+	"bbs1"	mnemoExt
+	"rmb2"	mnemoExt
+	"bbr2"	mnemoExt
+	"smb2"	mnemoExt
+	"bbs2"	mnemoExt
+	"rmb3"	mnemoExt
+	"bbr3"	mnemoExt
+	"smb3"	mnemoExt
+	"bbs3"	mnemoExt
+	"rmb4"	mnemoExt
+	"bbr4"	mnemoExt
+	"smb4"	mnemoExt
+	"bbs4"	mnemoExt
+	"rmb5"	mnemoExt
+	"bbr5"	mnemoExt
+	"smb5"	mnemoExt
+	"bbs5"	mnemoExt
+	"rmb6"	mnemoExt
+	"bbr6"	mnemoExt
+	"smb6"	mnemoExt
+	"bbs6"	mnemoExt
+	"rmb7"	mnemoExt
+	"bbr7"	mnemoExt
+	"smb7"	mnemoExt
+	"bbs7"	mnemoExt
+	"wai"	mnemoExt
+	"pei"	mnemoExt
+	"per"	mnemoExt
+	"mvp"	mnemoExt
+	"mvn"	mnemoExt
+	"rep"	mnemoExt
+	"sep"	mnemoExt
+	"pea"	mnemoExt
+	"phd"	mnemoExt
+	"tcs"	mnemoExt
+	"pld"	mnemoExt
+	"tsc"	mnemoExt
+	"wdm"	mnemoExt
+	"phk"	mnemoExt
+	"tcd"	mnemoExt
+	"tdc"	mnemoExt
+	"phb"	mnemoExt
+	"txy"	mnemoExt
+	"plb"	mnemoExt
+	"tyx"	mnemoExt
+	"xba"	mnemoExt
+	"xce"	mnemoExt
+	"brl"	pcmnemoExt
+	"cop"	mnemoExt
+	"jml"	pcmnemoExt
+	"jsl"	mnemoExt
+	"rtl"	pcmnemoExt
+	"stp"	pcmnemoExt
+	"slo"	mnemoExt
+	"rla"	mnemoExt
+	"sre"	mnemoExt
+	"rra"	mnemoExt
+	"sax"	mnemoExt
+	"lax"	mnemoExt
+	"dcp"	mnemoExt
+	"isc"	mnemoExt
+	"anc"	mnemoExt
+	"ane"	mnemoExt
+	"asr"	mnemoExt
+	"arr"	mnemoExt
+	"alr"	mnemoExt
+	"sbx"	mnemoExt
+	"sha"	mnemoExt
+	"shx"	mnemoExt
+	"shy"	mnemoExt
+	"las"	mnemoExt
+	"tas"	mnemoExt
+	"dop"	mnemoExt
+	"top"	mnemoExt
+	"lxa"	mnemoExt
+	"jam"	pcmnemoExt
+	"map"	mnemoExt
+	"eom"	mnemoExt
+	"aug"	mnemoExt
+	"sac"	mnemoExt
+	"sir"	mnemoExt
+	"orq"	mnemoExt
+	"aslq"	mnemoExt
+	"inq"	mnemoExt
+	"bitq"	mnemoExt
+	"andq"	mnemoExt
+	"rolq"	mnemoExt
+	"deq"	mnemoExt
+	"asrq"	mnemoExt
+	"eorq"	mnemoExt
+	"lsrq"	mnemoExt
+	"adcq"	mnemoExt
+	"rorq"	mnemoExt
+	"stq"	mnemoExt
+	"ldq"	mnemoExt
+	"cpq"	mnemoExt
+	"sbcq"	mnemoExt
+	"cle"	mnemoExt
+	"see"	mnemoExt
+	"tsy"	mnemoExt
+	"inz"	mnemoExt
+	"tys"	mnemoExt
+	"dez"	mnemoExt
+	"neg"	mnemoExt
+	"taz"	mnemoExt
+	"tab"	mnemoExt
+	"bsr"	mnemoExt
+	"tza"	mnemoExt
+	"tba"	mnemoExt
+	"ldz"	mnemoExt
+	"cpz"	mnemoExt
+	"dew"	mnemoExt
+	"asw"	mnemoExt
+	"phz"	mnemoExt
+	"inw"	mnemoExt
+	"row"	mnemoExt
+	"phw"	mnemoExt
+	"plz"	mnemoExt
+	"lbpl"	pcmnemoExt
+	"lbmi"	pcmnemoExt
+	"lbvc"	pcmnemoExt
+	"lbvs"	pcmnemoExt
+	"lbra"	pcmnemoExt
+	"lbcc"	pcmnemoExt
+	"lbcs"	pcmnemoExt
+	"lbne"	pcmnemoExt
+	"lbeq"	pcmnemoExt
+	"rtn"	pcmnemoExt
 done
 	"!a-zA-Z0-9"	checkstring
 #	" \t"		idle		noeat
@@ -283,17 +399,9 @@ done
 	*		idle		noeat
 :pcmnemo6502	PCMnemo6502
 	*		idle		noeat
-:mnemo65c02	Mnemo65c02
+:mnemoExt	MnemoExt
 	*		idle		noeat
-:pcmnemo65c02	PCMnemo65c02
-	*		idle		noeat
-:mnemo65816	Mnemo65816
-	*		idle		noeat
-:pcmnemo65816	PCMnemo65816
-	*		idle		noeat
-:mnemo6510	Mnemo6510
-	*		idle		noeat
-:pcmnemo6510	PCMnemo6510
+:pcmnemoExt	PCMnemoExt
 	*		idle		noeat
 :keyword	Keyword
 	*		idle		noeat

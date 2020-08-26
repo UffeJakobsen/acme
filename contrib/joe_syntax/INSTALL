@@ -8,7 +8,7 @@ If you destroy your system, don't come whining to me.
 --------------------
 
 1) Copy the syntax file to the correct directory by typing:
-cp acme.jsf /etc/joe/syntax/
+cp acme.jsf /usr/share/joe/syntax/
 
 2) Add the following lines to the "SECOND SECTION" of "/etc/joe/joerc":
 
