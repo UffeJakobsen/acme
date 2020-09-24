@@ -35,10 +35,14 @@
 	*		idle		noeat
 	" \t"		reset
 
+:slash Idle
+	*		idle		noeat
+	"/"		line_comment	recolor=-2
+
 :idle Idle
 	*		idle
 	";"		line_comment	recolor=-1
-	"//"		line_comment	recolor=-1
+	"/"		slash
 	":{\n"		reset
 	"!.a-zA-Z_€-"	checkstring	recolor=-1 buffer
 	"+"		anonf_or_macro	recolor=-1
