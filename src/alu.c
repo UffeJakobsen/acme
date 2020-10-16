@@ -2425,6 +2425,11 @@ static int parse_expression(struct expression *expression)
 			if (!(result->type->is_defined(result))) {
 				// then count (in all passes)
 				++pass.undefined_count;
+				// FIXME - this is a bug! lists with undefined elements are seen as "defined":
+				// a user macro iterating over this list will correctly choke on the undefined
+				// item, but the automatic iterators of "!by" and friends will just use a zero
+				// value, because the "undefinedness" should have been counted HERE!
+				// so "!by 1, 2, [three, four]" will just write "01 02 00 00" without complaints!
 			}
 		}
 		// do some checks depending on int/float
