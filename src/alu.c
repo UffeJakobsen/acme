@@ -1295,8 +1295,26 @@ static boolean number_is_defined(const struct object *self)
 	return self->u.number.ntype != NUMTYPE_UNDEFINED;
 }
 
-// list/string:
-// ...are always considered "defined"
+// list:
+// return TRUE only if completely defined
+static boolean list_is_defined(const struct object *self)
+{
+	struct listitem	*item;
+
+	// iterate over items: if an undefined one is found, return FALSE
+	item = self->u.listhead->next;
+	while (item != self->u.listhead) {
+		if (!(item->u.payload.type->is_defined(&item->u.payload)))
+			return FALSE;	// we found something undefined
+
+		item = item->next;
+	}
+	// otherwise, list is defined
+	return TRUE;
+}
+
+// string:
+// ...is always considered "defined"
 static boolean object_return_true(const struct object *self)
 {
 	return TRUE;
@@ -2342,7 +2360,7 @@ struct type	type_number	= {
 };
 struct type	type_list	= {
 	"list",
-	object_return_true,	// lists are always considered to be defined (even though they can hold undefined numbers...)
+	list_is_defined,
 	list_differs,
 	list_assign,
 	list_handle_monadic_operator,
@@ -2425,11 +2443,6 @@ static int parse_expression(struct expression *expression)
 			if (!(result->type->is_defined(result))) {
 				// then count (in all passes)
 				++pass.undefined_count;
-				// FIXME - this is a bug! lists with undefined elements are seen as "defined":
-				// a user macro iterating over this list will correctly choke on the undefined
-				// item, but the automatic iterators of "!by" and friends will just use a zero
-				// value, because the "undefinedness" should have been counted HERE!
-				// so "!by 1, 2, [three, four]" will just write "01 02 00 00" without complaints!
 			}
 		}
 		// do some checks depending on int/float
