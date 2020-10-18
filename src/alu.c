@@ -376,7 +376,10 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 	}
 	// if needed, output "value not defined" error
 	// FIXME - in case of unpseudopc, error message should include the correct number of '&' characters
-	if (!(arg->type->is_defined(arg)))
+//	if (!(arg->type->is_defined(arg)))
+// FIXME - now that lists with undefined items are "undefined", this fails in
+// case of "!if len(some_list) {", so check for undefined _numbers_ explicitly:
+	if ((arg->type == &type_number) && (arg->u.number.ntype == NUMTYPE_UNDEFINED))
 		is_not_defined(symbol, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
 	// FIXME - if arg is list, increment ref count!
 }
@@ -2524,6 +2527,14 @@ void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 	pass.complain_about_undefined = TRUE;
 	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	pass.complain_about_undefined = buf;
+/*
+FIXME - that "buffer COMPLAIN status" thing no longer works: now that we have
+lists, stuff like
+	[2, 3, undefined][0]
+or
+	len([2,3,undefined])
+throws errors even though the result is defined!
+*/
 	if (expression.open_parentheses)
 		Throw_error(exception_paren_open);
 	if (expression.is_empty)
