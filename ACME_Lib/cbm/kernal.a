@@ -77,7 +77,7 @@ lib_cbm_kernal_a = 1
 
 ;note*
 ; the difference between CHRIN and GETIN depends on the current input device:
-; input device 0 (keyboard): CHRIN reads from input buffer, GETIN reads from keyboard buffer
+; input device 0 (keyboard): CHRIN reads from screen, GETIN reads from keyboard buffer
 ;	(the same difference as between INPUT and GET in basic)
 ; input device 2 (rs232): CHRIN does some error handling, GETIN may just return zero on error.
 ; roughly speaking, CHRIN returns a "processed" byte while GETIN returns a "raw" byte.
