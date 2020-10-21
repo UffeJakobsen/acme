@@ -1011,6 +1011,7 @@ static enum eos po_ifndef(void)	// now GotByte = illegal char
 // looping assembly ("!for"). has to be re-entrant.
 // old syntax: !for VAR, END { BLOCK }		VAR counts from 1 to END
 // new syntax: !for VAR, START, END { BLOCK }	VAR counts from START to END
+// maybe future alternative: !for VAR in ITERABLE { BLOCK }	VAR iterates over string/list contents
 static enum eos po_for(void)	// now GotByte = illegal char
 {
 	scope_t		scope;
@@ -1024,36 +1025,53 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	loop.force_bit = Input_get_force_bit();	// skips spaces after
 	loop.symbol = symbol_find(scope);	// if not number, error will be reported on first assignment
 	if (!Input_accept_comma()) {
+#if 1
 		Throw_error(exception_syntax);
 		return SKIP_REMAINDER;
+#else
+		// check for "in" keyword
+		if (Input_read_and_lower_keyword() == 0)
+			return SKIP_REMAINDER;
+
+		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
+			Throw_error("Loop var must be followed by either \"in\" keyword or comma.");	// TODO - add to docs!
+			return SKIP_REMAINDER;
+		}
+		if (loop.force_bit) {
+			Throw_error("Force bits can only be given to counters, not when iterating over string/list contents.");	// TODO - add to docs!
+			return SKIP_REMAINDER;
+		}
+		loop.algorithm = FORALGO_ITER;
+		FIXME
+#endif
 	}
 
 	ALU_defined_int(&intresult);	// read first argument
-	loop.counter.addr_refs = intresult.addr_refs;
+	loop.u.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
 		// new format - yay!
-		loop.use_old_algo = FALSE;
+		loop.algorithm = FORALGO_NEW;
 		if (config.wanted_version < VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
-		loop.counter.first = intresult.val.intval;	// use first argument
+		loop.u.counter.first = intresult.val.intval;	// use first argument
 		ALU_defined_int(&intresult);	// read second argument
-		loop.counter.last = intresult.val.intval;	// use second argument
+		loop.u.counter.last = intresult.val.intval;	// use second argument
 		// compare addr_ref counts and complain if not equal!
 		if (config.warn_on_type_mismatch
-		&& (intresult.addr_refs != loop.counter.addr_refs)) {
+		&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
 			Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
 		}
-		loop.counter.increment = (loop.counter.last < loop.counter.first) ? -1 : 1;
+		loop.u.counter.increment = (loop.u.counter.last < loop.u.counter.first) ? -1 : 1;
 	} else {
 		// old format - booo!
-		loop.use_old_algo = TRUE;
+		loop.algorithm = FORALGO_OLD;
 		if (config.wanted_version >= VER_NEWFORSYNTAX)
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)
 			Throw_serious_error("Loop count is negative.");
-		loop.counter.first = 0;	// CAUTION - old algo pre-increments and therefore starts with 1!
-		loop.counter.last = intresult.val.intval;	// use given argument
-		loop.counter.increment = 1;
+		loop.u.counter.first = 0;	// CAUTION - old algo pre-increments and therefore starts with 1!
+		loop.u.counter.last = intresult.val.intval;	// use given argument
+		loop.u.counter.increment = 1;
 	}
 	if (GotByte != CHAR_SOB)
 		Throw_serious_error(exception_no_left_brace);

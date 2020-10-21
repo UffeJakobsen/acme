@@ -85,8 +85,8 @@ void flow_forloop(struct for_loop *loop)
 	loop_counter.type = &type_number;
 	loop_counter.u.number.ntype = NUMTYPE_INT;
 	loop_counter.u.number.flags = 0;
-	loop_counter.u.number.val.intval = loop->counter.first;
-	loop_counter.u.number.addr_refs = loop->counter.addr_refs;
+	loop_counter.u.number.val.intval = loop->u.counter.first;
+	loop_counter.u.number.addr_refs = loop->u.counter.addr_refs;
 	// CAUTION: next line does not have power to change symbol type, but if
 	// "symbol already defined" error is thrown, the type will still have
 	// been changed. this was done so the code below has a counter var.
@@ -102,23 +102,29 @@ void flow_forloop(struct for_loop *loop)
 		symbol_set_force_bit(loop->symbol, loop->force_bit);
 	loop_counter = loop->symbol->object;	// update local copy with force bit
 	loop->symbol->has_been_read = TRUE;	// lock force bit
-	if (loop->use_old_algo) {
-		// old algo for old syntax:
+	switch (loop->algorithm) {
+	case FORALGO_OLD:	// old algo for old syntax:
 		// if count == 0, skip loop
-		if (loop->counter.last) {
+		if (loop->u.counter.last) {
 			do {
-				loop_counter.u.number.val.intval += loop->counter.increment;
+				loop_counter.u.number.val.intval += loop->u.counter.increment;
 				loop->symbol->object = loop_counter;	// overwrite whole struct, in case some joker has re-assigned loop counter var
 				parse_ram_block(&loop->block);
-			} while (loop_counter.u.number.val.intval < loop->counter.last);
+			} while (loop_counter.u.number.val.intval < loop->u.counter.last);
 		}
-	} else {
-		// new algo for new syntax:
+		break;
+	case FORALGO_NEW:	// new algo for new syntax:
 		do {
 			parse_ram_block(&loop->block);
-			loop_counter.u.number.val.intval += loop->counter.increment;
+			loop_counter.u.number.val.intval += loop->u.counter.increment;
 			loop->symbol->object = loop_counter;	// overwrite whole struct, in case some joker has re-assigned loop counter var
-		} while (loop_counter.u.number.val.intval != (loop->counter.last + loop->counter.increment));
+		} while (loop_counter.u.number.val.intval != (loop->u.counter.last + loop->u.counter.increment));
+		break;
+//	case FORALGO_ITER:	// iterate over string/list contents:
+//		FIXME
+//		break;
+	default:
+		Bug_found("IllegalLoopAlgo", loop->algorithm);
 	}
 	// restore previous input:
 	Input_now = outer_input;
