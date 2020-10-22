@@ -1055,13 +1055,19 @@ static enum eos po_for(void)	// now GotByte = illegal char
 			Throw_first_pass_warning("Found new \"!for\" syntax.");
 		loop.u.counter.first = intresult.val.intval;	// use first argument
 		ALU_defined_int(&intresult);	// read second argument
-		loop.u.counter.last = intresult.val.intval;	// use second argument
 		// compare addr_ref counts and complain if not equal!
 		if (config.warn_on_type_mismatch
 		&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
 			Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
 		}
-		loop.u.counter.increment = (loop.u.counter.last < loop.u.counter.first) ? -1 : 1;
+		// setup direction and total
+		if (loop.u.counter.first <= intresult.val.intval) {
+			loop.iterations_left = 1 + intresult.val.intval - loop.u.counter.first;
+			loop.u.counter.increment = 1;
+		} else {
+			loop.iterations_left = 1 + loop.u.counter.first - intresult.val.intval;
+			loop.u.counter.increment = -1;
+		}
 	} else {
 		// old format - booo!
 		loop.algorithm = FORALGO_OLD;
@@ -1069,8 +1075,8 @@ static enum eos po_for(void)	// now GotByte = illegal char
 			Throw_first_pass_warning("Found old \"!for\" syntax.");
 		if (intresult.val.intval < 0)
 			Throw_serious_error("Loop count is negative.");
-		loop.u.counter.first = 0;	// CAUTION - old algo pre-increments and therefore starts with 1!
-		loop.u.counter.last = intresult.val.intval;	// use given argument
+		loop.u.counter.first = 1;
+		loop.iterations_left = intresult.val.intval;	// use given argument
 		loop.u.counter.increment = 1;
 	}
 	if (GotByte != CHAR_SOB)

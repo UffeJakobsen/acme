@@ -26,10 +26,10 @@ struct for_loop {
 	struct symbol	*symbol;
 	enum foralgo	algorithm;
 	bits		force_bit;	// TODO - move to counter struct? illegal for iter algo!
+	intval_t	iterations_left;
 	union {
 		struct {
 			intval_t	first,
-					last,
 					increment;	// 1 or -1
 			int		addr_refs;	// address reference count
 		} counter;

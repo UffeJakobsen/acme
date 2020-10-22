@@ -68,7 +68,7 @@ void flow_forloop(struct for_loop *loop)
 {
 	struct input	loop_input,
 			*outer_input;
-	struct object	loop_counter;
+	struct object	loop_var;
 
 	// switching input makes us lose GotByte. But we know it's '}' anyway!
 	// set up new input
@@ -82,15 +82,15 @@ void flow_forloop(struct for_loop *loop)
 	// fix line number (not for block, but in case symbol handling throws errors)
 	Input_now->line_number = loop->block.start;
 	// init counter
-	loop_counter.type = &type_number;
-	loop_counter.u.number.ntype = NUMTYPE_INT;
-	loop_counter.u.number.flags = 0;
-	loop_counter.u.number.val.intval = loop->u.counter.first;
-	loop_counter.u.number.addr_refs = loop->u.counter.addr_refs;
+	loop_var.type = &type_number;
+	loop_var.u.number.ntype = NUMTYPE_INT;
+	loop_var.u.number.flags = 0;
+	loop_var.u.number.val.intval = 0;	// SEE BELOW - default value if old algo skips loop entirely
+	loop_var.u.number.addr_refs = loop->u.counter.addr_refs;
 	// CAUTION: next line does not have power to change symbol type, but if
 	// "symbol already defined" error is thrown, the type will still have
 	// been changed. this was done so the code below has a counter var.
-	symbol_set_object(loop->symbol, &loop_counter, POWER_CHANGE_VALUE);
+	symbol_set_object(loop->symbol, &loop_var, POWER_CHANGE_VALUE);
 	// TODO: in versions before 0.97, force bit handling was broken
 	// in both "!set" and "!for":
 	// trying to change a force bit correctly raised an error, but
@@ -100,32 +100,26 @@ void flow_forloop(struct for_loop *loop)
 	// maybe support this behaviour via --dialect?
 	if (loop->force_bit)
 		symbol_set_force_bit(loop->symbol, loop->force_bit);
-	loop_counter = loop->symbol->object;	// update local copy with force bit
+	loop_var = loop->symbol->object;	// update local copy with force bit
 	loop->symbol->has_been_read = TRUE;	// lock force bit
-	switch (loop->algorithm) {
-	case FORALGO_OLD:	// old algo for old syntax:
-		// if count == 0, skip loop
-		if (loop->u.counter.last) {
-			do {
-				loop_counter.u.number.val.intval += loop->u.counter.increment;
-				loop->symbol->object = loop_counter;	// overwrite whole struct, in case some joker has re-assigned loop counter var
-				parse_ram_block(&loop->block);
-			} while (loop_counter.u.number.val.intval < loop->u.counter.last);
-		}
-		break;
-	case FORALGO_NEW:	// new algo for new syntax:
-		do {
-			parse_ram_block(&loop->block);
-			loop_counter.u.number.val.intval += loop->u.counter.increment;
-			loop->symbol->object = loop_counter;	// overwrite whole struct, in case some joker has re-assigned loop counter var
-		} while (loop_counter.u.number.val.intval != (loop->u.counter.last + loop->u.counter.increment));
-		break;
+	loop_var.u.number.val.intval = loop->u.counter.first;	// SEE ABOVE - this may be nonzero, but has not yet been copied to user symbol!
+
+	while (loop->iterations_left) {
+		loop->symbol->object = loop_var;	// overwrite whole struct, in case some joker has re-assigned loop counter var
+		parse_ram_block(&loop->block);
+		loop_var.u.number.val.intval += loop->u.counter.increment;
+		loop->iterations_left--;
+	}
+	// new algo wants illegal value in loop counter after block:
+	if (loop->algorithm == FORALGO_NEW)
+		loop->symbol->object = loop_var;	// overwrite whole struct, in case some joker has re-assigned loop counter var
+
 //	case FORALGO_ITER:	// iterate over string/list contents:
 //		FIXME
 //		break;
-	default:
-		Bug_found("IllegalLoopAlgo", loop->algorithm);
-	}
+//	default:
+//		Bug_found("IllegalLoopAlgo", loop->algorithm);	// FIXME - add to docs!
+//	}
 	// restore previous input:
 	Input_now = outer_input;
 }
