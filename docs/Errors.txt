@@ -264,6 +264,12 @@ File name quotes not found ("" or <>).
     File names have to be given in quotes. Either "" quoting for files
     located in the current directory or <> quoting for library files.
 
+Force bits can only be given to counters, not when iterating over string/list contents.
+    You used a force bit with a "!for" loop counter, but then used the
+    "iterate over string/list contents" syntax. This does not work,
+    because lists could contain other lists, and then a force bit does
+    not make any sense.
+
 Force bits can only be given to numbers.
     You tried to give a force bit to a symbol and then assign a string
     or list to it.
@@ -275,6 +281,10 @@ Found '}' instead of end-of-file.
 Garbage data at end of statement (unexpected 'CHAR').
     There are still arguments when there should not be any more. The
     given character is the one where end-of-line was expected.
+
+Given object is not iterable.
+    You used "!for VAR in ITERABLE", but the iterable was neither a
+    string nor a list (likely a number).
 
 Hex digits are not given in pairs.
     The two digits of a hex byte are separated by another character,
@@ -288,6 +298,12 @@ Index is undefined.
 
 Index out of range.
     The value for an indexing operation wasn't in the allowed range.
+
+Loop var must be followed by either "in" keyword or comma.
+    You made a syntax error when using "!for": After the loop counter
+    symbol there can either be a comma (for a simple counting loop) or
+    the "in" keyword (when iterating over string or list contents).
+    Anything else will give this error.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
@@ -553,6 +569,9 @@ IllegalImmediateMode
 
 IllegalInputSource
     Input is taken neither from a file nor from a RAM block.
+
+IllegalLoopAlgo
+    The "!for" function was told to use an unknown algorithm.
 
 IllegalNumberTypeX
     A number was neither INT nor FLOAT nor UNDEFINED.

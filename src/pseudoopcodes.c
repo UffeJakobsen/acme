@@ -1009,12 +1009,13 @@ static enum eos po_ifndef(void)	// now GotByte = illegal char
 
 
 // looping assembly ("!for"). has to be re-entrant.
-// old syntax: !for VAR, END { BLOCK }		VAR counts from 1 to END
-// new syntax: !for VAR, START, END { BLOCK }	VAR counts from START to END
-// maybe future alternative: !for VAR in ITERABLE { BLOCK }	VAR iterates over string/list contents
+// old counter syntax: !for VAR, END { BLOCK }		VAR counts from 1 to END
+// new counter syntax: !for VAR, START, END { BLOCK }	VAR counts from START to END
+// iterating syntax: !for VAR in ITERABLE { BLOCK }	VAR iterates over string/list contents
 static enum eos po_for(void)	// now GotByte = illegal char
 {
 	scope_t		scope;
+	bits		force_bit;
 	struct for_loop	loop;
 	struct number	intresult;
 
@@ -1022,63 +1023,80 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;	// zero length
 
 	// now GotByte = illegal char
-	loop.force_bit = Input_get_force_bit();	// skips spaces after
+	force_bit = Input_get_force_bit();	// skips spaces after
 	loop.symbol = symbol_find(scope);	// if not number, error will be reported on first assignment
-	if (!Input_accept_comma()) {
-#if 1
-		Throw_error(exception_syntax);
-		return SKIP_REMAINDER;
-#else
-		// check for "in" keyword
-		if (Input_read_and_lower_keyword() == 0)
-			return SKIP_REMAINDER;
-
-		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
-			Throw_error("Loop var must be followed by either \"in\" keyword or comma.");	// TODO - add to docs!
-			return SKIP_REMAINDER;
-		}
-		if (loop.force_bit) {
-			Throw_error("Force bits can only be given to counters, not when iterating over string/list contents.");	// TODO - add to docs!
-			return SKIP_REMAINDER;
-		}
-		loop.algorithm = FORALGO_ITER;
-		FIXME
-#endif
-	}
-
-	ALU_defined_int(&intresult);	// read first argument
-	loop.u.counter.addr_refs = intresult.addr_refs;
 	if (Input_accept_comma()) {
-		// new format - yay!
-		loop.algorithm = FORALGO_NEW;
-		if (config.wanted_version < VER_NEWFORSYNTAX)
-			Throw_first_pass_warning("Found new \"!for\" syntax.");
-		loop.u.counter.first = intresult.val.intval;	// use first argument
-		ALU_defined_int(&intresult);	// read second argument
-		// compare addr_ref counts and complain if not equal!
-		if (config.warn_on_type_mismatch
-		&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
-			Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
-		}
-		// setup direction and total
-		if (loop.u.counter.first <= intresult.val.intval) {
-			loop.iterations_left = 1 + intresult.val.intval - loop.u.counter.first;
-			loop.u.counter.increment = 1;
+		// counter syntax (old or new)
+		loop.u.counter.force_bit = force_bit;
+		ALU_defined_int(&intresult);	// read first argument
+		loop.u.counter.addr_refs = intresult.addr_refs;
+		if (Input_accept_comma()) {
+			// new counter syntax
+			loop.algorithm = FORALGO_NEWCOUNT;
+			if (config.wanted_version < VER_NEWFORSYNTAX)
+				Throw_first_pass_warning("Found new \"!for\" syntax.");
+			loop.u.counter.first = intresult.val.intval;	// use first argument
+			ALU_defined_int(&intresult);	// read second argument
+			// compare addr_ref counts and complain if not equal!
+			if (config.warn_on_type_mismatch
+			&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
+				Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
+			}
+			// setup direction and total
+			if (loop.u.counter.first <= intresult.val.intval) {
+				// count up
+				loop.iterations_left = 1 + intresult.val.intval - loop.u.counter.first;
+				loop.u.counter.increment = 1;
+			} else {
+				// count down
+				loop.iterations_left = 1 + loop.u.counter.first - intresult.val.intval;
+				loop.u.counter.increment = -1;
+			}
 		} else {
-			loop.iterations_left = 1 + loop.u.counter.first - intresult.val.intval;
-			loop.u.counter.increment = -1;
+			// old counter syntax
+			loop.algorithm = FORALGO_OLDCOUNT;
+			if (config.wanted_version >= VER_NEWFORSYNTAX)
+				Throw_first_pass_warning("Found old \"!for\" syntax.");
+			if (intresult.val.intval < 0)
+				Throw_serious_error("Loop count is negative.");
+			// count up
+			loop.u.counter.first = 1;
+			loop.iterations_left = intresult.val.intval;	// use given argument
+			loop.u.counter.increment = 1;
 		}
 	} else {
-		// old format - booo!
-		loop.algorithm = FORALGO_OLD;
-		if (config.wanted_version >= VER_NEWFORSYNTAX)
-			Throw_first_pass_warning("Found old \"!for\" syntax.");
-		if (intresult.val.intval < 0)
-			Throw_serious_error("Loop count is negative.");
-		loop.u.counter.first = 1;
-		loop.iterations_left = intresult.val.intval;	// use given argument
-		loop.u.counter.increment = 1;
+		// iterator syntax
+		loop.algorithm = FORALGO_ITERATE;
+		// check for "in" keyword
+		if ((GotByte != 'i') && (GotByte != 'I')) {
+			Throw_error(exception_syntax);
+			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
+		}
+/* checking for the first character explicitly here looks dumb, but actually
+solves a purpose: we're here because the check for comma failed, but maybe that
+was just a typo. if the current byte is '.' or '-' or whatever, then trying to
+read a keyword will result in "No string given" - which is confusing for the
+user if they did not even want to put a string there.
+so if the current byte is not the start of "in" we just throw a syntax error.
+knowing there is an "i" also makes sure that Input_read_and_lower_keyword()
+does not fail. */
+		Input_read_and_lower_keyword();
+		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
+			Throw_error("Loop var must be followed by either \"in\" keyword or comma.");
+			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
+		}
+		if (force_bit) {
+			Throw_error("Force bits can only be given to counters, not when iterating over string/list contents.");
+			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
+		}
+		ALU_any_result(&loop.u.iter.obj);	// get iterable
+		loop.iterations_left = loop.u.iter.obj.type->length(&loop.u.iter.obj);
+		if (loop.iterations_left < 0) {
+			Throw_error("Given object is not iterable.");
+			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
+		}
 	}
+
 	if (GotByte != CHAR_SOB)
 		Throw_serious_error(exception_no_left_brace);
 

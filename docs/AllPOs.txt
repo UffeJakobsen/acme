@@ -457,11 +457,17 @@ Examples:	; this was taken from <6502/std.a>:
 
 
 Call:		!for SYMBOL, START, END { BLOCK }
+or:		!for SYMBOL in ITERABLE { BLOCK }
 Purpose:	Looping assembly. The block of statements will be
 		parsed a fixed number of times, as specified by the
-		values of START and END. For more flexible
-		possibilities, have a look at "!do" and "!while"
-		below.
+		arguments:
+		When using the first syntax, SYMBOL will simply count
+		from START to END.
+		When using the second syntax, SYMBOL will iterate over
+		the contents of the ITERABLE, which must be a string
+		or a list.
+		For more flexible loop constructs, have a look at
+		"!do" and "!while" below.
 Parameters:	SYMBOL: Any valid symbol name.
 		START: Any formula the value parser accepts, but it
 		must be solvable even in the first pass. SYMBOL will 
@@ -469,6 +475,15 @@ Parameters:	SYMBOL: Any valid symbol name.
 		END: Any formula the value parser accepts, but it must
 		be solvable even in the first pass. SYMBOL will have
 		this value during the last loop cycle.
+		ITERABLE: This must be a string or a list, but its
+		length must be defined even in the first pass (and of
+		course it should stay the same during all subsequent
+		passes).
+			If ITERABLE is a list, its _items_ are allowed
+			to be undefined.
+			If ITERABLE is a string, SYMBOL will be set to
+			each of its character codes in turn, using the
+			currently chosen conversion table.
 		BLOCK: A block of assembler statements.
 		If START or END are floats, they will be converted to
 		integers (never use floats for loop counters). If
@@ -508,8 +523,25 @@ Examples:
 			sta $0400 + i
 		}
 
-Miscellaneous:	The old syntax ("!for SYMBOL, END { BLOCK }" where
-		START was always implied to be 1) is still fully
+	split_table_lo ; generate two tables from one list
+		!for h in my_handler_list {
+			!by <h
+		}
+	split_table_hi
+		!for h in my_handler_list {
+			!by >h
+		}
+
+	hidden_string ; "encrypt" a string by XORing with address
+		!ct scr {	; use screen codes
+			!for c in "very secret message" {
+				!by c XOR <*
+			}
+		}
+
+Miscellaneous:	The old syntax
+			!for SYMBOL, END { BLOCK }
+		where START was always implied to be 1 is still fully
 		supported, but gives a warning to get people to change
 		to the new syntax.
 		You can disable this warning using the "--dialect" or
@@ -777,6 +809,11 @@ or type (call-by-value vs. call-by-reference). So
 		!macro process_bytes b1, b2, b3 {...whatever...}
 		!macro process_bytes b1, b2, ~b3 {...whatever...}
 can *all* be used at the same time without any name clash.
+
+Since release 0.97, lists are supported. This is useful for macros if
+you want an arbitrary number of arguments: Just define the macro with
+a single argument, then pass a list and have the macro iterate over
+its contents.
 
 
 ----------------------------------------------------------------------

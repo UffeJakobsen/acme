@@ -63,24 +63,11 @@ static void parse_ram_block(struct block *block)
 }
 
 
-// back end function for "!for" pseudo opcode
-void flow_forloop(struct for_loop *loop)
+// function for "!for" with counter variable
+static void counting_for(struct for_loop *loop)
 {
-	struct input	loop_input,
-			*outer_input;
 	struct object	loop_var;
 
-	// switching input makes us lose GotByte. But we know it's '}' anyway!
-	// set up new input
-	loop_input = *Input_now;	// copy current input structure into new
-	loop_input.source = INPUTSRC_RAM;	// set new byte source
-	// remember old input
-	outer_input = Input_now;
-	// activate new input
-	// (not yet useable; pointer and line number are still missing)
-	Input_now = &loop_input;
-	// fix line number (not for block, but in case symbol handling throws errors)
-	Input_now->line_number = loop->block.start;
 	// init counter
 	loop_var.type = &type_number;
 	loop_var.u.number.ntype = NUMTYPE_INT;
@@ -98,12 +85,11 @@ void flow_forloop(struct for_loop *loop)
 	// cases like !set N=N+1 worked, because the force bit was
 	// taken from result.
 	// maybe support this behaviour via --dialect?
-	if (loop->force_bit)
-		symbol_set_force_bit(loop->symbol, loop->force_bit);
+	if (loop->u.counter.force_bit)
+		symbol_set_force_bit(loop->symbol, loop->u.counter.force_bit);
 	loop_var = loop->symbol->object;	// update local copy with force bit
 	loop->symbol->has_been_read = TRUE;	// lock force bit
 	loop_var.u.number.val.intval = loop->u.counter.first;	// SEE ABOVE - this may be nonzero, but has not yet been copied to user symbol!
-
 	while (loop->iterations_left) {
 		loop->symbol->object = loop_var;	// overwrite whole struct, in case some joker has re-assigned loop counter var
 		parse_ram_block(&loop->block);
@@ -111,15 +97,53 @@ void flow_forloop(struct for_loop *loop)
 		loop->iterations_left--;
 	}
 	// new algo wants illegal value in loop counter after block:
-	if (loop->algorithm == FORALGO_NEW)
+	if (loop->algorithm == FORALGO_NEWCOUNT)
 		loop->symbol->object = loop_var;	// overwrite whole struct, in case some joker has re-assigned loop counter var
+}
 
-//	case FORALGO_ITER:	// iterate over string/list contents:
-//		FIXME
-//		break;
-//	default:
-//		Bug_found("IllegalLoopAlgo", loop->algorithm);	// FIXME - add to docs!
-//	}
+// function for "!for" with iterating variable
+static void iterating_for(struct for_loop *loop)
+{
+	intval_t	index	= 0;
+	struct object	obj;
+
+	while (loop->iterations_left) {
+		loop->u.iter.obj.type->at(&loop->u.iter.obj, &obj, index++);
+		symbol_set_object(loop->symbol, &obj, POWER_CHANGE_VALUE | POWER_CHANGE_OBJTYPE);
+		parse_ram_block(&loop->block);
+		loop->iterations_left--;
+	}
+}
+
+
+// back end function for "!for" pseudo opcode
+void flow_forloop(struct for_loop *loop)
+{
+	struct input	loop_input,
+			*outer_input;
+
+	// switching input makes us lose GotByte. But we know it's '}' anyway!
+	// set up new input
+	loop_input = *Input_now;	// copy current input structure into new
+	loop_input.source = INPUTSRC_RAM;	// set new byte source
+	// remember old input
+	outer_input = Input_now;
+	// activate new input
+	// (not yet useable; pointer and line number are still missing)
+	Input_now = &loop_input;
+	// fix line number (not for block, but in case symbol handling throws errors)
+	Input_now->line_number = loop->block.start;
+	switch (loop->algorithm) {
+	case FORALGO_OLDCOUNT:
+	case FORALGO_NEWCOUNT:
+		counting_for(loop);
+		break;
+	case FORALGO_ITERATE:
+		iterating_for(loop);
+		break;
+	default:
+		Bug_found("IllegalLoopAlgo", loop->algorithm);
+	}
 	// restore previous input:
 	Input_now = outer_input;
 }
