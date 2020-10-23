@@ -595,3 +595,6 @@ StrangeInputMode
 
 StrangeOperator
     The expression parser found a non-existing operator.
+
+TriedToIndexNumber
+    The "index" operator was applied to a number type.

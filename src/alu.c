@@ -1280,6 +1280,21 @@ inline static void float_to_int(struct object *self)
 	self->u.number.val.intval = self->u.number.val.fpval;
 }
 
+// list:
+// replace with item at index
+static void list_to_item(struct object *self, int index)
+{
+	struct listitem	*item;
+
+	item = self->u.listhead->next;
+	while (index) {
+		item = item->next;
+		--index;
+	}
+	self->u.listhead->u.listinfo.refs--;	// FIXME - call some fn for this (and do _after_ next line)
+	*self = item->u.payload;	// FIXME - if item is a list, it would gain a ref by this...
+}
+
 // string:
 // replace with char at index
 static void string_to_byte(struct object *self, int index)
@@ -2178,14 +2193,8 @@ static void list_handle_dyadic_operator(struct object *self, const struct op *op
 		if (get_valid_index(&index, length, self, op, other))
 			return;	// error has been thrown
 
-		item = self->u.listhead->next;
-		while (index) {
-			item = item->next;
-			--index;
-		}
-		self->u.listhead->u.listinfo.refs--;	// FIXME - call some fn for this (and do _after_ next line)
-		*self = item->u.payload;	// FIXME - if item is a list, it would gain a ref by this...
-		return;
+		list_to_item(self, index);
+		return;	// ok
 
 	case OPID_ADD:
 		if (other->type != &type_list)
@@ -2350,6 +2359,50 @@ static void string_print(const struct object *self, struct dynabuf *db)
 	DynaBuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
 }
 
+// number:
+// is not iterable
+static int has_no_length(const struct object *self)
+{
+	return -1;	// not iterable
+}
+
+// list:
+// return length
+static int list_get_length(const struct object *self)
+{
+	return self->u.listhead->u.listinfo.length;
+}
+
+// string:
+// return length
+static int string_get_length(const struct object *self)
+{
+	return self->u.string->length;
+}
+
+// number:
+// cannot be indexed
+static void cannot_be_indexed(const struct object *self, struct object *target, int index)
+{
+	Bug_found("TriedToIndexNumber", index);
+}
+
+// list:
+// return item at index
+static void list_at(const struct object *self, struct object *target, int index)
+{
+	*target = *self;
+	list_to_item(target, index);
+}
+
+// string:
+// return char at index
+static void string_at(const struct object *self, struct object *target, int index)
+{
+	*target = *self;
+	string_to_byte(target, index);
+}
+
 // "class" definitions
 struct type	type_number	= {
 	"number",
@@ -2359,7 +2412,9 @@ struct type	type_number	= {
 	number_handle_monadic_operator,
 	number_handle_dyadic_operator,
 	number_fix_result,
-	number_print
+	number_print,
+	has_no_length,
+	cannot_be_indexed
 };
 struct type	type_list	= {
 	"list",
@@ -2369,7 +2424,9 @@ struct type	type_list	= {
 	list_handle_monadic_operator,
 	list_handle_dyadic_operator,
 	object_no_op,	// no need to fix list results
-	list_print
+	list_print,
+	list_get_length,
+	list_at
 };
 struct type	type_string	= {
 	"string",
@@ -2379,7 +2436,9 @@ struct type	type_string	= {
 	string_handle_monadic_operator,
 	string_handle_dyadic_operator,
 	object_no_op,	// no need to fix string results
-	string_print
+	string_print,
+	string_get_length,
+	string_at
 };
 
 
