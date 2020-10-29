@@ -1,4 +1,4 @@
-;ACME 0.95
+;ACME 0.97
 
 !ifdef lib_cbm_c128_zeropage_a !eof
 lib_cbm_c128_zeropage_a = 1
@@ -32,15 +32,16 @@ lib_cbm_c128_zeropage_a = 1
 	z_stkptr	= $09
 	z_integr	= $09
 	z_charac	= $09
-		; labels from MONITOR
-		z_pcb	= $02
-		z_pch	= $03
-		z_pcl	= $04
-		z_flgs	= $05
-		z_acc	= $06
-		z_xr	= $07
-		z_yr	= $08
-		z_sp	= $09
+; labels from MONITOR {
+	z_pcb		= $02
+	z_pch		= $03
+	z_pcl		= $04
+	z_flgs		= $05
+	z_acc		= $06
+	z_xr		= $07
+	z_yr		= $08
+	z_sp		= $09
+;}
 	z_endchr	= $0a
 	z_trmpos	= $0b
 	z_verck		= $0c
@@ -148,7 +149,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_status	= $90
 	z_stkey		= $91
 	z_svxt		= $92
-	; z_verck	= $93	; already given as $0c !
+	;z_verck	= $93	; already given as $0c!
 	z_c3po		= $94
 	z_bsour		= $95
 	z_syno		= $96
@@ -167,7 +168,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_r2d2		= $a3
 	z_pcntr		= $a3
 	z_bsour1	= $a4
-	; z_count	= $a5	; already given as $0d !
+	;z_count	= $a5	; already given as $0d!
 	z_cntdn		= $a5
 	z_bufpt		= $a6
 	z_inbit		= $a7
@@ -218,9 +219,9 @@ lib_cbm_c128_zeropage_a = 1
 	z_sedt1		= $de
 	z_sedt2		= $df
 
-	; z_keysiz	= $da	; already given as $78 !
+	;z_keysiz	= $da	; already given as $78!
 	z_keylen	= $db
-	; z_keynum	= $dc	; already given as $77 !
+	;z_keynum	= $dc	; already given as $77!
 	z_keynxt	= $dd
 	z_keybnk	= $de
 	z_keytmp	= $df
@@ -228,8 +229,10 @@ lib_cbm_c128_zeropage_a = 1
 	z_bitmsk	= $da
 	z_saver		= $db
 
-; these vars are for the currently active screen (vic/vdc):
-	; (the values for the other screen are at $a40..$a5a)
+; these vars are for the currently active screen (vic/vdc) {
+	; the values for the other screen are at $a40..$a5a,
+	; and the contents are exchanged when changing screens.
+	; there is a second pair of screen-specific blocks at $354 and $a60.
 	z_pnt		= $e0
 	z_user		= $e2
 	z_scbot		= $e4
@@ -255,7 +258,8 @@ lib_cbm_c128_zeropage_a = 1
 	z_scroll	= $f8
 	z_beeper	= $f9
 	;z_frekzp	= $fa	; ROM does not use this, but it does get swapped out when screen changes!
-; end of "current screen" area
+;}
+	; $fb/$fc/$fd/$fe are unused
 	z_lofbuf	= $ff
 	z_fbuffr	= $0100
 	z_xcnt		= $0110
@@ -295,15 +299,16 @@ lib_cbm_c128_zeropage_a = 1
 	z_endfd		= $0136
 	z_sysstk	= $0137
 	z_buf		= $0200
-		; this block is not in the german C128 manual:
-		z_fetch		= $02a2
-		z_fetchvec	= $02aa
-		z_stash		= $02af
-		z_stavec	= $02b9
-		z_cmpare	= $02c8
-		z_cmpvec	= $02c8
-		z_jsrfar	= $02cd
-		z_jmpfar	= $02e3
+; this block is not in the german C128 manual {
+	z_fetch		= $02a2
+	z_fetchvec	= $02aa
+	z_stash		= $02af
+	z_stavec	= $02b9
+	z_cmpare	= $02c8
+	z_cmpvec	= $02c8
+	z_jsrfar	= $02cd
+	z_jmpfar	= $02e3
+;}
 	z_esc_fn_vec	= $02fc
 	z_bnkvec	= $02fe
 	z_ierror	= $0300
@@ -331,27 +336,33 @@ lib_cbm_c128_zeropage_a = 1
 	z_exmon		= $032e
 	z_iload		= $0330
 	z_isave		= $0332
-		; this block is not in the german C128 manual:
-		z_ctlvec	= $0334
-		z_shfvec	= $0336
-		z_escvec	= $0338
-		z_keyvec	= $033a
-		z_keychk	= $033c
-		z_decode	= $033e
-		z_decode_shift	= $0340
-		z_decode_cbm	= $0342
-		z_decode_ctrl	= $0344
-		z_decode_alt	= $0346
-		z_decode_caps	= $0348
-		z_keyd		= $034a
-		z_tabmap	= $0354
-		z_bitabl	= $035e
-		z_lat		= $0362
-		z_fat		= $036c
-		z_sat		= $0376
-		z_chrget	= $0380
-		z_chrgot	= $0386
-		z_qnum		= $0390
+; this block is not in the german C128 manual {
+	z_ctlvec	= $0334
+	z_shfvec	= $0336
+	z_escvec	= $0338
+	z_keyvec	= $033a
+	z_keychk	= $033c
+	z_decode	= $033e
+	z_decode_shift	= $0340
+	z_decode_cbm	= $0342
+	z_decode_ctrl	= $0344
+	z_decode_alt	= $0346
+	z_decode_caps	= $0348
+	z_keyd		= $034a
+	; these vars are for the currently active screen (vic/vdc) {
+	; the values for the other screen are at $a60..$a6d,
+	; and the contents are exchanged when changing screens.
+	; there is a second pair of screen-specific blocks at $e0 and $a40.
+	z_tabmap	= $0354
+	z_bitabl	= $035e
+	;}
+	z_lat		= $0362
+	z_fat		= $036c
+	z_sat		= $0376
+	z_chrget	= $0380
+	z_chrgot	= $0386
+	z_qnum		= $0390
+;}
 	z_ind_sub_ram0	= $039f
 	z_ind_sub_ram1	= $03ab
 	z_indin1_ram1	= $03b7
@@ -419,15 +430,25 @@ lib_cbm_c128_zeropage_a = 1
 	z_speed		= $0a37
 	z_sprites	= $0a38
 	z_blanking	= $0a39
-		; this block is not in the german C128 manual:
-		z_hold_off	= $0a3a
-		z_ldtbi_sa	= $0a3b
-		z_clr_ea_lo	= $0a3c
-		z_clr_ea_hi	= $0a3d
-	; $a40 - $a5a: copy of data at $e0 - $fa of currently inactive screen
-	; $a5b - $a7f: ?
-	; z_xcnt		= $0a80	; already given as $0110 !
-	; z_hulp		= $0aa0	; already given as $78 !
+; this block is not in the german C128 manual {
+	z_hold_off	= $0a3a
+	z_ldtbi_sa	= $0a3b
+	z_clr_ea_lo	= $0a3c
+	z_clr_ea_hi	= $0a3d
+;}
+
+; $a40 - $a5a: data of currently inactive screen (vic/vdc).
+; the values for the active screen are at $e0..$fa.
+
+	; $a5b - $a5f: unused?
+
+; $a60 - $a6d: data of currently inactive screen (vic/vdc).
+; the values for the active screen are at $354..$361.
+
+	; $a6e - $a7f: unused?
+
+	;z_xcnt		= $0a80	; already given as $0110!
+	;z_hulp		= $0aa0	; already given as $78!
 	z_format	= $0aaa
 	z_length	= $0aab
 	z_msal		= $0aac
@@ -496,7 +517,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_xcord2	= $115c
 	z_ycord2	= $115e
 	z_leylen	= $1151
-	; z_keynxt	= $1152	; already given as $dd !
+	;z_keynxt	= $1152	; already given as $dd!
 	z_strsz		= $1153
 	z_gettyp	= $1154
 	z_strptr	= $1155
@@ -504,7 +525,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_newbyt	= $1157
 	z_xsize		= $1159
 	z_ysize		= $115b
-	; z_xsave	= $115d	; already given as $0ab2 !
+	;z_xsave	= $115d	; already given as $0ab2!
 	z_stradr	= $115f
 	z_bitidx	= $1161
 	z_chrpag	= $1168
@@ -512,7 +533,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_scalem	= $116a
 	z_width		= $116b
 	z_filflg	= $116c
-	; z_bitmsk	= $116d	; already given as $da !
+	;z_bitmsk	= $116d	; already given as $da!
 	z_numcnt	= $116e
 	z_trcflg	= $116f
 	z_renum_tmp_1	= $1170
@@ -526,9 +547,10 @@ lib_cbm_c128_zeropage_a = 1
 	z_adray2	= $117c
 	z_sprite_data	= $117e
 	z_vic_save	= $11d6
-		; this block is not in the german C128 manual:
-		z_upper_lower	= $11eb
-		z_upper_graphic	= $11ec
+; this block is not in the german C128 manual {
+	z_upper_lower	= $11eb
+	z_upper_graphic	= $11ec
+;}
 	z_oldlin	= $1200
 	z_oldtxt	= $1202
 	z_puchrs	= $1204
@@ -548,7 +570,7 @@ lib_cbm_c128_zeropage_a = 1
 	z_usrpok	= $1218
 	z_rndx		= $121b
 	z_circle_segment	= $1220
-	; z_dejavu	= $1221	; already given as $0a02 !
+	;z_dejavu	= $1221	; already given as $0a02!
 	z_tempo_rate	= $1222
 	z_voices	= $1223
 	z_ntime		= $1229
@@ -608,7 +630,8 @@ lib_cbm_c128_zeropage_a = 1
 	z_defmod	= $12fa
 	z_lincnt	= $12fb
 	z_sprite_number	= $12fc
-		; this block is not in the german C128 manual:
-		z_irq_wrap_flag	= $12fd
-		z_rambot	= $1c00
+; this block is not in the german C128 manual {
+	z_irq_wrap_flag	= $12fd
+	z_rambot	= $1c00
+;}
 }
