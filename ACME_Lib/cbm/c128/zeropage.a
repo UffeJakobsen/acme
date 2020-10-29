@@ -228,6 +228,8 @@ lib_cbm_c128_zeropage_a = 1
 	z_bitmsk	= $da
 	z_saver		= $db
 
+; these vars are for the currently active screen (vic/vdc):
+	; (the values for the other screen are at $a40..$a5a)
 	z_pnt		= $e0
 	z_user		= $e2
 	z_scbot		= $e4
@@ -252,6 +254,8 @@ lib_cbm_c128_zeropage_a = 1
 	z_locks		= $f7
 	z_scroll	= $f8
 	z_beeper	= $f9
+	;z_frekzp	= $fa	; ROM does not use this, but it does get swapped out when screen changes!
+; end of "current screen" area
 	z_lofbuf	= $ff
 	z_fbuffr	= $0100
 	z_xcnt		= $0110
@@ -420,8 +424,8 @@ lib_cbm_c128_zeropage_a = 1
 		z_ldtbi_sa	= $0a3b
 		z_clr_ea_lo	= $0a3c
 		z_clr_ea_hi	= $0a3d
-	; $a40 - $a5f: copy of data at $e0 - $ff of currently inactive screen
-	; $a60 - $a7f: ?
+	; $a40 - $a5a: copy of data at $e0 - $fa of currently inactive screen
+	; $a5b - $a7f: ?
 	; z_xcnt		= $0a80	; already given as $0110 !
 	; z_hulp		= $0aa0	; already given as $78 !
 	z_format	= $0aaa
