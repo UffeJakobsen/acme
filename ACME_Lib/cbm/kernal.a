@@ -55,8 +55,8 @@ lib_cbm_kernal_a = 1
 	k_stop		= $ffe1 ; check STOP key
 	k_getin		= $ffe4:k_get		= $ffe4	; get input byte (not the same as $ffcf, see note* below)
 		; A is result byte
-		; X is preserved
-		; Y gets clobbered by tape access (preserved by disk access)
+		; X gets clobbered by keyboard access (preserved by disk access)
+		; Y gets clobbered by keyboard/tape access (preserved by disk access)
 	k_clall		= $ffe7
 	k_udtim		= $ffea
 	; pet rom stops here!?
