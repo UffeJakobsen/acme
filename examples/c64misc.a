@@ -1,7 +1,6 @@
 ;ACME 0.97
 
 	*=$0801
-	!to "c64example.prg", cbm
 	!src "misc/basicstub.a"
 		jsr primm	: !pet "\renter name: ", 0
 		jsr minibuf0
