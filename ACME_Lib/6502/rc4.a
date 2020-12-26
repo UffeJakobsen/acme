@@ -85,39 +85,32 @@ rc4_key_X
 ; de/encrypt first X bytes of input buffer to output buffer
 ; X==0 means 256!
 rc4_process_X
-		stx .limit
+		stx .length
 		ldx #0
-		stx .offset
--			; ++ii
-			inc .ii
-			; jj += state[ii]
-			ldx .ii
+---			stx .count
+			inc .ii			; jj += state[++ii]
 			lda .jj
+			ldx .ii
 			clc
 			adc .state, x
 			sta .jj
-			tay
-			; tmp = state[ii];
-			; state[ii] = state[jj];
-			; state[jj] = tmp;
-			lda .state, x
+			tay	; now Y holds .jj
+			lda .state, x		; tmp = state[ii];
 			pha
-			lda .state, y
+			lda .state, y		; state[ii] = state[jj];
 			sta .state, x
-			pla
+			pla			; state[jj] = tmp;
 			sta .state, y
-			; nn = state[ii] + state[jj];
-			clc
+			clc			; nn = state[ii] + state[jj];
 			adc .state, x
-			; buf[aktueller_offset] ^= state[nn]
-			tax
+			tax			; buf[aktueller_offset] ^= state[nn]
 			lda .state, x
-			ldx #MODIFIED8	: .offset = * - 1
+			ldx .count
 			eor .inbuf, x
 			sta .outbuf, x
 			; all done?
 			inx
-			cpx #MODIFIED8	: .limit = * - 1
-			bne -
+			cpx .length
+			bne ---
 		rts
 }
