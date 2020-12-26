@@ -260,8 +260,8 @@ lib_cbm_c128_zeropage_a = 1
 	;z_frekzp	= $fa	; ROM does not use this, but it does get swapped out when screen changes!
 ;}
 	; $fb/$fc/$fd/$fe are unused
-	z_lofbuf	= $ff
-	z_fbuffr	= $0100
+	z_lofbuf	= $ff	; overwritten when outputting line numbers or ti$
+	z_fbuffr	= $0100	; buffer for number strings
 	z_xcnt		= $0110
 	z_dosf1l	= $0111
 	z_dosds1	= $0112
