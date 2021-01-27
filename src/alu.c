@@ -482,7 +482,7 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		break;	// found illegal character
 	}
 	if (!digits)
-		Throw_warning("Binary literal without any digits.");	// FIXME - make into error!
+		Throw_error("Binary literal without any digits.");
 	if (digits & config.warn_bin_mask)
 		Throw_first_pass_warning("Binary literal with strange number of digits.");
 	// set force bits
@@ -531,7 +531,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 		break;	// found illegal character
 	}
 	if (!digits)
-		Throw_warning("Hex literal without any digits.");	// FIXME - make into error!
+		Throw_error("Hex literal without any digits.");
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -730,7 +730,7 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		Input_read_keyword();	// now GotByte = illegal char
 		get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, unpseudo_count);	// no prefix, -1 to not count terminator
 	} else {
-                Throw_error(exception_missing_string);
+                Throw_error(exception_missing_string);	// FIXME - create some "expected octal value or symbol name" error instead!
 		return 1;	// error
 	}
 	return 0;	// ok

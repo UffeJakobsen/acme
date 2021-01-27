@@ -51,11 +51,6 @@ Assembling unstable LXA #NONZERO instruction
     Therefore ACME issues these warnings if it is about to generate
     these instructions with a non-zero argument.
 
-Binary literal without any digits.
-Hex literal without any digits.
-    A special literal was started, but then no digits followed. Expect
-    this to become an error in future!
-
 Binary literal with strange number of digits.
     This warning is given if the number of digits in a binary literal
     is not a multiple of four. This is useful when you meant to write
@@ -224,6 +219,10 @@ After ELSE, expected block or IF/IFDEF/IFNDEF.
 
 Argument out of range.
     You called arcsin/arccos with something not in the [-1, 1] range.
+
+Binary literal without any digits.
+Hex literal without any digits.
+    There were no digits after a number prefix like "0x" or "%".
 
 Cannot open input file.
     ACME had problems opening an input file ("!bin", "!convtab" or
