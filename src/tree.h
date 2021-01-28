@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2021 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // tree stuff
@@ -51,7 +51,7 @@ extern int Tree_easy_scan(struct ronode *tree, void **node_body, struct dynabuf 
 // create new tree item, link to tree, fill with data and store its pointer.
 // If "create" is FALSE, store NULL. Returns whether item was created.
 extern int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number, boolean create);
-// Calls given function for each node of each tree of given forest.
+// Call given function for each node of each tree of given forest.
 extern void Tree_dump_forest(struct rwnode **, int id_number, void (*)(struct rwnode *, FILE *), FILE *);
 
 

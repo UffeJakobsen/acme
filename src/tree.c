@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2021 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // tree stuff
@@ -15,7 +15,7 @@
 // Compute hash value by exclusive ORing the node's ID string and write
 // output to struct.
 // This function is not allowed to change GlobalDynaBuf!
-hash_t make_hash(struct ronode *node) {
+static hash_t make_hash(struct ronode *node) {
 	register char		byte;
 	register const char	*read;
 	register hash_t		tmp	= 0;
@@ -200,7 +200,7 @@ static void dump_tree(struct rwnode *node, int id_number, void (*fn)(struct rwno
 		dump_tree(node->less_than_or_equal, id_number, fn, env);
 }
 
-// Calls Tree_dump_tree for each non-zero entry of the given tree table.
+// Call Tree_dump_tree for each non-zero entry of the given tree table.
 void Tree_dump_forest(struct rwnode **forest, int id_number, void (*fn)(struct rwnode *, FILE *), FILE *env)
 {
 	int	ii;
