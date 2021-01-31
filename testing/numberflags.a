@@ -1,4 +1,4 @@
-;ACME 0.96.5
+;ACME 0.97
 	*=$1000
 	!cpu 65816	; we need 24-bit addressing
 	!macro fitsbyte .arg {
@@ -127,13 +127,13 @@
 	+fitsbyte label <= label
 	+fitsbyte label > label
 	+fitsbyte label >= label
-	+fitsbyte label = label
+	+fitsbyte label == label
 	+fitsbyte label != label
 	+fitsbyte enforce16 < enforce24
 	+fitsbyte enforce16 <= enforce24
 	+fitsbyte enforce16 > enforce24
 	+fitsbyte enforce16 >= enforce24
-	+fitsbyte enforce16 = enforce24
+	+fitsbyte enforce16 == enforce24
 	+fitsbyte enforce16 != enforce24
 	+fitsbyte $ff
 	+defaultsto16b $0ff
