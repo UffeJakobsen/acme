@@ -61,9 +61,6 @@ Bug in ACME, code follows
     A situation has been encountered implying there is a bug in ACME.
     See the last section in this file.
 
-C-style "==" comparison detected.
-    To check for equality, use a single '=' character instead.
-
 Converted to integer for binary logic operator.
     Applying binary logic to float values does not make much sense,
     therefore floats will be converted to integer in such cases.

@@ -361,7 +361,7 @@ Examples:	.backgroundcolor = 0	; some local symbol
 			!zone LinkedList_End
 			; you know what to imagine here...
 		}
-		.backgroundcolor = 3	; => "Symbol already defined."
+		.backgroundcolor = 3	; -> "Symbol already defined."
 
 
 Call:		!symbollist FILENAME
@@ -388,11 +388,11 @@ Parameters:	CONDITION: Any formula the value parser accepts, but
 		it must be solvable even in the first pass.
 		BLOCK: A block of assembler statements.
 Examples:	; Choose word according to "country" symbol:
-		!if country = uk {
+		!if country == uk {
 			!text "Grey"
-		} else if country = fr {
+		} else if country == fr {
 			!text "Gris"
-		} else if country = de {
+		} else if country == de {
 			!text "Grau"
 		} else {
 			!text "Gray"
@@ -435,7 +435,7 @@ Examples:	; this was taken from <6502/std.a>:
 		; if the following code gets included several times,
 		; only assemble it at the first location:
 		!ifndef my_label {my_label} ; only define if undefined
-		!if * = my_label {
+		!if * == my_label {
 			; imagine some code here...
 			; this block will only be assembled at the
 			; first location where it is included. all
@@ -582,7 +582,7 @@ Parameters:	KEYWORD: Either "until" or "while" (without quotes).
 		BLOCK: A block of assembler statements.
 Examples:	; a loop with conditions at both start and end
 		!set a = 0			; init loop counter
-		!do while loop_flag = TRUE {
+		!do while loop_flag == TRUE {
 			lda #a
 			sta label + a
 			!set a = a + 1
@@ -595,10 +595,10 @@ Examples:	; a loop with conditions at both start and end
 		!do { !wo * + base } while * < base + 345
 
 		; a never ending loop - this will cause an error
-		!do while 3 < 4 { nop } until 3 = 4
+		!do while 3 < 4 { nop } until 3 == 4
 
 		; an empty loop - this will hang ACME
-		!do until 3 = 4 {     } while 3 < 4
+		!do until 3 == 4 {     } while 3 < 4
 
 
 Call:		!while [CONDITION] { BLOCK }
@@ -973,7 +973,7 @@ Parameters:	KEYWORD: Currently valid keywords are:
 				undocumented opcodes
 			See "docs/cputypes/all.txt" for more info.
 		BLOCK: A block of assembler statements.
-Examples:	!if cputype = $65c02 {
+Examples:	!if cputype == $65c02 {
 			!cpu 65c02 {	; temporarily allow 65c02 stuff
 				stz .todelete
 			}

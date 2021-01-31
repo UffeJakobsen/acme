@@ -8,8 +8,7 @@
 // 31 Jul 2009	Changed ASR again, just to be on the safe side.
 // 14 Jan 2014	Changed associativity of "power-of" operator,
 //		so a^b^c now means a^(b^c).
-//  7 May 2014	C-style "==" operators are now recognized (but
-//		give a warning).
+//  7 May 2014	C-style "==" operators are now recognized.
 // 31 May 2014	Added "0b" binary number prefix as alternative to "%".
 // 28 Apr 2015	Added symbol name output to "value not defined" error.
 //  1 Feb 2019	Prepared to make "honor leading zeroes" optionally (now done)
@@ -1124,10 +1123,12 @@ static void expect_dyadic_operator(struct expression *expression)
 
 	case '=':	// is equal
 		op = &ops_equals;
-		// if it's "==", accept but warn
+		// atm, accept both "=" and "==". in future, prefer "=="!
 		if (GetByte() == '=') {
-			Throw_first_pass_warning("C-style \"==\" comparison detected.");
-			goto get_byte_and_push_dyadic;
+			//Throw_first_pass_warning("C-style \"==\" comparison detected.");	REMOVE!
+			GetByte();	// eat second '=' character
+		} else {
+			//Throw_first_pass_warning("old-style \"=\" comparison detected, please use \"==\" instead.");	ACTIVATE!
 		}
 		goto push_dyadic_op;
 

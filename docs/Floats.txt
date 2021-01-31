@@ -41,7 +41,7 @@ the only way to enter this value is by writing "1.0 * 10.0 ^ 20.0".
 Examples:
 
 	!byte 1   / 2   * 2	; gives 0 (integer maths)
-	!byte 1   / 2   * 2.0	; gives 0 (1/2 => 0 in integer maths,
+	!byte 1   / 2   * 2.0	; gives 0 (1/2 -> 0 in integer maths,
 				;	float usage comes too late)
 	!byte 1   / 2.0 * 2	; gives 1 (FP in effect)
 	!byte 1   / 2.0 * 2.0	; gives 1 (FP in effect)

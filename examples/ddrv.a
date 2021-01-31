@@ -1,4 +1,4 @@
-;ACME 0.95
+;ACME 0.97
 ;!sl "ddrv.l"
 ; Name		DuoDriver
 ; Purpose	Input driver for mouse and joystick
@@ -82,7 +82,7 @@
 ; Locations to store button states, $ff = pressed, $00 = not pressed.
 ; Mouse uses both buttons, joystick only uses "LeftButton".
 ; Location to store pointer's current character coordinates.
-!if SYSTEM = 64 {
+!if SYSTEM == 64 {
 	LeftButton	= $a4
 	RightButton	= $a5
 	CharX		= $b3
@@ -90,7 +90,7 @@
 	tapebuf		= $0340
 	spr_ptrs	= 2040
 }
-!if SYSTEM = 128 {
+!if SYSTEM == 128 {
 	LeftButton	= $fa
 	RightButton	= $ff
 	CharX		= $9b
@@ -160,7 +160,7 @@ Init		lda sys_iirq
 		sta sys_iirq
 		stx sys_iirq + 1
 		plp
-!if SYSTEM = 128 {
+!if SYSTEM == 128 {
 		lda mmu_cr
 		tay
 		and #$fe	; activate I/O chips
@@ -170,10 +170,10 @@ Init		lda sys_iirq
 ; Init mouse buttons
 		lda #$11
 		sta cia1_prb
-!if SYSTEM = 128 {
+!if SYSTEM == 128 {
 		sty mmu_cr
 }
-!if SYSTEM = 64 {
+!if SYSTEM == 64 {
 ; Copy sprites to tape buffer
 		ldx #127
 -			lda Sprites, x
@@ -579,7 +579,7 @@ ResetMM		tay		; Set Y to zero.
 ; In the c128 version, we skip memory until we reach $0e00 - this is
 ; where the sprites are stored by default.
 
-!if SYSTEM = 128 {
+!if SYSTEM == 128 {
 	!align $ffff, $e00, $0
 }
 

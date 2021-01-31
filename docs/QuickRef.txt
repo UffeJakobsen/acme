@@ -423,7 +423,7 @@ Priority Example      Meaning                       Alias         Note
   6      v >=  w      higher or equal
   6      v  >  w      higher than
   5      v !=  w      not equal                     <>,  ><        *3
-  4      v  =  w      equal                                        *3
+  4      v ==  w      equal                         =              *3
   3      v  &  w      bit-wise AND                  AND
   2                   bit-wise exclusive OR         XOR
   1      v  |  w      bit-wise OR                   OR
