@@ -3,7 +3,7 @@
 	;* = $0801	; c64
 	;* = $1001	; c16/+4
 	;* = $1c01	; c128
-		!wo line2, 2020	; link pointer and line number
+		!wo line2, 2021	; link pointer and line number
 		!by $9e, ' '	; "sys "
 		!by '0' + entry % 10000 / 1000
 		!by '0' + entry %  1000 /  100
