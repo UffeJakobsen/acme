@@ -10,12 +10,12 @@
 ; an excercise to the reader).
 ; the raster time used is indicated via changes of the border color.
 
-	DIGITS	= 8	; three input bytes -> 24 bits -> max 16777216 -> we need eight digits
+	DIGITS	= 8	; three input bytes -> 24 bits -> max 16777215 -> we need eight digits
 !addr {
-	byte	= $fb	; buffers input byte during shifts
 	ti_high	= $a0	; input data
 	ti_med	= $a1
 	ti_low	= $a2
+	byte	= $fb	; buffers input byte during shifts
 	out	= $0400	; where to show output digits (big-endian!)
 	raster	= $d012	; to sync with screen
 	border	= $d020	; to show raster time
@@ -36,9 +36,9 @@
 		lda ti_high
 		cli		; re-allow irq
 		jsr dd_process_A	; process high byte 
-		pla			; restore medium byte
+		pla			; process medium byte
 		jsr dd_process_A
-		pla			; restore low byte
+		pla			; process low byte
 		jsr dd_process_A
 		jsr dd_result	; convert result from 0..9 values to '0'..'9' characters
 		dec border	; stop "stop watch"
