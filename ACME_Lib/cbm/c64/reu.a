@@ -16,16 +16,16 @@ rec_STATUS_IRQ		= %#.......
 rec_STATUS_END		= %.#......
 rec_STATUS_ERROR	= %..#.....	; for verify command
 rec_STATUS_TYPE		= %...#....	; chip type (do not use to determine unit size!)
-rec_STATUS_VERSION	= %....####
+rec_STATUS_VERSION	= %....####	; always zero
 !address {
 	; command register
 	rec_command	= $df01
 }
-rec_COMMAND_EXECUTE	= %#.......
-;reserved		= %.#......
-rec_COMMAND_RELOAD	= %..#.....
+rec_COMMAND_EXECUTE	= %#.......	; setting this starts the operation
+;reserved		= %.#......	; register bit exists, but does nothing
+rec_COMMAND_RELOAD	= %..#.....	; reload address registers when done (do not use in verify mode, because you want the address in case of an error!)
 rec_COMMAND_IMMEDIATELY	= %...#....	; do not wait for $ff00 write
-;reserved		= %....##..
+;reserved		= %....##..	; register bits exist, but do nothing
 rec_COMMAND_MODE_MASK	= %......##	; bit mask for the four modes
 rec_COMMAND_MODE_STASH	= %........	; computer-to-REU
 rec_COMMAND_MODE_FETCH	= %.......#	; REU-to-computer
@@ -40,7 +40,7 @@ rec_COMMAND_FETCH	= %#.#....#	;	starting and then reload values.
 	; external address (expansion RAM)
 	rec_ext_low	= $df04
 	rec_ext_high	= $df05
-	rec_ext_bank	= $df06
+	rec_ext_bank	= $df06	; upper five bits always read as 1
 	; A stock 1700 unit has two banks (128 KiB).
 	; A stock 1764 unit has four banks (256 KiB).
 	; A stock 1750 unit has eight banks (512 KiB).
@@ -50,14 +50,18 @@ rec_COMMAND_FETCH	= %#.#....#	;	starting and then reload values.
 	rec_amount_low	= $df07	; using $0000 results in
 	rec_amount_high	= $df08	;	64 KiB being transferred
 	; when to request interrupts
-	rec_irqctrl	= $df09
+	rec_irqctrl	= $df09	; lower five bits always read as 1
 }
 rec_IRQCTRL_ENABLE	= %#.......
 rec_IRQCTRL_ON_END	= %.#......
 rec_IRQCTRL_ON_ERROR	= %..#.....	; for verify errors
 !address {
 	; address control (set to zero for normal operation)
-	rec_addrctrl	= $df0a
+	rec_addrctrl	= $df0a	; lower six bits always read as 1
 }
 rec_ADDRCTRL_FIX_INT	= %#.......
 rec_ADDRCTRL_FIX_EXT	= %.#......
+
+	; $df0b..$df1f always read as $ff,
+	; at $df20 the registers repeat.
+	; these "32 registers" are visible 8 times in the $df00 page.
