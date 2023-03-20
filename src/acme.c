@@ -338,7 +338,7 @@ static void keyword_to_dynabuf(const char keyword[])
 }
 
 
-// set output format (the output format tree must be set up at this point!)
+// set output format
 static void set_output_format(const char format_name[])
 {
 	// caution, name may be NULL!
@@ -356,7 +356,7 @@ static void set_output_format(const char format_name[])
 }
 
 
-// set CPU type (the cpu type tree must be set up at this point!)
+// set CPU type
 static void set_starting_cpu(const char cpu_name[])
 {
 	const struct cpu_type	*new_cpu_type;
