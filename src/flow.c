@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Flow control stuff (loops, conditional assembly etc.)
@@ -35,7 +35,7 @@ boolean check_ifdef_condition(void)
 	struct symbol	*symbol;
 
 	// read symbol name
-	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
+	if (Input_read_scope_and_symbol_name(&scope))	// skips spaces before
 		return FALSE;	// there was an error, it has been reported, so return value is more or less meaningless anway
 
 	// look for it

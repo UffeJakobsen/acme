@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Input stuff
@@ -122,7 +122,7 @@ static char get_processed_from_file(void)
 			// fetch first byte from the current source file
 			from_file = getc(Input_now->src.fd);
 			IF_WANTED_REPORT_SRCCHAR(from_file);
-			//TODO - check for bogus/malformed BOM and ignore?
+			//TODO - check for bogus/malformed BOM (0xef 0xbb 0xbf as UTF-8-encoded 0xfeff) and ignore?
 			// check for hashbang line and ignore
 			if (from_file == '#') {
 				// remember to skip remainder of line
@@ -355,6 +355,7 @@ void Input_ensure_EOS(void)	// Now GotByte = first char to test
 		char	buf[80];	// actually needed are 51
 		char	quote;		// character before and after
 
+		// FIXME - change quoting: do not assume char is printable!
 		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
 		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);
 		Throw_error(buf);
@@ -500,7 +501,7 @@ char *Input_skip_or_store_block(boolean store)
 // Append to GlobalDynaBuf while characters are legal for keywords.
 // Throws "missing string" error if none.
 // Returns number of characters added.
-int Input_append_keyword_to_global_dynabuf(void)
+static int append_keyword_to_global_dynabuf(void)
 {
 	int	length	= 0;
 
@@ -515,24 +516,56 @@ int Input_append_keyword_to_global_dynabuf(void)
 	return length;
 }
 
-// Check GotByte.
-// If LOCAL_PREFIX ('.'), store current local scope value and read next byte.
-// If CHEAP_PREFIX ('@'), store current cheap scope value and read next byte.
-// Otherwise, store global scope value.
-// Then jump to Input_read_keyword(), which returns length of keyword.
-int Input_read_scope_and_keyword(scope_t *scope)
+// append optional '.'/'@' prefix to GlobalDynaBuf, then keep
+// appending while characters are legal for keywords.
+// throw "missing string" error if none.
+// return whether there was an error.
+int Input_append_symbol_name_to_global_dynabuf(void)
 {
+	if ((GotByte == LOCAL_PREFIX)
+	|| (GotByte == CHEAP_PREFIX)) {
+		DynaBuf_append(GlobalDynaBuf, GotByte);
+		GetByte();
+	} else if (!BYTE_STARTS_KEYWORD(GotByte)) {
+		// FIXME - show invalid char in error message!
+		Throw_error(exception_missing_string);
+		return 1;	// error
+	}
+	return append_keyword_to_global_dynabuf() == 0;	// zero length -> error!
+}
+
+// read symbol name into GlobalDynaBuf, set scope,
+// return whether there was an error (namely, "no string given").
+int Input_readscopeandsymbolname(scope_t *scope, boolean dotkluge)
+{
+	int	err;
+
 	SKIPSPACE();
-	if (GotByte == LOCAL_PREFIX) {
-		GetByte();
+	DYNABUF_CLEAR(GlobalDynaBuf);
+
+	if (dotkluge) {
+		// this happens after the expression parser has eaten the '.'
+		// and did not find a decimal digit. -> not a float value ->
+		// must be a local symbol -> we must restore the '.' in front!
+		DynaBuf_append(GlobalDynaBuf, '.');
+		err = append_keyword_to_global_dynabuf() == 0;	// zero length -> error!
+	} else {
+		err = Input_append_symbol_name_to_global_dynabuf();
+	}
+	// add terminator to buffer (increments buffer's length counter)
+	DynaBuf_append(GlobalDynaBuf, '\0');
+	if (err) {
+		*scope = SCOPE_GLOBAL;	// bogus, but at least not un-initialized
+		return 1;	// error
+	}
+	if (GLOBALDYNABUF_CURRENT[0] == LOCAL_PREFIX) {
 		*scope = section_now->local_scope;
-	} else if (GotByte == CHEAP_PREFIX) {
-		GetByte();
+	} else if (GLOBALDYNABUF_CURRENT[0] == CHEAP_PREFIX) {
 		*scope = section_now->cheap_scope;
 	} else {
 		*scope = SCOPE_GLOBAL;
 	}
-	return Input_read_keyword();
+	return 0;	// no error
 }
 
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
@@ -544,7 +577,7 @@ int Input_read_keyword(void)
 	int	length;
 
 	DYNABUF_CLEAR(GlobalDynaBuf);
-	length = Input_append_keyword_to_global_dynabuf();
+	length = append_keyword_to_global_dynabuf();
 	// add terminator to buffer (increments buffer's length counter)
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	return length;
@@ -559,7 +592,7 @@ int Input_read_and_lower_keyword(void)
 	int	length;
 
 	DYNABUF_CLEAR(GlobalDynaBuf);
-	length = Input_append_keyword_to_global_dynabuf();
+	length = append_keyword_to_global_dynabuf();
 	// add terminator to buffer (increments buffer's length counter)
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	DynaBuf_to_lower(GlobalDynaBuf, GlobalDynaBuf);	// convert to lower case

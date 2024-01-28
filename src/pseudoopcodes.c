@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // pseudo opcode stuff
@@ -743,7 +743,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 	scope_t	scope;
 	int	force_bit;
 
-	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
+	if (Input_read_scope_and_symbol_name(&scope))	// skips spaces before
 		return SKIP_REMAINDER;	// zero length
 
 	force_bit = Input_get_force_bit();	// skips spaces after
@@ -1019,7 +1019,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	struct for_loop	loop;
 	struct number	intresult;
 
-	if (Input_read_scope_and_keyword(&scope) == 0)	// skips spaces before
+	if (Input_read_scope_and_symbol_name(&scope))	// skips spaces before
 		return SKIP_REMAINDER;	// zero length
 
 	// now GotByte = illegal char

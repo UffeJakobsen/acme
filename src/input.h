@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Input stuff
@@ -88,20 +88,25 @@ extern int Input_unescape_dynabuf(int start_index);
 // but then a serious error would have been thrown.
 extern char *Input_skip_or_store_block(boolean store);
 
-// Append to GlobalDynaBuf while characters are legal for keywords.
-// Throws "missing string" error if none. Returns number of characters added.
-extern int Input_append_keyword_to_global_dynabuf(void);
-// Check GotByte.
-// If LOCAL_PREFIX ('.'), store current local scope value and read next byte.
-// If CHEAP_PREFIX ('@'), store current cheap scope value and read next byte.
-// Otherwise, store global scope value.
-// Then jump to Input_read_keyword(), which returns length of keyword.
-extern int Input_read_scope_and_keyword(scope_t *scope);
+// append optional '.'/'@' prefix to GlobalDynaBuf, then keep
+// appending while characters are legal for keywords.
+// throw "missing string" error if none.
+// return whether there was an error.
+extern int Input_append_symbol_name_to_global_dynabuf(void);
+
+// FIXME - move these to "symbol.h" and remove dependency on "scope":
+// read symbol name into GlobalDynaBuf, set scope,
+// return whether there was an error (namely, "no string given").
+extern int Input_readscopeandsymbolname(scope_t *scope, boolean dotkluge);
+#define Input_read_scope_and_symbol_name(scope)	Input_readscopeandsymbolname(scope, FALSE)
+#define Input_read_scope_and_symbol_name_KLUGED(scope)	Input_readscopeandsymbolname(scope, TRUE)
+
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string. Return its length (without
 // terminator).
 // Zero lengths will produce a "missing string" error.
 extern int Input_read_keyword(void);
+
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string, then convert to lower case.
 // Return its length (without terminator).

@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Macro stuff
@@ -68,24 +68,20 @@ static void enlarge_arg_table(void)
 
 // Read macro scope and title. Title is read to GlobalDynaBuf and then copied
 // over to internal_name DynaBuf, where ARG_SEPARATOR is added.
-// In user_macro_name DynaBuf, the original name is reconstructed (even with
-// LOCAL_PREFIX) so a copy can be linked to the resulting macro struct.
+// In user_macro_name DynaBuf, the original name is kept so a copy can be
+// linked to the resulting macro struct.
 static scope_t get_scope_and_title(void)
 {
 	scope_t	macro_scope;
 
-	Input_read_scope_and_keyword(&macro_scope);	// skips spaces before
+	Input_read_scope_and_symbol_name(&macro_scope);	// skips spaces before
 	// now GotByte = illegal character after title
 	// copy macro title to private dynabuf and add separator character
 	DYNABUF_CLEAR(user_macro_name);
-	DYNABUF_CLEAR(internal_name);
-	if (macro_scope != SCOPE_GLOBAL) {
-		// TODO - allow "cheap macros"?!
-		DynaBuf_append(user_macro_name, LOCAL_PREFIX);
-	}
 	DynaBuf_add_string(user_macro_name, GLOBALDYNABUF_CURRENT);
-	DynaBuf_add_string(internal_name, GLOBALDYNABUF_CURRENT);
 	DynaBuf_append(user_macro_name, '\0');
+	DYNABUF_CLEAR(internal_name);
+	DynaBuf_add_string(internal_name, GLOBALDYNABUF_CURRENT);
 	DynaBuf_append(internal_name, ARG_SEPARATOR);
 	SKIPSPACE();	// done here once so it's not necessary at two callers
 	return macro_scope;
@@ -161,7 +157,7 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	// now GotByte = first non-space after title
 	DYNABUF_CLEAR(GlobalDynaBuf);	// prepare to hold formal parameters
 	// GlobalDynaBuf = "" (will hold formal parameter list)
-	// user_macro_name = [LOCAL_PREFIX] MacroTitle NUL
+	// user_macro_name = MacroTitle NUL
 	// internal_name = MacroTitle ARG_SEPARATOR (grows to signature)
 	// Accept n>=0 comma-separated formal parameters before CHAR_SOB ('{').
 	// Valid argument formats are:
@@ -182,14 +178,8 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 				DynaBuf_append(GlobalDynaBuf, REFERENCE_CHAR);
 				GetByte();
 			}
-			// handle prefix for (cheap) local symbols ('.'/'@')
-			if ((GotByte == LOCAL_PREFIX)
-			|| (GotByte == CHEAP_PREFIX)) {
-				DynaBuf_append(GlobalDynaBuf, GotByte);
-				GetByte();
-			}
-			// handle symbol name
-			Input_append_keyword_to_global_dynabuf();
+			// handle symbol name (including '.'/'@' prefix)
+			Input_append_symbol_name_to_global_dynabuf();
 		} while (pipe_comma());
 		// ensure CHAR_SOB ('{')
 		if (GotByte != CHAR_SOB)
@@ -218,7 +208,7 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 }
 
 // Parse macro call ("+MACROTITLE"). Has to be re-entrant.
-void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
+void Macro_parse_call(void)	// Now GotByte = first char of macro name
 {
 	char		local_gotbyte;
 	struct symbol	*symbol;
@@ -261,7 +251,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 				// read call-by-reference arg
 				DynaBuf_append(internal_name, ARGTYPE_REF);
 				GetByte();	// eat '~'
-				Input_read_scope_and_keyword(&symbol_scope);
+				Input_read_scope_and_symbol_name(&symbol_scope);
 				// GotByte = illegal char
 				arg_table[arg_count].symbol = symbol_find(symbol_scope);	// CAUTION, object type may be NULL!
 			} else {
@@ -315,7 +305,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 				if (GotByte == REFERENCE_CHAR) {
 					// assign call-by-reference arg
 					GetByte();	// eat '~'
-					Input_read_scope_and_keyword(&symbol_scope);
+					Input_read_scope_and_symbol_name(&symbol_scope);
 					// create new tree node and link existing symbol struct from arg list to it
 					if ((Tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
 					&& (FIRST_PASS))
@@ -323,7 +313,7 @@ void Macro_parse_call(void)	// Now GotByte = dot or first char of macro name
 					symbol_node->body = arg_table[arg_count].symbol;	// CAUTION, object type may be NULL
 				} else {
 					// assign call-by-value arg
-					Input_read_scope_and_keyword(&symbol_scope);
+					Input_read_scope_and_symbol_name(&symbol_scope);
 					symbol = symbol_find(symbol_scope);
 // FIXME - find out if symbol was just created.
 // Then check for the same error message here as above ("Macro parameter twice.").

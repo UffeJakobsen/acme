@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Global stuff - things that are needed by several modules
@@ -241,13 +241,14 @@ static void parse_mnemo_or_global_symbol_def(bits *statement_flags)
 
 
 // parse (cheap) local symbol definition
-static void parse_local_symbol_def(bits *statement_flags, scope_t scope)
+static void parse_local_symbol_def(bits *statement_flags)
 {
+	scope_t	scope;
+
 	if (!first_label_of_statement(statement_flags))
 		return;
 
-	GetByte();	// start after '.'/'@'
-	if (Input_read_keyword())
+	if (Input_read_scope_and_symbol_name(&scope) == 0)
 		parse_symbol_definition(scope, *statement_flags);
 }
 
@@ -328,7 +329,8 @@ void Parse_until_eob_or_eof(void)
 					break;
 				case '+':
 					GetByte();
-					if ((GotByte == LOCAL_PREFIX)	// TODO - allow "cheap macros"?!
+					if ((GotByte == LOCAL_PREFIX)
+					|| (GotByte == CHEAP_PREFIX)
 					|| (BYTE_CONTINUES_KEYWORD(GotByte)))
 						Macro_parse_call();
 					else
@@ -338,10 +340,8 @@ void Parse_until_eob_or_eof(void)
 					notreallypo_setpc();	// define program counter (fn is in pseudoopcodes.c)
 					break;
 				case LOCAL_PREFIX:
-					parse_local_symbol_def(&statement_flags, section_now->local_scope);
-					break;
 				case CHEAP_PREFIX:
-					parse_local_symbol_def(&statement_flags, section_now->cheap_scope);
+					parse_local_symbol_def(&statement_flags);
 					break;
 				default:
 					if (BYTE_STARTS_KEYWORD(GotByte)) {

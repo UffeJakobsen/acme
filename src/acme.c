@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -452,7 +452,8 @@ static void define_symbol(const char definition[])
 		DynaBuf_append(GlobalDynaBuf, *walk++);
 	if ((*walk == '\0') || (walk[1] == '\0'))
 		could_not_parse(definition);
-	value =  string_to_number(walk + 1);
+	// TODO - if first char is double quote, maybe interpret as string instead of number?
+	value = string_to_number(walk + 1);
 	DynaBuf_append(GlobalDynaBuf, '\0');
 	symbol_define(value);
 }

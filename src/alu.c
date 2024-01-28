@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2021 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Arithmetic/logic unit
@@ -307,7 +307,7 @@ static intval_t my_asr(intval_t left, intval_t right)
 // if wanted, throw "Value not defined" error
 // This function is not allowed to change DynaBuf because the symbol's name
 // might be stored there!
-static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_char, char *name, size_t length)
+static void is_not_defined(struct symbol *optional_symbol, char *name, size_t length)
 {
 	if (!pass.complain_about_undefined)
 		return;
@@ -324,10 +324,6 @@ static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_
 	DynaBuf_add_string(errormsg_dyna_buf, "Value not defined (");
 	length += errormsg_dyna_buf->size;
 
-	if (optional_prefix_char) {
-		DynaBuf_append(errormsg_dyna_buf, optional_prefix_char);
-		++length;
-	}
 	DynaBuf_add_string(errormsg_dyna_buf, name);
 	if (errormsg_dyna_buf->size < length) {
 		Bug_found("IllegalSymbolNameLength", errormsg_dyna_buf->size - length);
@@ -344,9 +340,10 @@ static void is_not_defined(struct symbol *optional_symbol, char optional_prefix_
 // DynaBuf holds the symbol's name and "scope" its scope.
 // The name length must be given explicitly because of anonymous forward labels;
 // their internal name is different (longer) than their displayed name.
+//	FIXME - just split this up into two different buffers, "user name" and "internal name", that way the scope can be changed to a prefix as well!
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t name_length, unsigned int unpseudo_count)
+static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unpseudo_count)
 {
 	struct symbol	*symbol;
 	struct object	*arg;
@@ -363,7 +360,7 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> Bug_found()!
 		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
 	}
-	// first push on arg stack, so we have a local copy we can "unpseudopc"
+	// first push on arg stack, so we have a local copy we can "unpseudo"
 	arg = &arg_stack[arg_sp++];
 	*arg = symbol->object;
 	if (unpseudo_count) {
@@ -374,12 +371,12 @@ static void get_symbol_value(scope_t scope, char optional_prefix_char, size_t na
 		}
 	}
 	// if needed, output "value not defined" error
-	// FIXME - in case of unpseudopc, error message should include the correct number of '&' characters
+	// FIXME - in case of unpseudo, error message should include the correct number of '&' characters
 //	if (!(arg->type->is_defined(arg)))
 // FIXME - now that lists with undefined items are "undefined", this fails in
 // case of "!if len(some_list) {", so check for undefined _numbers_ explicitly:
 	if ((arg->type == &type_number) && (arg->u.number.ntype == NUMTYPE_UNDEFINED))
-		is_not_defined(symbol, optional_prefix_char, GLOBALDYNABUF_CURRENT, name_length);
+		is_not_defined(symbol, GLOBALDYNABUF_CURRENT, name_length);
 	// FIXME - if arg is list, increment ref count!
 }
 
@@ -393,7 +390,7 @@ static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = 
 	vcpu_read_pc(&pc);
 	// if needed, output "value not defined" error
 	if (pc.ntype == NUMTYPE_UNDEFINED)
-		is_not_defined(NULL, 0, "*", 1);
+		is_not_defined(NULL, "*", 1);
 	if (unpseudo_count)
 		pseudopc_unpseudo(&pc, pseudopc_get_context(), unpseudo_count);
 	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);	// FIXME - when undefined pc is allowed, this must be changed for numtype!
@@ -702,32 +699,31 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 {
 	unsigned int	unpseudo_count	= 1;
+	scope_t		scope;	// for "unpseudo symbol"
 
+	// first count ampersand characters so we know how many layers to "unpseudo":
 	while (GetByte() == '&')
 		++unpseudo_count;
+
+	// check for octal number:
 	if ((unpseudo_count == 1) && (GotByte >= '0') & (GotByte <= '7')) {
 		parse_octal_literal();	// now GotByte = non-octal char
 		return 0;	// ok
 	}
 
-	// TODO - support anonymous labels as well?
+	// it's not an octal number, so it must be something to "unpseudo":
 	if (GotByte == '*') {
+		// program counter
 		parse_program_counter(unpseudo_count);
-	} else if (GotByte == '.') {
-		GetByte();
-		if (Input_read_keyword() == 0)	// now GotByte = illegal char
+	} else if (BYTE_STARTS_KEYWORD(GotByte) || (GotByte == LOCAL_PREFIX) || (GotByte == CHEAP_PREFIX)) {
+		// symbol
+		if (Input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
 
-		get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
-	} else if (GotByte == CHEAP_PREFIX) {
-		GetByte();
-		if (Input_read_keyword() == 0)	// now GotByte = illegal char
-			return 1;	// error (no string given)
-
-		get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
-	} else if (BYTE_STARTS_KEYWORD(GotByte)) {
-		Input_read_keyword();	// now GotByte = illegal char
-		get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, unpseudo_count);	// no prefix, -1 to not count terminator
+		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
+//	} else if (...) {
+//		// anonymous symbol
+//		"unpseudo"-ing anonymous symbols is not supported
 	} else {
                 Throw_error(exception_missing_string);	// FIXME - create some "expected octal value or symbol name" error instead!
 		return 1;	// error
@@ -876,6 +872,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	struct op	*op;
 	int		ugly_length_kluge;
 	boolean		perform_negation;
+	scope_t		scope;	// for parsing symbols
 
 	SKIPSPACE();
 	switch (GotByte) {
@@ -887,7 +884,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->local_scope, '\0', ugly_length_kluge, 0);	// no prefix, no unpseudo
+		get_symbol_value(section_now->local_scope, ugly_length_kluge, 0);	// no prefix, no unpseudo
 		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -901,7 +898,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			DynaBuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->local_scope, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
+			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;
 		}
 
@@ -985,23 +982,23 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			goto now_expect_dyadic_op;
 		}
 
-		if (Input_read_keyword()) {	// now GotByte = illegal char
-			get_symbol_value(section_now->local_scope, LOCAL_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+		// FIXME - here we have a problem, we need to put '.' into GlobalDynaBuf even though we have already skipped it!
+		if (Input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
 
-		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
+		// if we're here, an error has been thrown because there was no string after the '.'.
 		alu_state = STATE_ERROR;
 		break;//goto done;
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
-		GetByte();	// start after '@'
-		if (Input_read_keyword()) {	// now GotByte = illegal char
-			get_symbol_value(section_now->cheap_scope, CHEAP_PREFIX, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+		if (Input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
 
-		// if we're here, Input_read_keyword() will have thrown an error (like "no string given"):
+		// if we're here, an error has been thrown because there was no string after the '@'.
 		alu_state = STATE_ERROR;
 		break;//goto done;
 	// decimal values and global symbols
@@ -1037,7 +1034,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					get_symbol_value(SCOPE_GLOBAL, '\0', GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
+					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 					goto now_expect_dyadic_op;
 				}
 			}
