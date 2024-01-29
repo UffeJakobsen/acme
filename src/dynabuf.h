@@ -45,18 +45,22 @@ extern struct dynabuf	GlobalDynaBuf[1];	// global dynamic buffer
 
 
 // (ensure buffer is ready to use, then) clear dynamic buffer
-#define DYNABUF_CLEAR(db)	dynabuf_clear(db)	// TODO - remove old macro
 extern void dynabuf_clear(struct dynabuf *db);
+
 // call whenever buffer is too small
 extern void dynabuf_enlarge(struct dynabuf *db);
+
 // return malloc'd copy of buffer contents
-extern char *DynaBuf_get_copy(struct dynabuf *db);
+extern char *dynabuf_get_copy(struct dynabuf *db);
+
 // copy string to buffer (without terminator)
-extern void DynaBuf_add_string(struct dynabuf *db, const char *);
+extern void dynabuf_add_string(struct dynabuf *db, const char *);
+
 // converts buffer contents to lower case
-extern void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source);
+extern void dynabuf_to_lower(struct dynabuf *target, struct dynabuf *source);
+
 // add char to buffer
-extern void DynaBuf_append(struct dynabuf *db, char);
+extern void dynabuf_append(struct dynabuf *db, char);
 
 
 #endif

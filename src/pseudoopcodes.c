@@ -392,7 +392,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			// the old way of handling string literals:
 			int	offset;
 
-			DYNABUF_CLEAR(GlobalDynaBuf);
+			dynabuf_clear(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error
 
@@ -787,7 +787,7 @@ static enum eos po_symbollist(void)
 	}
 
 	// get malloc'd copy of filename
-	symbollist_filename = DynaBuf_get_copy(GlobalDynaBuf);
+	symbollist_filename = dynabuf_get_copy(GlobalDynaBuf);
 	// ensure there's no garbage at end of line
 	return ENSURE_EOS;
 }
@@ -811,7 +811,7 @@ static enum eos po_zone(void)
 		// because we know of one character for sure,
 		// there's no need to check the return value.
 		Input_read_keyword();
-		new_title = DynaBuf_get_copy(GlobalDynaBuf);
+		new_title = dynabuf_get_copy(GlobalDynaBuf);
 		allocated = TRUE;
 	}
 	// setup new section
@@ -1258,11 +1258,11 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 {
 	struct object	object;
 
-	DYNABUF_CLEAR(user_message);
-	DynaBuf_add_string(user_message, prefix);
+	dynabuf_clear(user_message);
+	dynabuf_add_string(user_message, prefix);
 	do {
 		if ((GotByte == '"') && (config.wanted_version < VER_BACKSLASHESCAPING)) {
-			DYNABUF_CLEAR(GlobalDynaBuf);
+			dynabuf_clear(GlobalDynaBuf);
 			if (Input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error
 
@@ -1272,15 +1272,15 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 			if (Input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
-			DynaBuf_append(GlobalDynaBuf, '\0');	// terminate string
-			DynaBuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
+			dynabuf_append(GlobalDynaBuf, '\0');	// terminate string
+			dynabuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
 		} else {
 			// parse value
 			ALU_any_result(&object);
 			object.type->print(&object, user_message);
 		}
 	} while (Input_accept_comma());
-	DynaBuf_append(user_message, '\0');
+	dynabuf_append(user_message, '\0');
 	fn(user_message->buffer);
 	return ENSURE_EOS;
 }

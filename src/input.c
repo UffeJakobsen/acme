@@ -369,7 +369,7 @@ int Input_quoted_to_dynabuf(char closing_quote)
 {
 	boolean	escaped	= FALSE;
 
-	//DYNABUF_CLEAR(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
+	//dynabuf_clear(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
 	for (;;) {
 		GetQuotedByte();
 		if (GotByte == CHAR_EOS)
@@ -463,7 +463,7 @@ char *Input_skip_or_store_block(boolean store)
 	int	depth	= 1;	// to find matching block end
 
 	// prepare global dynamic buffer
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	do {
 		byte = GetByte();
 		// store
@@ -492,10 +492,10 @@ char *Input_skip_or_store_block(boolean store)
 
 	// otherwise, prepare to return copy of block
 	// add EOF, just to make sure block is never read too far
-	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);
-	DynaBuf_append(GlobalDynaBuf, CHAR_EOF);
+	dynabuf_append(GlobalDynaBuf, CHAR_EOS);
+	dynabuf_append(GlobalDynaBuf, CHAR_EOF);
 	// return pointer to copy
-	return DynaBuf_get_copy(GlobalDynaBuf);
+	return dynabuf_get_copy(GlobalDynaBuf);
 }
 
 // Append to GlobalDynaBuf while characters are legal for keywords.
@@ -524,7 +524,7 @@ int Input_append_symbol_name_to_global_dynabuf(void)
 {
 	if ((GotByte == LOCAL_PREFIX)
 	|| (GotByte == CHEAP_PREFIX)) {
-		DynaBuf_append(GlobalDynaBuf, GotByte);
+		dynabuf_append(GlobalDynaBuf, GotByte);
 		GetByte();
 	} else if (!BYTE_STARTS_KEYWORD(GotByte)) {
 		// FIXME - show invalid char in error message!
@@ -541,19 +541,19 @@ int Input_readscopeandsymbolname(scope_t *scope, boolean dotkluge)
 	int	err;
 
 	SKIPSPACE();
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 
 	if (dotkluge) {
 		// this happens after the expression parser has eaten the '.'
 		// and did not find a decimal digit. -> not a float value ->
 		// must be a local symbol -> we must restore the '.' in front!
-		DynaBuf_append(GlobalDynaBuf, '.');
+		dynabuf_append(GlobalDynaBuf, '.');
 		err = append_keyword_to_global_dynabuf() == 0;	// zero length -> error!
 	} else {
 		err = Input_append_symbol_name_to_global_dynabuf();
 	}
 	// add terminator to buffer (increments buffer's length counter)
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	if (err) {
 		*scope = SCOPE_GLOBAL;	// bogus, but at least not un-initialized
 		return 1;	// error
@@ -576,10 +576,10 @@ int Input_read_keyword(void)
 {
 	int	length;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	length = append_keyword_to_global_dynabuf();
 	// add terminator to buffer (increments buffer's length counter)
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	return length;
 }
 
@@ -591,11 +591,11 @@ int Input_read_and_lower_keyword(void)
 {
 	int	length;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	length = append_keyword_to_global_dynabuf();
 	// add terminator to buffer (increments buffer's length counter)
-	DynaBuf_append(GlobalDynaBuf, '\0');
-	DynaBuf_to_lower(GlobalDynaBuf, GlobalDynaBuf);	// convert to lower case
+	dynabuf_append(GlobalDynaBuf, '\0');
+	dynabuf_to_lower(GlobalDynaBuf, GlobalDynaBuf);	// convert to lower case
 	return length;
 }
 
@@ -614,7 +614,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 	char	*lib_prefix,
 		terminator;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	SKIPSPACE();
 	switch (GotByte) {
 	case '<':	// library access
@@ -636,7 +636,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		}
 #endif
 		// copy lib path and set quoting char
-		DynaBuf_add_string(GlobalDynaBuf, lib_prefix);
+		dynabuf_add_string(GlobalDynaBuf, lib_prefix);
 		terminator = '>';
 		break;
 	case '"':	// normal access
@@ -666,7 +666,7 @@ int Input_read_filename(boolean allow_library, boolean *uses_lib)
 		return 1;	// escaping error
 
 	// terminate string
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 #ifdef PLATFORM_CONVERTPATH
 	// platform-specific path name conversion
 	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT + start_of_string);
@@ -747,18 +747,18 @@ FILE *includepaths_open_ro(boolean uses_lib)
 	// if failed and not lib, try include paths:
 	if ((stream == NULL) && !uses_lib) {
 		for (ipi = ipi_head.next; ipi != &ipi_head; ipi = ipi->next) {
-			DYNABUF_CLEAR(pathbuf);
+			dynabuf_clear(pathbuf);
 			// add first part
-			DynaBuf_add_string(pathbuf, ipi->path);
+			dynabuf_add_string(pathbuf, ipi->path);
 			// if wanted and possible, ensure last char is directory separator
 			if (DIRECTORY_SEPARATOR
 			&& pathbuf->size
 			&& (pathbuf->buffer[pathbuf->size - 1] != DIRECTORY_SEPARATOR))
-				DynaBuf_append(pathbuf, DIRECTORY_SEPARATOR);
+				dynabuf_append(pathbuf, DIRECTORY_SEPARATOR);
 			// add second part
-			DynaBuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
+			dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
 			// terminate
-			DynaBuf_append(pathbuf, '\0');
+			dynabuf_append(pathbuf, '\0');
 			// try
 			stream = fopen(pathbuf->buffer, FILE_READBINARY);
 			//printf("trying <<%s>> - ", pathbuf->buffer);
@@ -772,11 +772,11 @@ FILE *includepaths_open_ro(boolean uses_lib)
 	}
 	if (stream == NULL) {
 		// CAUTION, I'm re-using the path dynabuf to assemble the error message:
-		DYNABUF_CLEAR(pathbuf);
-		DynaBuf_add_string(pathbuf, "Cannot open input file \"");
-		DynaBuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
-		DynaBuf_add_string(pathbuf, "\".");
-		DynaBuf_append(pathbuf, '\0');
+		dynabuf_clear(pathbuf);
+		dynabuf_add_string(pathbuf, "Cannot open input file \"");
+		dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
+		dynabuf_add_string(pathbuf, "\".");
+		dynabuf_append(pathbuf, '\0');
 		Throw_error(pathbuf->buffer);
 	}
 	//fprintf(stderr, "File is [%s]\n", GLOBALDYNABUF_CURRENT);

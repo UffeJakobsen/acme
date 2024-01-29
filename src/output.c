@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Output stuff
@@ -270,7 +270,7 @@ int outputfile_set_filename(void)
 	}
 
 	// get malloc'd copy of filename
-	output_filename = DynaBuf_get_copy(GlobalDynaBuf);
+	output_filename = dynabuf_get_copy(GlobalDynaBuf);
 	return 0;	// ok
 }
 

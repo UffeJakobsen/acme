@@ -58,5 +58,9 @@ extern void symbols_vicelabels(FILE *fd);
 // so it references the *next* anonymous forward label definition.
 extern void symbol_fix_forward_anon_name(boolean increment);
 
+// replace name of dynamic symbol with its final version.
+// return whether there was an error.
+extern int symbol_fix_dynamic_name(void);
+
 
 #endif

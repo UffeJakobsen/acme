@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // symbol stuff
@@ -252,7 +252,7 @@ void symbol_fix_forward_anon_name(boolean increment)
 	unsigned long	number;
 
 	// terminate name, find "counter" symbol and read value
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	counter_symbol = symbol_find(section_now->local_scope);
 	if (counter_symbol->object.type == NULL) {
 		// finish freshly created symbol item
@@ -277,7 +277,57 @@ void symbol_fix_forward_anon_name(boolean increment)
 		DYNABUF_APPEND(GlobalDynaBuf, 'a' + (number & 15));
 		number >>= 4;
 	} while (number);
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	if (increment)
 		counter_symbol->object.u.number.val.intval++;
+}
+
+// temporary buffer for base name while handling second part
+STRUCT_DYNABUF_REF(basename_db, 64);
+
+// replace dynamic symbol name with its final version.
+// ("basename?indexsymbol" -> "basename4711")
+// on entry: GlobalDynaBuf holds base name, GotByte holds '?'
+// on exit: GlobalDynaBuf holds fixed name
+// return whether there was an error.
+#define NUMBUFSIZE	64	// large enough(tm) even for 64bit systems
+int symbol_fix_dynamic_name(void)
+{
+	scope_t		second_scope;
+	struct symbol	*second_symbol;
+	char		numbuf[NUMBUFSIZE];
+
+	if (GotByte != '?')
+		Bug_found("NotQuestionMark", GotByte);
+	GetByte();	// eat '?' character
+	// remember base name
+	dynabuf_clear(basename_db);
+	dynabuf_add_string(basename_db, GLOBALDYNABUF_CURRENT);
+	dynabuf_append(basename_db, '\0');	// terminate
+	// read second part (CAUTION, this will overwrite GlobalDynaBuf!)
+	if (Input_read_scope_and_symbol_name(&second_scope))
+		return 1;
+
+	second_symbol = symbol_find(second_scope);
+	if (second_symbol->object.type != &type_number) {
+		Throw_error("Second part of dynamic symbol name is not a number.");
+		return 1;
+	}
+	if (second_symbol->object.u.number.ntype != NUMTYPE_INT) {
+		Throw_error("Second part of dynamic symbol name is undefined or not integer.");
+		return 1;
+	}
+	second_symbol->has_been_read = TRUE;
+#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
+	snprintf(numbuf, NUMBUFSIZE, "%ld", (long) second_symbol->object.u.number.val.intval);
+#else
+	sprintf(numbuf, "%ld", (long) second_symbol->object.u.number.val.intval);
+#endif
+	// return basename and number in GlobalDynaBuf:
+	dynabuf_clear(GlobalDynaBuf);
+	dynabuf_add_string(GlobalDynaBuf, basename_db->buffer);
+	dynabuf_add_string(GlobalDynaBuf, numbuf);
+	dynabuf_append(GlobalDynaBuf, '\0');
+	//printf("skipping '?' for <%s>\n", GLOBALDYNABUF_CURRENT);
+	return 0;
 }

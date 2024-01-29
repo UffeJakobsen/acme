@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Dynamic buffer stuff
@@ -79,7 +79,7 @@ void dynabuf_enlarge(struct dynabuf *db)
 // Claim enough memory to hold a copy of the current buffer contents,
 // make that copy and return it.
 // The copy must be released by calling free().
-char *DynaBuf_get_copy(struct dynabuf *db)
+char *dynabuf_get_copy(struct dynabuf *db)
 {
 	char	*copy;
 
@@ -89,13 +89,13 @@ char *DynaBuf_get_copy(struct dynabuf *db)
 }
 
 // add char to buffer
-void DynaBuf_append(struct dynabuf *db, char byte)
+void dynabuf_append(struct dynabuf *db, char byte)
 {
 	DYNABUF_APPEND(db, byte);
 }
 
 // Append string to buffer (without terminator)
-void DynaBuf_add_string(struct dynabuf *db, const char *string)
+void dynabuf_add_string(struct dynabuf *db, const char *string)
 {
 	char	byte;
 
@@ -113,7 +113,7 @@ static char *ensure_free_space(struct dynabuf *db, int size)
 }*/
 
 // Convert buffer contents to lower case (target and source may be identical)
-void DynaBuf_to_lower(struct dynabuf *target, struct dynabuf *source)
+void dynabuf_to_lower(struct dynabuf *target, struct dynabuf *source)
 {
 	char	*read,
 		*write,

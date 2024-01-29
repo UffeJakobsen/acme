@@ -320,18 +320,18 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 		optional_symbol->has_been_reported = TRUE;
 	}
 
-	DYNABUF_CLEAR(errormsg_dyna_buf);
-	DynaBuf_add_string(errormsg_dyna_buf, "Value not defined (");
+	dynabuf_clear(errormsg_dyna_buf);
+	dynabuf_add_string(errormsg_dyna_buf, "Value not defined (");
 	length += errormsg_dyna_buf->size;
 
-	DynaBuf_add_string(errormsg_dyna_buf, name);
+	dynabuf_add_string(errormsg_dyna_buf, name);
 	if (errormsg_dyna_buf->size < length) {
 		Bug_found("IllegalSymbolNameLength", errormsg_dyna_buf->size - length);
 	} else {
 		errormsg_dyna_buf->size = length;
 	}
-	DynaBuf_add_string(errormsg_dyna_buf, ").");
-	DynaBuf_append(errormsg_dyna_buf, '\0');
+	dynabuf_add_string(errormsg_dyna_buf, ").");
+	dynabuf_append(errormsg_dyna_buf, '\0');
 	Throw_error(errormsg_dyna_buf->buffer);
 }
 
@@ -412,7 +412,7 @@ static void parse_quoted(char closing_quote)
 {
 	intval_t	value;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	if (Input_quoted_to_dynabuf(closing_quote))
 		goto fail;	// unterminated or escaping error
 
@@ -645,7 +645,7 @@ static void parse_function_call(void)
 	void	*node_body;
 
 	// make lower case version of name in local dynamic buffer
-	DynaBuf_to_lower(function_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(function_dyna_buf, GlobalDynaBuf);
 	// search for tree item
 	if (Tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
 		PUSH_OP((struct op *) node_body);
@@ -719,6 +719,9 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		// symbol
 		if (Input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
+
+		if ((GotByte == '?') && symbol_fix_dynamic_name())
+			return 1;	// error
 
 		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
 //	} else if (...) {
@@ -878,10 +881,10 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	switch (GotByte) {
 	case '+':	// anonymous forward label
 		// count plus signs to build name of anonymous label
-		DYNABUF_CLEAR(GlobalDynaBuf);
-		do
+		dynabuf_clear(GlobalDynaBuf);
+		do {
 			DYNABUF_APPEND(GlobalDynaBuf, '+');
-		while (GetByte() == '+');
+		} while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
 		get_symbol_value(section_now->local_scope, ugly_length_kluge, 0);	// no prefix, no unpseudo
@@ -890,14 +893,14 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	case '-':	// NEGATION operator or anonymous backward label
 		// count minus signs in case it's an anonymous backward label
 		perform_negation = FALSE;
-		DYNABUF_CLEAR(GlobalDynaBuf);
+		dynabuf_clear(GlobalDynaBuf);
 		do {
 			DYNABUF_APPEND(GlobalDynaBuf, '-');
 			perform_negation = !perform_negation;
 		} while (GetByte() == '-');
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
-			DynaBuf_append(GlobalDynaBuf, '\0');
+			dynabuf_append(GlobalDynaBuf, '\0');
 			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;
 		}
@@ -982,8 +985,12 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			goto now_expect_dyadic_op;
 		}
 
-		// FIXME - here we have a problem, we need to put '.' into GlobalDynaBuf even though we have already skipped it!
+		// here we need to put '.' into GlobalDynaBuf even though we have already skipped it:
 		if (Input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
+			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
+				alu_state = STATE_ERROR;
+				break;//goto done;
+			}
 			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
@@ -994,6 +1001,10 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		if (Input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
+			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
+				alu_state = STATE_ERROR;
+				break;//goto done;
+			}
 			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
@@ -1034,6 +1045,8 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
+					if (GotByte == '?')
+						symbol_fix_dynamic_name();
 					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 					goto now_expect_dyadic_op;
 				}
@@ -1234,17 +1247,17 @@ static void unsupported_operation(const struct object *optional, const struct op
 		if (op->group != OPGROUP_MONADIC)
 			Bug_found("OperatorIsNotMonadic", op->id);
 	}
-	DYNABUF_CLEAR(errormsg_dyna_buf);
-	DynaBuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");
-	DynaBuf_add_string(errormsg_dyna_buf, op->text_version);
-	DynaBuf_add_string(errormsg_dyna_buf, "\" to \"");
+	dynabuf_clear(errormsg_dyna_buf);
+	dynabuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");
+	dynabuf_add_string(errormsg_dyna_buf, op->text_version);
+	dynabuf_add_string(errormsg_dyna_buf, "\" to \"");
 	if (optional) {
-		DynaBuf_add_string(errormsg_dyna_buf, optional->type->name);
-		DynaBuf_add_string(errormsg_dyna_buf, "\" and \"");
+		dynabuf_add_string(errormsg_dyna_buf, optional->type->name);
+		dynabuf_add_string(errormsg_dyna_buf, "\" and \"");
 	}
-	DynaBuf_add_string(errormsg_dyna_buf, arg->type->name);
-	DynaBuf_add_string(errormsg_dyna_buf, "\".");
-	DynaBuf_append(errormsg_dyna_buf, '\0');
+	dynabuf_add_string(errormsg_dyna_buf, arg->type->name);
+	dynabuf_add_string(errormsg_dyna_buf, "\".");
+	dynabuf_append(errormsg_dyna_buf, '\0');
 	Throw_error(errormsg_dyna_buf->buffer);
 }
 
@@ -2309,20 +2322,20 @@ static void number_print(const struct object *self, struct dynabuf *db)
 	char	buffer[NUMBUFSIZE];
 
 	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
-		DynaBuf_add_string(db, "<UNDEFINED NUMBER>");
+		dynabuf_add_string(db, "<UNDEFINED NUMBER>");
 	} else if (self->u.number.ntype == NUMTYPE_INT) {
 #if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
 		snprintf(buffer, NUMBUFSIZE, "%ld (0x%lx)", (long) self->u.number.val.intval, (long) self->u.number.val.intval);
 #else
 		sprintf(buffer, "%ld (0x%lx)", (long) self->u.number.val.intval, (long) self->u.number.val.intval);
 #endif
-		DynaBuf_add_string(db, buffer);
+		dynabuf_add_string(db, buffer);
 	} else if (self->u.number.ntype == NUMTYPE_FLOAT) {
 		// write up to 30 significant characters.
 		// remaining 10 should suffice for sign,
 		// decimal point, exponent, terminator etc.
 		sprintf(buffer, "%.30g", self->u.number.val.fpval);
-		DynaBuf_add_string(db, buffer);
+		dynabuf_add_string(db, buffer);
 	} else {
 		Bug_found("IllegalNumberType5", self->u.number.ntype);
 	}
@@ -2337,24 +2350,24 @@ static void list_print(const struct object *self, struct dynabuf *db)
 	struct object	*obj;
 	const char	*prefix	= "";	// first item does not get a prefix
 
-	DynaBuf_append(db, '[');
+	dynabuf_append(db, '[');
 	length = self->u.listhead->u.listinfo.length;
 	item = self->u.listhead->next;
 	while (length--) {
 		obj = &item->u.payload;
-		DynaBuf_add_string(db, prefix);
+		dynabuf_add_string(db, prefix);
 		obj->type->print(obj, db);
 		item = item->next;
 		prefix = ", ";	// following items are prefixed
 	}
-	DynaBuf_append(db, ']');
+	dynabuf_append(db, ']');
 }
 
 // string:
 // print value for user message
 static void string_print(const struct object *self, struct dynabuf *db)
 {
-	DynaBuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
+	dynabuf_add_string(db, self->u.string->payload);	// there is a terminator after the actual payload, so this works
 }
 
 // number:

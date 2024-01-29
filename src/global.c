@@ -208,6 +208,9 @@ static void parse_symbol_definition(scope_t scope, bits stat_flags)
 {
 	bits	force_bit;
 
+	if (GotByte == '?')
+		symbol_fix_dynamic_name();
+
 	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
@@ -259,11 +262,11 @@ static void parse_backward_anon_def(bits *statement_flags)
 	if (!first_label_of_statement(statement_flags))
 		return;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
-	do
+	dynabuf_clear(GlobalDynaBuf);
+	do {
 		DYNABUF_APPEND(GlobalDynaBuf, '-');
-	while (GetByte() == '-');
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	} while (GetByte() == '-');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	// backward anons change their value!
 	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_CHANGE_VALUE);
 }
@@ -275,14 +278,14 @@ static void parse_forward_anon_def(bits *statement_flags)
 	if (!first_label_of_statement(statement_flags))
 		return;
 
-	DYNABUF_CLEAR(GlobalDynaBuf);
-	DynaBuf_append(GlobalDynaBuf, '+');
+	dynabuf_clear(GlobalDynaBuf);
+	dynabuf_append(GlobalDynaBuf, '+');
 	while (GotByte == '+') {
 		DYNABUF_APPEND(GlobalDynaBuf, '+');
 		GetByte();
 	}
 	symbol_fix_forward_anon_name(TRUE);	// TRUE: increment counter
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	//printf("[%d, %s]\n", section_now->local_scope, GlobalDynaBuf->buffer);
 	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_NONE);
 }

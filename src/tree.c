@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2021 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // tree stuff
@@ -179,7 +179,7 @@ int Tree_hard_scan(struct rwnode **result, struct rwnode **forest, int id_number
 	new_leaf_node->less_than_or_equal = NULL;
 	new_leaf_node->hash_value = wanted.hash_value;
 	new_leaf_node->id_number = id_number;
-	new_leaf_node->id_string = DynaBuf_get_copy(GlobalDynaBuf);	// make permanent copy
+	new_leaf_node->id_string = dynabuf_get_copy(GlobalDynaBuf);	// make permanent copy
 	// add new leaf to tree
 	*current_node = new_leaf_node;
 	// store pointer to new node in result location

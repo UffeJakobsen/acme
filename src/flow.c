@@ -155,7 +155,7 @@ static void copy_condition(struct condition *condition, char terminator)
 	int	err;
 
 	SKIPSPACE();
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	while ((GotByte != terminator) && (GotByte != CHAR_EOS)) {
 		// append to GlobalDynaBuf and check for quotes
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
@@ -168,8 +168,8 @@ static void copy_condition(struct condition *condition, char terminator)
 		}
 		GetByte();
 	}
-	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
-	condition->body = DynaBuf_get_copy(GlobalDynaBuf);
+	dynabuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
+	condition->body = dynabuf_get_copy(GlobalDynaBuf);
 }
 
 // try to read a condition into DynaBuf and store pointer to copy in

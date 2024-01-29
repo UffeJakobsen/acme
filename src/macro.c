@@ -77,12 +77,12 @@ static scope_t get_scope_and_title(void)
 	Input_read_scope_and_symbol_name(&macro_scope);	// skips spaces before
 	// now GotByte = illegal character after title
 	// copy macro title to private dynabuf and add separator character
-	DYNABUF_CLEAR(user_macro_name);
-	DynaBuf_add_string(user_macro_name, GLOBALDYNABUF_CURRENT);
-	DynaBuf_append(user_macro_name, '\0');
-	DYNABUF_CLEAR(internal_name);
-	DynaBuf_add_string(internal_name, GLOBALDYNABUF_CURRENT);
-	DynaBuf_append(internal_name, ARG_SEPARATOR);
+	dynabuf_clear(user_macro_name);
+	dynabuf_add_string(user_macro_name, GLOBALDYNABUF_CURRENT);
+	dynabuf_append(user_macro_name, '\0');
+	dynabuf_clear(internal_name);
+	dynabuf_add_string(internal_name, GLOBALDYNABUF_CURRENT);
+	dynabuf_append(internal_name, ARG_SEPARATOR);
 	SKIPSPACE();	// done here once so it's not necessary at two callers
 	return macro_scope;
 }
@@ -116,11 +116,11 @@ static char *get_string_copy(const char *original)
 // Then try to find macro and return whether it was created.
 static int search_for_macro(struct rwnode **result, scope_t scope, int create)
 {
-	DynaBuf_append(internal_name, '\0');	// terminate macro name
+	dynabuf_append(internal_name, '\0');	// terminate macro name
 	// now internal_name = macro_title SPC argument_specifiers NUL
-	DYNABUF_CLEAR(GlobalDynaBuf);
-	DynaBuf_add_string(GlobalDynaBuf, internal_name->buffer);
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_clear(GlobalDynaBuf);
+	dynabuf_add_string(GlobalDynaBuf, internal_name->buffer);
+	dynabuf_append(GlobalDynaBuf, '\0');
 	return Tree_hard_scan(result, macro_forest, scope, create);
 }
 
@@ -155,7 +155,7 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	scope_t		macro_scope	= get_scope_and_title();
 
 	// now GotByte = first non-space after title
-	DYNABUF_CLEAR(GlobalDynaBuf);	// prepare to hold formal parameters
+	dynabuf_clear(GlobalDynaBuf);	// prepare to hold formal parameters
 	// GlobalDynaBuf = "" (will hold formal parameter list)
 	// user_macro_name = MacroTitle NUL
 	// internal_name = MacroTitle ARG_SEPARATOR (grows to signature)
@@ -172,10 +172,10 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		do {
 			// handle call-by-reference character ('~')
 			if (GotByte != REFERENCE_CHAR) {
-				DynaBuf_append(internal_name, ARGTYPE_VALUE);
+				dynabuf_append(internal_name, ARGTYPE_VALUE);
 			} else {
-				DynaBuf_append(internal_name, ARGTYPE_REF);
-				DynaBuf_append(GlobalDynaBuf, REFERENCE_CHAR);
+				dynabuf_append(internal_name, ARGTYPE_REF);
+				dynabuf_append(GlobalDynaBuf, REFERENCE_CHAR);
 				GetByte();
 			}
 			// handle symbol name (including '.'/'@' prefix)
@@ -185,10 +185,10 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		if (GotByte != CHAR_SOB)
 			Throw_serious_error(exception_no_left_brace);
 	}
-	DynaBuf_append(GlobalDynaBuf, CHAR_EOS);	// terminate param list
+	dynabuf_append(GlobalDynaBuf, CHAR_EOS);	// terminate param list
 	// now GlobalDynaBuf = comma-separated parameter list without spaces,
 	// but terminated with CHAR_EOS.
-	formal_parameters = DynaBuf_get_copy(GlobalDynaBuf);
+	formal_parameters = dynabuf_get_copy(GlobalDynaBuf);
 	// now GlobalDynaBuf = unused
 	// Reading the macro body would change the line number. To have correct
 	// error messages, we're checking for "macro twice" *now*.
@@ -249,14 +249,14 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 			// In both cases, GlobalDynaBuf may be used.
 			if (GotByte == REFERENCE_CHAR) {
 				// read call-by-reference arg
-				DynaBuf_append(internal_name, ARGTYPE_REF);
+				dynabuf_append(internal_name, ARGTYPE_REF);
 				GetByte();	// eat '~'
 				Input_read_scope_and_symbol_name(&symbol_scope);
 				// GotByte = illegal char
 				arg_table[arg_count].symbol = symbol_find(symbol_scope);	// CAUTION, object type may be NULL!
 			} else {
 				// read call-by-value arg
-				DynaBuf_append(internal_name, ARGTYPE_VALUE);
+				dynabuf_append(internal_name, ARGTYPE_VALUE);
 				ALU_any_result(&(arg_table[arg_count].result));
 			}
 			++arg_count;

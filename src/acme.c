@@ -331,10 +331,10 @@ static boolean do_actual_work(void)
 // copy string to DynaBuf
 static void keyword_to_dynabuf(const char keyword[])
 {
-	DYNABUF_CLEAR(GlobalDynaBuf);
-	DynaBuf_add_string(GlobalDynaBuf, keyword);
-	DynaBuf_append(GlobalDynaBuf, '\0');
-	DynaBuf_to_lower(GlobalDynaBuf, GlobalDynaBuf);	// convert to lower case
+	dynabuf_clear(GlobalDynaBuf);
+	dynabuf_add_string(GlobalDynaBuf, keyword);
+	dynabuf_append(GlobalDynaBuf, '\0');
+	dynabuf_to_lower(GlobalDynaBuf, GlobalDynaBuf);	// convert to lower case
 }
 
 
@@ -447,14 +447,14 @@ static void define_symbol(const char definition[])
 	signed long	value;
 
 	// copy definition to GlobalDynaBuf until '=' reached	
-	DYNABUF_CLEAR(GlobalDynaBuf);
+	dynabuf_clear(GlobalDynaBuf);
 	while ((*walk != '=') && (*walk != '\0'))
-		DynaBuf_append(GlobalDynaBuf, *walk++);
+		dynabuf_append(GlobalDynaBuf, *walk++);
 	if ((*walk == '\0') || (walk[1] == '\0'))
 		could_not_parse(definition);
 	// TODO - if first char is double quote, maybe interpret as string instead of number?
 	value = string_to_number(walk + 1);
-	DynaBuf_append(GlobalDynaBuf, '\0');
+	dynabuf_append(GlobalDynaBuf, '\0');
 	symbol_define(value);
 }
 

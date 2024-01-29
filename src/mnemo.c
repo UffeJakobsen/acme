@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Mnemonics stuff
@@ -1215,7 +1215,7 @@ boolean keyword_is_6502_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	return check_mnemo_tree(mnemo_6502_tree, mnemo_dyna_buf);
 }
 
@@ -1226,7 +1226,7 @@ boolean keyword_is_nmos6502_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check undocumented ("illegal") opcodes...
 	if (check_mnemo_tree(mnemo_6502undoc1_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1246,7 +1246,7 @@ boolean keyword_is_c64dtv2_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check C64DTV2 extensions...
 	if (check_mnemo_tree(mnemo_c64dtv2_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1266,7 +1266,7 @@ boolean keyword_is_65c02_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65c02_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1282,7 +1282,7 @@ boolean keyword_is_r65c02_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check 65c02 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65c02_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1302,7 +1302,7 @@ boolean keyword_is_w65c02_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check 65c02 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65c02_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1326,7 +1326,7 @@ boolean keyword_is_65ce02_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check 65ce02 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65ce02_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1354,7 +1354,7 @@ boolean keyword_is_4502_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check 65ce02 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65ce02_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1382,7 +1382,7 @@ boolean keyword_is_m65_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check m65 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_m65_tree, mnemo_dyna_buf))
 		return TRUE;
@@ -1414,7 +1414,7 @@ boolean keyword_is_65816_mnemo(int length)
 		return FALSE;
 
 	// make lower case version of mnemonic in local dynamic buffer
-	DynaBuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
+	dynabuf_to_lower(mnemo_dyna_buf, GlobalDynaBuf);
 	// first check 65816 extensions because some mnemonics gained new addressing modes...
 	if (check_mnemo_tree(mnemo_65816_tree, mnemo_dyna_buf))
 		return TRUE;
