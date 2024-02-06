@@ -106,6 +106,7 @@ static enum eos po_initmem(void)
 
 
 // change output "encryption" ("!xor" pseudo opcode)
+// (allows for block, so must be reentrant)
 static enum eos po_xor(void)
 {
 	char		old_value;
@@ -309,6 +310,7 @@ static enum eos po_cbm(void)
 }
 
 // read encoding table from file
+// (allows for block, so must be reentrant)
 static enum eos user_defined_encoding(FILE *stream)
 {
 	unsigned char		local_table[256],
@@ -335,6 +337,7 @@ static enum eos user_defined_encoding(FILE *stream)
 }
 
 // use one of the pre-defined encodings (raw, pet, scr)
+// (allows for block, so must be reentrant)
 static enum eos predefined_encoding(void)
 {
 	unsigned char		local_table[256],
@@ -356,6 +359,7 @@ static enum eos predefined_encoding(void)
 	return ENSURE_EOS;
 }
 // set current encoding ("!convtab" pseudo opcode)
+// (allows for block, so must be reentrant)
 static enum eos po_convtab(void)
 {
 	boolean	uses_lib;
@@ -610,6 +614,7 @@ static void old_offset_assembly(void)
 }
 
 // start offset assembly
+// (allows for block, so must be reentrant)
 // TODO - maybe add a label argument to assign the block size afterwards (for assemble-to-end-address) (or add another pseudo opcode)
 static enum eos po_pseudopc(void)
 {
@@ -657,6 +662,7 @@ static enum eos po_realpc(void)
 
 
 // select CPU ("!cpu" pseudo opcode)
+// (allows for block, so must be reentrant)
 static enum eos po_cpu(void)
 {
 	const struct cpu_type	*cpu_buffer	= CPU_state.type;	// remember current cpu
@@ -677,6 +683,7 @@ static enum eos po_cpu(void)
 
 
 // set register length, block-wise if needed.
+// (allows for block, so must be reentrant)
 static enum eos set_register_length(boolean *var, boolean make_long)
 {
 	int	old_size	= *var;
@@ -794,6 +801,7 @@ static enum eos po_symbollist(void)
 
 
 // switch to new zone ("!zone" or "!zn"). has to be re-entrant.
+// (allows for block, so must be reentrant)
 static enum eos po_zone(void)
 {
 	struct section	entry_values;	// buffer for outer zone
@@ -1245,6 +1253,24 @@ static enum eos po_watch(void)
 }
 */
 
+/* // disable warnings for a statement or block of code
+static enum eos po_nowarn(void)
+{
+	boolean	flag_buf	= global_inhibit_warnings;
+
+	global_inhibit_warnings = TRUE;
+	// if there's a block, parse it and then restore old value
+	if (Parse_optional_block()) {
+		global_inhibit_warnings = flag_buf;
+		return ENSURE_EOS;
+	} else {
+		return PARSE_REMAINDER;
+		TODO: restore previous state after the current statement,
+		do it like "!address" does it!
+	}
+}
+*/
+
 // constants
 #define USERMSG_INITIALSIZE	80
 
@@ -1291,6 +1317,7 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 static enum eos po_debug(void)
 {
 	// FIXME - make debug output depend on some cli switch
+	// FIXME - add a number arg to this po so user can decide how much to display?
 	return throw_string("!debug: ", throw_message);
 }
 // show info given in source code
@@ -1305,7 +1332,6 @@ static enum eos po_info(void)
 static enum eos po_warn(void)
 {
 	return throw_string("!warn: ", Throw_warning);
-
 }
 
 
@@ -1398,11 +1424,14 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("macro",		po_macro),
 /*	PREDEFNODE("trace",		po_trace),
 	PREDEFNODE("watch",		po_watch),	*/
+//	PREDEFNODE("nowarn",		po_nowarn),
 //	PREDEFNODE("debug",		po_debug),
 //	PREDEFNODE("info",		po_info),
 	PREDEFNODE("warn",		po_warn),
 	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),
+//	PREDEFNODE("filestart",		po_),
+//	PREDEFNODE("filestop",		po_),
 	PREDEFNODE("eof",		po_endoffile),
 	PREDEF_END("endoffile",		po_endoffile),
 	//    ^^^^ this marks the last element

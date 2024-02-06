@@ -283,51 +283,84 @@ void symbol_fix_forward_anon_name(boolean increment)
 }
 
 // temporary buffer for base name while handling second part
-STRUCT_DYNABUF_REF(basename_db, 64);
+STRUCT_DYNABUF_REF(dyn_sym_name, 40);
 
-// replace dynamic symbol name with its final version.
-// ("basename?indexsymbol" -> "basename4711")
+// replace dynamic symbol name with its final version, for example:
+// if "somesymbol" is 42 and "endsymbol" is 47,
+//	basename?(somesymbol)middle?endsymbol
+// becomes
+//	basename42middle47
 // on entry: GlobalDynaBuf holds base name, GotByte holds '?'
 // on exit: GlobalDynaBuf holds fixed name
 // return whether there was an error.
-#define NUMBUFSIZE	64	// large enough(tm) even for 64bit systems
 int symbol_fix_dynamic_name(void)
 {
-	scope_t		second_scope;
-	struct symbol	*second_symbol;
-	char		numbuf[NUMBUFSIZE];
+	scope_t		tmp_scope;
+	struct symbol	*tmp_symbol;
+	boolean		parenthesized;
 
 	if (GotByte != '?')
 		Bug_found("NotQuestionMark", GotByte);
-	GetByte();	// eat '?' character
-	// remember base name
-	dynabuf_clear(basename_db);
-	dynabuf_add_string(basename_db, GLOBALDYNABUF_CURRENT);
-	dynabuf_append(basename_db, '\0');	// terminate
-	// read second part (CAUTION, this will overwrite GlobalDynaBuf!)
-	if (Input_read_scope_and_symbol_name(&second_scope))
-		return 1;
 
-	second_symbol = symbol_find(second_scope);
-	if (second_symbol->object.type != &type_number) {
-		Throw_error("Second part of dynamic symbol name is not a number.");
-		return 1;
+	// start with base name
+	// (reading the inner parts will clobber GlobalDynaBuf, so copy it now)
+	dynabuf_clear(dyn_sym_name);
+	dynabuf_add_string(dyn_sym_name, GLOBALDYNABUF_CURRENT);
+
+	while (GotByte == '?') {
+		GetByte();	// eat '?' character
+
+		if (GotByte == '(') {
+			GetByte();	// eat '(' character
+			parenthesized = TRUE;
+		} else {
+			parenthesized = FALSE;
+		}
+
+		// read inner part
+		if (Input_read_scope_and_symbol_name(&tmp_scope))
+			return 1;
+
+		tmp_symbol = symbol_find(tmp_scope);
+		tmp_symbol->has_been_read = TRUE;
+		if (tmp_symbol->object.type == &type_number) {
+			if (tmp_symbol->object.u.number.ntype != NUMTYPE_INT) {
+				Throw_error("Inner part of dynamic symbol name is undefined or not integer.");
+				return 1;
+			}
+			dynabuf_add_signed_long(dyn_sym_name, (long) tmp_symbol->object.u.number.val.intval);
+		} else if (tmp_symbol->object.type == &type_string) {
+			dynabuf_add_bytes(dyn_sym_name, tmp_symbol->object.u.string->payload, tmp_symbol->object.u.string->length);
+		} else {
+			Throw_error("Inner part of dynamic symbol name is neither number nor string.");
+			return 1;
+		}
+
+		// check for closing parenthesis
+		if (parenthesized) {
+			SKIPSPACE();
+			if (GotByte == ')') {
+				GetByte();	// eat ')'
+			} else {
+				Throw_error("Inner part of dynamic symbol name does not end with ')' character.");
+				return 1;
+			}
+		}
+
+		// any more characters?
+		while (BYTE_CONTINUES_KEYWORD(GotByte)) {
+			DYNABUF_APPEND(dyn_sym_name, GotByte);
+			GetByte();
+		}
 	}
-	if (second_symbol->object.u.number.ntype != NUMTYPE_INT) {
-		Throw_error("Second part of dynamic symbol name is undefined or not integer.");
-		return 1;
-	}
-	second_symbol->has_been_read = TRUE;
-#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-	snprintf(numbuf, NUMBUFSIZE, "%ld", (long) second_symbol->object.u.number.val.intval);
-#else
-	sprintf(numbuf, "%ld", (long) second_symbol->object.u.number.val.intval);
-#endif
+	dynabuf_append(dyn_sym_name, '\0');
+	// FIXME: now the dynamically created symbol name should be checked for
+	// its validity, because a string subst could have put anything in there!
+
 	// return basename and number in GlobalDynaBuf:
 	dynabuf_clear(GlobalDynaBuf);
-	dynabuf_add_string(GlobalDynaBuf, basename_db->buffer);
-	dynabuf_add_string(GlobalDynaBuf, numbuf);
+	dynabuf_add_string(GlobalDynaBuf, dyn_sym_name->buffer);
 	dynabuf_append(GlobalDynaBuf, '\0');
-	//printf("skipping '?' for <%s>\n", GLOBALDYNABUF_CURRENT);
+	//printf("created dynamic symbol name <%s>\n", GLOBALDYNABUF_CURRENT);
 	return 0;
 }
