@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for RISC OS)
@@ -90,14 +90,14 @@ void RISCOS_throwback(const char *message, int type)
 		regs.r[0] = 0;
 		regs.r[1] = 0;
 	//	regs.r[2] = (int) toplevel_source;
-		regs.r[2] = (int) Input_now->original_filename;
+		regs.r[2] = (int) input_now->original_filename;
 		_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);
 	}
 	// send throwback message
 	regs.r[0] = 1;
 	regs.r[1] = 0;
-	regs.r[2] = (int) Input_now->original_filename;
-	regs.r[3] = Input_now->line_number;
+	regs.r[2] = (int) input_now->original_filename;
+	regs.r[3] = input_now->line_number;
 	regs.r[4] = type;
 	regs.r[5] = (int) message;
 	_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);

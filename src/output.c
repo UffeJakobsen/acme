@@ -135,7 +135,7 @@ static void border_crossed(int current_offset)
 
 
 // function ptr to write byte into output buffer (might point to real fn or error trigger)
-void (*Output_byte)(intval_t byte);
+void (*output_byte)(intval_t byte);
 
 
 // send low byte to output buffer, automatically increasing program counter
@@ -165,14 +165,14 @@ static void no_output(intval_t byte)
 {
 	Throw_error(exception_pc_undefined);
 	// now change fn ptr to not complain again.
-	Output_byte = real_output;
-	Output_byte(byte);	// try again
+	output_byte = real_output;
+	output_byte(byte);	// try again
 }
 
 
 // skip over some bytes in output buffer without starting a new segment
 // (used by "!skip", and also called by "!binary" if really calling
-// Output_byte would be a waste of time)
+// output_byte would be a waste of time)
 void output_skip(int size)
 {
 	if (size < 1) {
@@ -182,8 +182,8 @@ void output_skip(int size)
 	}
 
 	// check whether ptr undefined
-	if (Output_byte == no_output) {
-		Output_byte(0);	// trigger error with a dummy byte
+	if (output_byte == no_output) {
+		output_byte(0);	// trigger error with a dummy byte
 		--size;	// fix amount to cater for dummy byte
 	}
 	// CAUTION - there are two copies of these checks!
@@ -212,7 +212,7 @@ static void fill_completely(char value)
 
 // define default value for empty memory ("!initmem" pseudo opcode)
 // returns zero if ok, nonzero if already set
-int output_initmem(char content)
+int output_setdefault(char content)
 {
 	// if MemInit flag is already set, complain
 	if (out->initvalue_set) {
@@ -241,7 +241,7 @@ int outputfile_set_format(void)
 	void	*node_body;
 
 	// perform lookup
-	if (!Tree_easy_scan(file_format_tree, &node_body, GlobalDynaBuf))
+	if (!tree_easy_scan(file_format_tree, &node_body, GlobalDynaBuf))
 		return 1;
 
 	output_format = (enum output_format) node_body;
@@ -276,7 +276,7 @@ int outputfile_set_filename(void)
 
 
 // init output struct (done later)
-void Output_init(signed long fill_value, boolean use_large_buf)
+void output_createbuffer(signed long fill_value, boolean use_large_buf)
 {
 	out->bufsize = use_large_buf ? 0x1000000 : 0x10000;
 	out->buffer = safe_malloc(out->bufsize);
@@ -295,7 +295,7 @@ void Output_init(signed long fill_value, boolean use_large_buf)
 
 
 // dump used portion of output buffer into output file
-void Output_save_file(FILE *fd)
+void output_save_file(FILE *fd)
 {
 	intval_t	start,
 			amount;
@@ -388,7 +388,7 @@ static void check_segment(intval_t new_pc)
 
 
 // clear segment list and disable output
-void Output_passinit(void)
+void output_passinit(void)
 {
 //	struct segment	*temp;
 
@@ -405,7 +405,7 @@ void Output_passinit(void)
 	out->lowest_written = out->bufsize - 1;
 	out->highest_written = 0;
 	// deactivate output - any byte written will trigger error:
-	Output_byte = no_output;
+	output_byte = no_output;
 	out->write_idx = 0;	// same as pc on pass init!
 	out->segment.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
 	out->segment.max = out->bufsize - 1;	// TODO - use end of bank?
@@ -427,7 +427,7 @@ void Output_passinit(void)
 
 // show start and end of current segment
 // called whenever a new segment begins, and at end of pass.
-void Output_end_segment(void)
+void output_end_segment(void)
 {
 	intval_t	amount;
 
@@ -461,17 +461,17 @@ void Output_end_segment(void)
 
 // change output pointer and enable output
 // TODO - this only gets called from vcpu_set_pc so could be made static!
-void Output_start_segment(intval_t address_change, bits segment_flags)
+void output_start_segment(intval_t address_change, bits segment_flags)
 {
 	// properly finalize previous segment (link to list, announce)
-	Output_end_segment();
+	output_end_segment();
 
 	// calculate start of new segment
 	out->write_idx = (out->write_idx + address_change) & (out->bufsize - 1);
 	out->segment.start = out->write_idx;
 	out->segment.flags = segment_flags;
 	// allow writing to output buffer
-	Output_byte = real_output;
+	output_byte = real_output;
 	// in first pass, check for other segments and maybe issue warning
 	// TODO - remove FIRST_PASS condition
 	if (FIRST_PASS) {
@@ -486,6 +486,7 @@ char output_get_xor(void)
 {
 	return out->xor;
 }
+
 void output_set_xor(char xor)
 {
 	out->xor = xor;
@@ -518,7 +519,7 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	CPU_state.pc.addr_refs = 1;	// yes, PC counts as address
 	// now tell output buffer to start a new segment
-	Output_start_segment(pc_change, segment_flags);
+	output_start_segment(pc_change, segment_flags);
 }
 /*
 TODO - overhaul program counter and memory pointer stuff:
@@ -604,7 +605,7 @@ void pseudopc_end(void)
 		// encountering "*=".
 		// so if wanted version is new enough, choke on bug!
 		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
-			Bug_found("ClosingUnopenedPseudopcBlock", 0);
+			BUG("ClosingUnopenedPseudopcBlock", 0);
 	} else {
 		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & (out->bufsize - 1);	// pc might have wrapped around
 		CPU_state.pc.ntype = pseudopc_current_context->ntype;

@@ -60,7 +60,7 @@ static void dump_one_symbol(struct rwnode *node, FILE *fd)
 	else if (symbol->object.u.number.ntype == NUMTYPE_FLOAT)
 		fprintf(fd, "%.30f", symbol->object.u.number.val.fpval);	//FIXME %g
 	else
-		Bug_found("IllegalNumberType4", symbol->object.u.number.ntype);
+		BUG("IllegalNumberType4", symbol->object.u.number.ntype);
 	if (symbol->object.u.number.flags & NUMBER_EVER_UNDEFINED)
 		fprintf(fd, "\t; ?");	// TODO - write "forward" instead?
 	if (!symbol->has_been_read)
@@ -112,7 +112,7 @@ struct symbol *symbol_find(scope_t scope)
 	struct symbol	*symbol;
 	boolean		node_created;
 
-	node_created = Tree_hard_scan(&node, symbols_forest, scope, TRUE);
+	node_created = tree_hard_scan(&node, symbols_forest, scope, TRUE);
 	// if node has just been created, create symbol as well
 	if (node_created) {
 		// create new symbol structure
@@ -175,9 +175,9 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 {
 	if (!force_bit)
-		Bug_found("ForceBitZero", 0);
+		BUG("ForceBitZero", 0);
 	if (symbol->object.type == NULL)
-		Bug_found("NullTypeObject", 0);
+		BUG("NullTypeObject", 0);
 
 	if (symbol->object.type != &type_number) {
 		Throw_error("Force bits can only be given to numbers.");
@@ -216,7 +216,7 @@ void symbol_define(intval_t value)
 // dump global symbols to file
 void symbols_list(FILE *fd)
 {
-	Tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_one_symbol, fd);
+	tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_one_symbol, fd);
 }
 
 
@@ -225,13 +225,13 @@ void symbols_vicelabels(FILE *fd)
 	// FIXME - if type checking is enabled, maybe only output addresses?
 	// the order of dumped labels is important because VICE will prefer later defined labels
 	// dump unused labels
-	Tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_unusednonaddress, fd);
+	tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_unusednonaddress, fd);
 	fputc('\n', fd);
 	// dump other used labels
-	Tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_usednonaddress, fd);
+	tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_usednonaddress, fd);
 	fputc('\n', fd);
 	// dump address symbols
-	Tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_address, fd);
+	tree_dump_forest(symbols_forest, SCOPE_GLOBAL, dump_vice_address, fd);
 	// TODO - add trace points and watch points with load/store/exec args!
 }
 
@@ -263,7 +263,7 @@ void symbol_fix_forward_anon_name(boolean increment)
 		counter_symbol->object.u.number.val.intval = 0;
 	} else if (counter_symbol->object.type != &type_number) {
 		// sanity check: it must be a number!
-		Bug_found("ForwardAnonCounterNotInt", 0);
+		BUG("ForwardAnonCounterNotInt", 0);
 	}
 	// make sure it gets reset to zero in each new pass
 	if (counter_symbol->pass != pass.number) {
@@ -300,7 +300,7 @@ int symbol_fix_dynamic_name(void)
 	boolean		parenthesized;
 
 	if (GotByte != '?')
-		Bug_found("NotQuestionMark", GotByte);
+		BUG("NotQuestionMark", GotByte);
 
 	// start with base name
 	// (reading the inner parts will clobber GlobalDynaBuf, so copy it now)
@@ -318,7 +318,7 @@ int symbol_fix_dynamic_name(void)
 		}
 
 		// read inner part
-		if (Input_read_scope_and_symbol_name(&tmp_scope))
+		if (input_read_scope_and_symbol_name(&tmp_scope))
 			return 1;
 
 		tmp_symbol = symbol_find(tmp_scope);

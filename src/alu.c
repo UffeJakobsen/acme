@@ -326,7 +326,7 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 
 	dynabuf_add_string(errormsg_dyna_buf, name);
 	if (errormsg_dyna_buf->size < length) {
-		Bug_found("IllegalSymbolNameLength", errormsg_dyna_buf->size - length);
+		BUG("IllegalSymbolNameLength", errormsg_dyna_buf->size - length);
 	} else {
 		errormsg_dyna_buf->size = length;
 	}
@@ -357,7 +357,7 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 		symbol->object.u.number.flags = NUMBER_EVER_UNDEFINED;	// reading undefined taints it
 		symbol->object.u.number.addr_refs = 0;
 	} else {
-		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> Bug_found()!
+		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> BUG()!
 		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
 	}
 	// first push on arg stack, so we have a local copy we can "unpseudo"
@@ -413,13 +413,13 @@ static void parse_quoted(char closing_quote)
 	intval_t	value;
 
 	dynabuf_clear(GlobalDynaBuf);
-	if (Input_quoted_to_dynabuf(closing_quote))
+	if (input_quoted_to_dynabuf(closing_quote))
 		goto fail;	// unterminated or escaping error
 
 	// eat closing quote
 	GetByte();
 	// now convert to unescaped version
-	if (Input_unescape_dynabuf(0))
+	if (input_unescape_dynabuf(0))
 		goto fail;	// escaping error
 
 	// without backslash escaping, both ' and " are used for single
@@ -647,7 +647,7 @@ static void parse_function_call(void)
 	// make lower case version of name in local dynamic buffer
 	dynabuf_to_lower(function_dyna_buf, GlobalDynaBuf);
 	// search for tree item
-	if (Tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
+	if (tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
 		PUSH_OP((struct op *) node_body);
 	} else {
 		Throw_error("Unknown function.");
@@ -685,7 +685,7 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 	struct listitem	*item;
 
 	if (selfhead == otherhead)
-		Bug_found("ExtendingListWithItself", 0);
+		BUG("ExtendingListWithItself", 0);
 	item = otherhead->next;
 	while (item != otherhead) {
 		list_append_object(selfhead, &item->u.payload);
@@ -717,7 +717,7 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		parse_program_counter(unpseudo_count);
 	} else if (BYTE_STARTS_KEYWORD(GotByte) || (GotByte == LOCAL_PREFIX) || (GotByte == CHEAP_PREFIX)) {
 		// symbol
-		if (Input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
+		if (input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
 
 		if ((GotByte == '?') && symbol_fix_dynamic_name())
@@ -802,7 +802,7 @@ static void handle_special_operator(struct expression *expression, enum op_id pr
 		}
 		break;
 	default:
-		Bug_found("IllegalOperatorId", previous);
+		BUG("IllegalOperatorId", previous);
 	}
 }
 // put dyadic operator on stack and try to reduce stacks by performing
@@ -835,7 +835,7 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 		case OPGROUP_MONADIC:
 			// stacks:	...	...	previous op(monadic)	newest arg	newest op(dyadic)
 			if (arg_sp < 1)
-				Bug_found("ArgStackEmpty", arg_sp);
+				BUG("ArgStackEmpty", arg_sp);
 			NEWEST_ARGUMENT.type->monadic_op(&NEWEST_ARGUMENT, PREVIOUS_OPERATOR);
 			expression->is_parenthesized = FALSE;	// operation was something other than parentheses
 			// now remove previous operator by overwriting with newest one...
@@ -845,7 +845,7 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 		case OPGROUP_DYADIC:
 			// stacks:	previous arg	previous op(dyadic)	newest arg	newest op(dyadic)
 			if (arg_sp < 2)
-				Bug_found("NotEnoughArgs", arg_sp);
+				BUG("NotEnoughArgs", arg_sp);
 			PREVIOUS_ARGUMENT.type->dyadic_op(&PREVIOUS_ARGUMENT, PREVIOUS_OPERATOR, &NEWEST_ARGUMENT);
 			expression->is_parenthesized = FALSE;	// operation was something other than parentheses
 			// now remove previous operator by overwriting with newest one...
@@ -856,12 +856,12 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 		case OPGROUP_SPECIAL:
 			// stacks:	...	...	previous op(special)	newest arg	newest op(dyadic)
 			if (NEWEST_OPERATOR->id != OPID_TERMINATOR)
-				Bug_found("StrangeOperator", NEWEST_OPERATOR->id);
+				BUG("StrangeOperator", NEWEST_OPERATOR->id);
 			handle_special_operator(expression, PREVIOUS_OPERATOR->id);
 			// the function above fixes both stacks and "is_parenthesized"!
 			break;
 		default:
-			Bug_found("IllegalOperatorGroup", PREVIOUS_OPERATOR->group);
+			BUG("IllegalOperatorGroup", PREVIOUS_OPERATOR->group);
 		}
 	}
 }
@@ -986,7 +986,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		}
 
 		// here we need to put '.' into GlobalDynaBuf even though we have already skipped it:
-		if (Input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
+		if (input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
 			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
 				alu_state = STATE_ERROR;
 				break;//goto done;
@@ -1000,7 +1000,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		break;//goto done;
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
-		if (Input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
+		if (input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
 			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
 				alu_state = STATE_ERROR;
 				break;//goto done;
@@ -1024,7 +1024,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			register int	length;
 
 			// Read global label (or "NOT")
-			length = Input_read_keyword();
+			length = input_read_keyword();
 			// Now GotByte = illegal char
 			// Check for NOT. Okay, it's hardcoded,
 			// but so what? Sue me...
@@ -1209,10 +1209,10 @@ static void expect_dyadic_operator(struct expression *expression)
 	default:
 		// check string versions of operators
 		if (BYTE_STARTS_KEYWORD(GotByte)) {
-			Input_read_and_lower_keyword();
+			input_read_and_lower_keyword();
 			// Now GotByte = illegal char
 			// search for tree item
-			if (Tree_easy_scan(op_tree, &node_body, GlobalDynaBuf)) {
+			if (tree_easy_scan(op_tree, &node_body, GlobalDynaBuf)) {
 				op = node_body;
 				goto push_dyadic_op;
 			}
@@ -1227,7 +1227,7 @@ static void expect_dyadic_operator(struct expression *expression)
 		}
 	}
 //end:
-	return;	// TODO - change the two points that go here and add a Bug_found() instead
+	return;	// TODO - change the two points that go here and add a BUG() instead
 
 // shared endings
 get_byte_and_push_dyadic:
@@ -1242,10 +1242,10 @@ static void unsupported_operation(const struct object *optional, const struct op
 {
 	if (optional) {
 		if (op->group != OPGROUP_DYADIC)
-			Bug_found("OperatorIsNotDyadic", op->id);
+			BUG("OperatorIsNotDyadic", op->id);
 	} else {
 		if (op->group != OPGROUP_MONADIC)
-			Bug_found("OperatorIsNotMonadic", op->id);
+			BUG("OperatorIsNotMonadic", op->id);
 	}
 	dynabuf_clear(errormsg_dyna_buf);
 	dynabuf_add_string(errormsg_dyna_buf, "Operation not supported: Cannot apply \"");
@@ -1387,7 +1387,7 @@ static boolean list_differs(const struct object *self, const struct object *othe
 	ford = other->u.listhead->next;
 	while (arthur != self->u.listhead) {
 		if (ford == other->u.listhead)
-			Bug_found("ListLengthError", 0);
+			BUG("ListLengthError", 0);
 		if (arthur->u.payload.type != ford->u.payload.type)
 			return TRUE;	// item types differ
 
@@ -1398,7 +1398,7 @@ static boolean list_differs(const struct object *self, const struct object *othe
 		ford = ford->next;
 	}
 	if (ford != other->u.listhead)
-		Bug_found("ListLengthError", 1);
+		BUG("ListLengthError", 1);
 	return FALSE;	// no difference found
 }
 // string:
@@ -1685,7 +1685,7 @@ static void number_handle_monadic_operator(struct object *self, const struct op 
 		float_handle_monadic_operator(self, op);
 		break;
 	default:
-		Bug_found("IllegalNumberType1", self->u.number.ntype);
+		BUG("IllegalNumberType1", self->u.number.ntype);
 	}
 }
 
@@ -1888,7 +1888,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 	// maybe put this into an extra "int_dyadic_int" function?
 	// sanity check, now "other" must be an int
 	if (other->u.number.ntype != NUMTYPE_INT)
-		Bug_found("SecondArgIsNotAnInt", op->id);
+		BUG("SecondArgIsNotAnInt", op->id);
 
 	// part 2: now we got rid of non-ints, perform actual operation:
 	switch (op->id) {
@@ -2150,7 +2150,7 @@ static void number_handle_dyadic_operator(struct object *self, const struct op *
 	else if (self->u.number.ntype == NUMTYPE_FLOAT)
 		float_handle_dyadic_operator(self, op, other);
 	else
-		Bug_found("IllegalNumberType2", self->u.number.ntype);
+		BUG("IllegalNumberType2", self->u.number.ntype);
 }
 
 
@@ -2171,7 +2171,7 @@ static int get_valid_index(int *target, int length, const struct object *self, c
 	if (other->u.number.ntype == NUMTYPE_FLOAT)
 		float_to_int(other);
 	if (other->u.number.ntype != NUMTYPE_INT)
-		Bug_found("IllegalNumberType3", other->u.number.ntype);
+		BUG("IllegalNumberType3", other->u.number.ntype);
 
 	index = other->u.number.val.intval;
 	// negative indices access from the end
@@ -2337,7 +2337,7 @@ static void number_print(const struct object *self, struct dynabuf *db)
 		sprintf(buffer, "%.30g", self->u.number.val.fpval);
 		dynabuf_add_string(db, buffer);
 	} else {
-		Bug_found("IllegalNumberType5", self->u.number.ntype);
+		BUG("IllegalNumberType5", self->u.number.ntype);
 	}
 }
 
@@ -2395,7 +2395,7 @@ static int string_get_length(const struct object *self)
 // cannot be indexed
 static void cannot_be_indexed(const struct object *self, struct object *target, int index)
 {
-	Bug_found("TriedToIndexNumber", index);
+	BUG("TriedToIndexNumber", index);
 }
 
 // list:
@@ -2499,9 +2499,9 @@ static int parse_expression(struct expression *expression)
 	if (alu_state == STATE_END) {
 		// check for bugs
 		if (arg_sp != 1)
-			Bug_found("ArgStackNotEmpty", arg_sp);
+			BUG("ArgStackNotEmpty", arg_sp);
 		if (op_sp != 1)
-			Bug_found("OperatorStackNotEmpty", op_sp);
+			BUG("OperatorStackNotEmpty", op_sp);
 		// copy result
 		*result = arg_stack[0];
 		// if there was nothing to parse, mark as undefined	FIXME - change this! make "nothing" its own result type; only numbers may be undefined
@@ -2531,10 +2531,10 @@ static int parse_expression(struct expression *expression)
 		//result->u.number.val.intval = 0;
 		result->u.number.addr_refs = 0;
 		// make sure no additional (spurious) errors are reported:
-		Input_skip_remainder();
+		input_skip_remainder();
 		// FIXME - remove this when new function interface gets used:
 		// callers must decide for themselves what to do when expression
-		// parser returns error (and may decide to call Input_skip_remainder)
+		// parser returns error (and may decide to call input_skip_remainder)
 		return 1;	// error
 	}
 }
@@ -2563,7 +2563,7 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		else if (expression.result.u.number.ntype == NUMTYPE_FLOAT)
 			*target = expression.result.u.number.val.fpval;
 		else
-			Bug_found("IllegalNumberType6", expression.result.u.number.ntype);
+			BUG("IllegalNumberType6", expression.result.u.number.ntype);
 	} else if (expression.result.type == &type_string) {
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:
@@ -2618,7 +2618,7 @@ throws errors even though the result is defined!
 		} else if (expression.result.u.number.ntype == NUMTYPE_FLOAT) {
 			float_to_int(&expression.result);
 		} else {
-			Bug_found("IllegalNumberType7", expression.result.u.number.ntype);
+			BUG("IllegalNumberType7", expression.result.u.number.ntype);
 		}
 	} else if (expression.result.type == &type_string) {
 		// accept single-char strings, to be more

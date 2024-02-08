@@ -55,29 +55,32 @@ extern const char	FILE_READBINARY[];
 
 
 // Variables
-extern struct input	*Input_now;	// current input structure
+extern struct input	*input_now;	// current input structure
 
 
 // Prototypes
 
 // let current input point to start of file
-extern void Input_new_file(const char *filename, FILE *fd);
+extern void input_new_file(const char *filename, FILE *fd);
+
 // get next byte from currently active byte source in shortened high-level
-// format. When inside quotes, use Input_quoted_to_dynabuf() instead!
+// format. When inside quotes, use input_quoted_to_dynabuf() instead!
 extern char GetByte(void);
+
 // Skip remainder of statement, for example on error
-extern void Input_skip_remainder(void);
+extern void input_skip_remainder(void);
+
 // Ensure that the remainder of the current statement is empty, for example
 // after mnemonics using implied addressing.
-extern void Input_ensure_EOS(void);
+extern void input_ensure_EOS(void);
 
 // read string to dynabuf until closing quote is found
 // returns 1 on errors (unterminated, escaping error)
-extern int Input_quoted_to_dynabuf(char closing_quote);
+extern int input_quoted_to_dynabuf(char closing_quote);
 
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
-extern int Input_unescape_dynabuf(int start_index);
+extern int input_unescape_dynabuf(int start_index);
 
 // Skip or store block (starting with next byte, so call directly after
 // reading opening brace).
@@ -86,32 +89,33 @@ extern int Input_unescape_dynabuf(int start_index);
 // If "Store" is FALSE, NULL is returned.
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-extern char *Input_skip_or_store_block(boolean store);
+extern char *input_skip_or_store_block(boolean store);
 
 // append optional '.'/'@' prefix to GlobalDynaBuf, then keep
 // appending while characters are legal for keywords.
 // throw "missing string" error if none.
 // return whether there was an error.
-extern int Input_append_symbol_name_to_global_dynabuf(void);
+extern int input_append_symbol_name_to_global_dynabuf(void);
 
 // FIXME - move these to "symbol.h" and remove dependency on "scope":
 // read symbol name into GlobalDynaBuf, set scope,
 // return whether there was an error (namely, "no string given").
-extern int Input_readscopeandsymbolname(scope_t *scope, boolean dotkluge);
-#define Input_read_scope_and_symbol_name(scope)	Input_readscopeandsymbolname(scope, FALSE)
-#define Input_read_scope_and_symbol_name_KLUGED(scope)	Input_readscopeandsymbolname(scope, TRUE)
+extern int input_readscopeandsymbolname(scope_t *scope, boolean dotkluge);
+#define input_read_scope_and_symbol_name(scope)	input_readscopeandsymbolname(scope, FALSE)
+#define input_read_scope_and_symbol_name_KLUGED(scope)	input_readscopeandsymbolname(scope, TRUE)
 
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string. Return its length (without
 // terminator).
 // Zero lengths will produce a "missing string" error.
-extern int Input_read_keyword(void);
+extern int input_read_keyword(void);
 
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string, then convert to lower case.
 // Return its length (without terminator).
 // Zero lengths will produce a "missing string" error.
-extern int Input_read_and_lower_keyword(void);
+extern int input_read_and_lower_keyword(void);
+
 // Try to read a file name.
 // If "allow_library" is TRUE, library access by using <...> quoting
 // is possible as well. If "uses_lib" is non-NULL, info about library
@@ -120,19 +124,23 @@ extern int Input_read_and_lower_keyword(void);
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
-// Input_skip_remainder() then.
-extern int Input_read_filename(boolean library_allowed, boolean *uses_lib);
+// input_skip_remainder() then.
+extern int input_read_filename(boolean library_allowed, boolean *uses_lib);
+
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.
-extern int Input_accept_comma(void);
+extern int input_accept_comma(void);
+
 // read optional info about parameter length
-extern bits Input_get_force_bit(void);
+// FIXME - move to different file!
+extern bits input_get_force_bit(void);
 
 
 // include path stuff - should be moved to its own file:
 
 // add entry
 extern void includepaths_add(const char *path);
+
 // open file for reading (trying list entries as prefixes)
 // "uses_lib" tells whether to access library or to make use of include paths
 // file name is expected in GlobalDynaBuf

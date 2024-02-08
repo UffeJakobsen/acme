@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // type system stuff
@@ -26,7 +26,7 @@ void typesystem_force_address_block(void)
 	boolean	buffer	= in_address_block;
 
 	in_address_block = TRUE;
-	Parse_optional_block();
+	parse_optional_block();
 	in_address_block = buffer;
 }
 

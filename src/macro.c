@@ -74,7 +74,7 @@ static scope_t get_scope_and_title(void)
 {
 	scope_t	macro_scope;
 
-	Input_read_scope_and_symbol_name(&macro_scope);	// skips spaces before
+	input_read_scope_and_symbol_name(&macro_scope);	// skips spaces before
 	// now GotByte = illegal character after title
 	// copy macro title to private dynabuf and add separator character
 	dynabuf_clear(user_macro_name);
@@ -92,7 +92,7 @@ static int pipe_comma(void)
 {
 	int	result;
 
-	result = Input_accept_comma();
+	result = input_accept_comma();
 	if (result)
 		DYNABUF_APPEND(GlobalDynaBuf, ',');
 	return result;
@@ -112,7 +112,7 @@ static char *get_string_copy(const char *original)
 
 // This function is called from both macro definition and macro call.
 // Terminate macro name and copy from internal_name to GlobalDynaBuf
-// (because that's where Tree_hard_scan() looks for the search string).
+// (because that's where tree_hard_scan() looks for the search string).
 // Then try to find macro and return whether it was created.
 static int search_for_macro(struct rwnode **result, scope_t scope, int create)
 {
@@ -121,7 +121,7 @@ static int search_for_macro(struct rwnode **result, scope_t scope, int create)
 	dynabuf_clear(GlobalDynaBuf);
 	dynabuf_add_string(GlobalDynaBuf, internal_name->buffer);
 	dynabuf_append(GlobalDynaBuf, '\0');
-	return Tree_hard_scan(result, macro_forest, scope, create);
+	return tree_hard_scan(result, macro_forest, scope, create);
 }
 
 // This function is called when an already existing macro is re-defined.
@@ -134,10 +134,10 @@ static void report_redefinition(struct rwnode *macro_node)
 
 	// show warning with location of current definition
 	Throw_warning(exception_macro_twice);
-	// CAUTION, ugly kluge: fiddle with Input_now and section_now
+	// CAUTION, ugly kluge: fiddle with input_now and section_now
 	// data to generate helpful error messages
-	Input_now->original_filename = original_macro->def_filename;
-	Input_now->line_number = original_macro->def_line_number;
+	input_now->original_filename = original_macro->def_filename;
+	input_now->line_number = original_macro->def_line_number;
 	section_now->type = "original";
 	section_now->title = "definition";
 	// show serious error with location of original definition
@@ -147,7 +147,7 @@ static void report_redefinition(struct rwnode *macro_node)
 // This function is only called during the first pass, so there's no need to
 // check whether to skip the definition or not.
 // Return with GotByte = '}'
-void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
+void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 {
 	char		*formal_parameters;
 	struct rwnode	*macro_node;
@@ -179,7 +179,7 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 				GetByte();
 			}
 			// handle symbol name (including '.'/'@' prefix)
-			Input_append_symbol_name_to_global_dynabuf();
+			input_append_symbol_name_to_global_dynabuf();
 		} while (pipe_comma());
 		// ensure CHAR_SOB ('{')
 		if (GotByte != CHAR_SOB)
@@ -198,17 +198,17 @@ void Macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		report_redefinition(macro_node);	// quits with serious error
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
-	new_macro->def_line_number = Input_now->line_number;
-	new_macro->def_filename = get_string_copy(Input_now->original_filename);
+	new_macro->def_line_number = input_now->line_number;
+	new_macro->def_filename = get_string_copy(input_now->original_filename);
 	new_macro->original_name = get_string_copy(user_macro_name->buffer);
 	new_macro->parameter_list = formal_parameters;
-	new_macro->body = Input_skip_or_store_block(TRUE);	// changes LineNumber
+	new_macro->body = input_skip_or_store_block(TRUE);	// changes LineNumber
 	macro_node->body = new_macro;	// link macro struct to tree node
 	// and that about sums it up
 }
 
 // Parse macro call ("+MACROTITLE"). Has to be re-entrant.
-void Macro_parse_call(void)	// Now GotByte = first char of macro name
+void macro_parse_call(void)	// Now GotByte = first char of macro name
 {
 	char		local_gotbyte;
 	struct symbol	*symbol;
@@ -251,7 +251,7 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 				// read call-by-reference arg
 				dynabuf_append(internal_name, ARGTYPE_REF);
 				GetByte();	// eat '~'
-				Input_read_scope_and_symbol_name(&symbol_scope);
+				input_read_scope_and_symbol_name(&symbol_scope);
 				// GotByte = illegal char
 				arg_table[arg_count].symbol = symbol_find(symbol_scope);	// CAUTION, object type may be NULL!
 			} else {
@@ -260,7 +260,7 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 				ALU_any_result(&(arg_table[arg_count].result));
 			}
 			++arg_count;
-		} while (Input_accept_comma());
+		} while (input_accept_comma());
 	}
 	// now arg_table contains the arguments
 	// now GlobalDynaBuf = unused
@@ -269,7 +269,7 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 	search_for_macro(&macro_node, macro_scope, FALSE);
 	if (macro_node == NULL) {
 		Throw_error("Macro not defined (or wrong signature).");
-		Input_skip_remainder();
+		input_skip_remainder();
 	} else {
 		// make macro_node point to the macro struct
 		actual_macro = macro_node->body;
@@ -282,9 +282,9 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 		new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 		new_input.src.ram_ptr = actual_macro->parameter_list;
 		// remember old input
-		outer_input = Input_now;
+		outer_input = input_now;
 		// activate new input
-		Input_now = &new_input;
+		input_now = &new_input;
 
 		outer_err_count = Throw_get_counter();	// remember error count (for call stack decision)
 
@@ -305,15 +305,15 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 				if (GotByte == REFERENCE_CHAR) {
 					// assign call-by-reference arg
 					GetByte();	// eat '~'
-					Input_read_scope_and_symbol_name(&symbol_scope);
+					input_read_scope_and_symbol_name(&symbol_scope);
 					// create new tree node and link existing symbol struct from arg list to it
-					if ((Tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
+					if ((tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
 					&& (FIRST_PASS))
 						Throw_error("Macro parameter twice.");
 					symbol_node->body = arg_table[arg_count].symbol;	// CAUTION, object type may be NULL
 				} else {
 					// assign call-by-value arg
-					Input_read_scope_and_symbol_name(&symbol_scope);
+					input_read_scope_and_symbol_name(&symbol_scope);
 					symbol = symbol_find(symbol_scope);
 // FIXME - find out if symbol was just created.
 // Then check for the same error message here as above ("Macro parameter twice.").
@@ -321,21 +321,21 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 					symbol->object = arg_table[arg_count].result;	// FIXME - this assignment redefines globals/whatever without throwing errors!
 				}
 				++arg_count;
-			} while (Input_accept_comma());
+			} while (input_accept_comma());
 		}
 		// and now, finally, parse the actual macro body
-		Input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+		input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 // maybe call parse_ram_block(actual_macro->def_line_number, actual_macro->body)
-		Input_now->src.ram_ptr = actual_macro->body;
-		Parse_until_eob_or_eof();
+		input_now->src.ram_ptr = actual_macro->body;
+		parse_until_eob_or_eof();
 		if (GotByte != CHAR_EOB)
-			Bug_found("IllegalBlockTerminator", GotByte);
+			BUG("IllegalBlockTerminator", GotByte);
 		// end section (free title memory, if needed)
 		section_finalize(&new_section);
 		// restore previous section
 		section_now = outer_section;
 		// restore previous input:
-		Input_now = outer_input;
+		input_now = outer_input;
 		// restore old Gotbyte context
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
 
@@ -343,7 +343,7 @@ void Macro_parse_call(void)	// Now GotByte = first char of macro name
 		if (Throw_get_counter() != outer_err_count)
 			Throw_warning("...called from here.");
 
-		Input_ensure_EOS();
+		input_ensure_EOS();
 	}
 	++macro_recursions_left;	// leave this nesting level
 }

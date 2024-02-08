@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Global stuff - things that are needed by several modules
@@ -121,41 +121,52 @@ do {				\
 
 // set configuration to default values
 extern void config_default(struct config *conf);
+
 // allocate memory and die if not available
 extern void *safe_malloc(size_t amount);
+
 // call with symbol name in GlobalDynaBuf and GotByte == '='
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
 extern void parse_assignment(scope_t scope, bits force_bit, bits powers);
+
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.
-extern void Parse_until_eob_or_eof(void);
+extern void parse_until_eob_or_eof(void);
+
 // Skip space. If GotByte is CHAR_SOB ('{'), parse block and return TRUE.
 // Otherwise (if there is no block), return FALSE.
 // Don't forget to call EnsureEOL() afterwards.
-extern int Parse_optional_block(void);
+extern int parse_optional_block(void);
+
 // error/warning counter so macro calls can find out whether to show a call stack
 extern int Throw_get_counter(void);
+
 // Output a warning.
 // This means the produced code looks as expected. But there has been a
 // situation that should be reported to the user, for example ACME may have
 // assembled a 16-bit parameter with an 8-bit value.
 extern void Throw_warning(const char *msg);
+
 // Output a warning if in first pass. See above.
 extern void Throw_first_pass_warning(const char *msg);
+
 // Output an error.
 // This means something went wrong in a way that implies that the output
 // almost for sure won't look like expected, for example when there was a
 // syntax error. The assembler will try to go on with the assembly though, so
 // the user gets to know about more than one of his typos at a time.
 extern void Throw_error(const char *msg);
+
 // Output a serious error, stopping assembly.
 // Serious errors are those that make it impossible to go on with the
 // assembly. Example: "!fill" without a parameter - the program counter cannot
 // be set correctly in this case, so proceeding would be of no use at all.
 extern void Throw_serious_error(const char *msg);
+
 // handle bugs
-extern void Bug_found(const char *msg, int code);
+extern void BUG(const char *msg, int code);
+
 // insert object (in case of list, will iterate/recurse until done)
 struct iter_context {
 	void		(*fn)(intval_t);	// output function
@@ -163,21 +174,27 @@ struct iter_context {
 	unsigned char	stringxor;		// for !scrxor, 0 otherwise
 };
 extern void output_object(struct object *object, struct iter_context *iter);
+
 // output 8-bit value with range check
 extern void output_8(intval_t value);
+
 // output 16-bit value with range check big-endian
 extern void output_be16(intval_t value);
+
 // output 16-bit value with range check little-endian
 extern void output_le16(intval_t value);
+
 // output 24-bit value with range check big-endian
 extern void output_be24(intval_t value);
+
 // output 24-bit value with range check little-endian
 extern void output_le24(intval_t value);
+
 // output 32-bit value (without range check) big-endian
 extern void output_be32(intval_t value);
+
 // output 32-bit value (without range check) little-endian
 extern void output_le32(intval_t value);
-
 
 
 #endif

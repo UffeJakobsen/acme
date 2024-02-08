@@ -536,7 +536,7 @@ static struct ronode	mnemo_m65_tree[]	= {
 // TODO: add pointer arg for result, use return value to indicate parse error!
 static int get_index(void)
 {
-	if (!Input_accept_comma())
+	if (!input_accept_comma())
 		return INDEX_NONE;
 
 	// there was a comma, so check next character (spaces will have been skipped):
@@ -636,7 +636,7 @@ static bits get_addr_mode(struct number *result)
 		address_mode_bits |= AMB_INDEX(get_index());
 	}
 	// ensure end of line
-	Input_ensure_EOS();
+	input_ensure_EOS();
 	//printf("AM: %x\n", address_mode_bits);
 	return address_mode_bits;
 }
@@ -772,13 +772,13 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 // Mnemonics using only implied addressing.
 static void group_only_implied_addressing(int opcode)
 {
-	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
 	if ((opcode == 0xf8) && (CPU_state.type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY))
 		Throw_first_pass_warning("Found SED instruction for CPU with known decimal SBC bug.");
-	Output_byte(opcode);
-	Input_ensure_EOS();
+	output_byte(opcode);
+	input_ensure_EOS();
 }
 
 // helper function to output "Target not in bank" message
@@ -819,10 +819,10 @@ static void near_branch(int preoffset)
 	}
 	// this fn has its own range check (see above).
 	// No reason to irritate the user with another error message,
-	// so use Output_byte() instead of output_8()
+	// so use output_byte() instead of output_8()
 	//output_8(offset);
-	Output_byte(offset);
-	Input_ensure_EOS();
+	output_byte(offset);
+	input_ensure_EOS();
 }
 
 // helper function for relative addressing with 16-bit offset
@@ -844,7 +844,7 @@ static void far_branch(int preoffset)
 		}
 	}
 	output_le16(offset);
-	Input_ensure_EOS();
+	input_ensure_EOS();
 }
 
 // set addressing mode bits depending on which opcodes exist, then calculate
@@ -861,15 +861,15 @@ static void make_instruction(bits force_bit, struct number *result, unsigned lon
 		addressing_modes |= MAYBE_____3;
 	switch (calc_arg_size(force_bit, result, addressing_modes)) {
 	case NUMBER_FORCES_8:
-		Output_byte(opcodes & 255);
+		output_byte(opcodes & 255);
 		output_8(result->val.intval);
 		break;
 	case NUMBER_FORCES_16:
-		Output_byte((opcodes >> 8) & 255);
+		output_byte((opcodes >> 8) & 255);
 		output_le16(result->val.intval);
 		break;
 	case NUMBER_FORCES_24:
-		Output_byte((opcodes >> 16) & 255);
+		output_byte((opcodes >> 16) & 255);
 		output_le24(result->val.intval);
 	}
 }
@@ -895,7 +895,7 @@ static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediat
 		long_register = CPU_state.xy_are_long;
 		break;
 	default:
-		Bug_found("IllegalImmediateMode", immediate_mode);
+		BUG("IllegalImmediateMode", immediate_mode);
 	}
 	// if the CPU does not support long registers...
 	if ((CPU_state.type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0)
@@ -923,7 +923,7 @@ static void group_main(int index, bits flags)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	bits		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMMEDIATE_ADDRESSING:	// #$ff or #$ffff (depending on accu length)
@@ -962,7 +962,7 @@ static void group_main(int index, bits flags)
 	case LONG_INDIRECT_ADDRESSING:	// [$ff]	for 65816 and m65
 		// if in quad mode, m65 encodes this as NOP + ($ff),z
 		if (flags & LI_PREFIX_NOP)
-			Output_byte(0xea);
+			output_byte(0xea);
 		make_instruction(force_bit, &result, accu_lind8[index]);
 		break;
 	case LONG_INDIRECT_Y_INDEXED_ADDRESSING:	// [$ff],y	only for 65816
@@ -974,7 +974,7 @@ static void group_main(int index, bits flags)
 	case LONG_INDIRECT_Z_INDEXED_ADDRESSING:	// [$ff],z	only for m65
 		// if not in quad mode, m65 encodes this as NOP + ($ff),z
 		if (flags & LI_PREFIX_NOP)
-			Output_byte(0xea);
+			output_byte(0xea);
 		make_instruction(force_bit, &result, accu_lindz8[index]);
 		break;
 	default:	// other combinations are illegal
@@ -987,12 +987,12 @@ static void group_misc(int index, bits immediate_mode)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	bits		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMPLIED_ADDRESSING:	// implied addressing
 		if (misc_impl[index])
-			Output_byte(misc_impl[index]);
+			output_byte(misc_impl[index]);
 		else
 			Throw_error(exception_illegal_combination);
 		break;
@@ -1028,8 +1028,8 @@ static void group_misc(int index, bits immediate_mode)
 // mnemonics using only 8bit relative addressing (short branch instructions).
 static void group_std_branches(int opcode)
 {
-	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
-	Output_byte(opcode);
+	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	output_byte(opcode);
 	near_branch(2);
 }
 
@@ -1037,13 +1037,13 @@ static void group_std_branches(int opcode)
 static void group_bbr_bbs(int opcode)
 {
 	struct number	zpmem;
-	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
-	if (Input_accept_comma()) {
-		Output_byte(opcode);
-		Output_byte(zpmem.val.intval);
+	if (input_accept_comma()) {
+		output_byte(opcode);
+		output_byte(zpmem.val.intval);
 		near_branch(3);
 	} else {
 		Throw_error(exception_syntax);
@@ -1053,8 +1053,8 @@ static void group_bbr_bbs(int opcode)
 // mnemonics using only 16bit relative addressing (BRL and PER of 65816, and the long branches of 65ce02)
 static void group_relative16(int opcode, int preoffset)
 {
-	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
-	Output_byte(opcode);
+	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	output_byte(opcode);
 	far_branch(preoffset);
 }
 
@@ -1065,7 +1065,7 @@ static void group_mvn_mvp(int opcode)
 	boolean		unmatched_hash	= FALSE;
 	struct number	source,
 			target;
-	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	// assembler syntax: "mnemonic source, target" or "mnemonic #source, #target"
 	// machine language order: "opcode target source"
@@ -1078,7 +1078,7 @@ static void group_mvn_mvp(int opcode)
 	get_int_arg(&source, TRUE);
 	typesystem_want_nonaddr(&source);
 	// get comma
-	if (!Input_accept_comma()) {
+	if (!input_accept_comma()) {
 		Throw_error(exception_syntax);
 		return;
 	}
@@ -1090,32 +1090,32 @@ static void group_mvn_mvp(int opcode)
 	get_int_arg(&target, TRUE);
 	typesystem_want_nonaddr(&target);
 	// output
-	Output_byte(opcode);
+	output_byte(opcode);
 	output_8(target.val.intval);
 	output_8(source.val.intval);
 	// sanity check
 	if (unmatched_hash)
 		Throw_error(exception_syntax);
-	Input_ensure_EOS();
+	input_ensure_EOS();
 }
 
 // "rmb0..7" and "smb0..7"
 static void group_only_zp(int opcode)
 {
-	//bits		force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	struct number	target;
 
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
-	Output_byte(opcode);
+	output_byte(opcode);
 	output_8(target.val.intval);
-	Input_ensure_EOS();
+	input_ensure_EOS();
 }
 
 // NOP on m65 cpu (FIXME - "!align" outputs NOPs, what about that? what if user writes NEG:NEG?)
 static void group_prefix(int opcode)
 {
-	//bits	force_bit	= Input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	char	buffer[100];	// 640K should be enough for anybody
 
 	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);
@@ -1126,7 +1126,7 @@ static void group_prefix(int opcode)
 static void group_jump(int index)
 {
 	struct number	result;
-	bits		force_bit	= Input_get_force_bit();	// skips spaces after
+	bits		force_bit	= input_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case ABSOLUTE_ADDRESSING:	// absolute16 or absolute24
@@ -1159,14 +1159,14 @@ static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 	bits	flags;
 
 	// search for tree item
-	if (!Tree_easy_scan(tree, &node_body, dyna_buf))
+	if (!tree_easy_scan(tree, &node_body, dyna_buf))
 		return FALSE;
 
 	code = ((int) node_body) & CODEMASK;	// get opcode or table index
 	flags = ((int) node_body) & FLAGSMASK;	// get immediate mode flags and prefix flags
 	if (flags & PREFIX_NEGNEG) {
-		Output_byte(0x42);
-		Output_byte(0x42);
+		output_byte(0x42);
+		output_byte(0x42);
 	}
 	switch (GROUP((long) node_body)) {
 	case GROUP_ACCU:	// main accumulator stuff
@@ -1203,7 +1203,7 @@ static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 		group_prefix(code);
 		break;
 	default:	// others indicate bugs
-		Bug_found("IllegalGroupIndex", code);
+		BUG("IllegalGroupIndex", code);
 	}
 	return TRUE;
 }

@@ -236,7 +236,7 @@ static void save_output_file(void)
 			output_filename);
 		return;
 	}
-	Output_save_file(fd);
+	output_save_file(fd);
 	fclose(fd);
 }
 
@@ -249,7 +249,7 @@ static void perform_pass(void)
 
 	++pass.number;
 	// call modules' "pass init" functions
-	Output_passinit();	// disable output, PC undefined
+	output_passinit();	// disable output, PC undefined
 	cputype_passinit(default_cpu);	// set default cpu type
 	// if start address was given on command line, use it:
 	if (start_address != ILLEGAL_START_ADDRESS)
@@ -271,7 +271,7 @@ static void perform_pass(void)
  			++pass.error_count;
 		}
 	}
-	Output_end_segment();
+	output_end_segment();
 /*	TODO:
 	if --save-start is given, parse arg string
 	if --save-limit is given, parse arg string
@@ -648,7 +648,7 @@ int main(int argc, const char *argv[])
 	// generate list of files to process
 	cliargs_get_rest(&toplevel_src_count, &toplevel_sources, "No top level sources given");
 	// init output buffer
-	Output_init(fill_value, config.test_new_features);
+	output_createbuffer(fill_value, /* use_large_buf= */ config.test_new_features);
 	if (do_actual_work())
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted

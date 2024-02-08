@@ -143,7 +143,7 @@ static int first_label_of_statement(bits *statement_flags)
 {
 	if ((*statement_flags) & SF_IMPLIED_LABEL) {
 		Throw_error(exception_syntax);
-		Input_skip_remainder();
+		input_skip_remainder();
 		return FALSE;
 	}
 	(*statement_flags) |= SF_IMPLIED_LABEL;	// now there has been one
@@ -211,11 +211,11 @@ static void parse_symbol_definition(scope_t scope, bits stat_flags)
 	if (GotByte == '?')
 		symbol_fix_dynamic_name();
 
-	force_bit = Input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
+	force_bit = input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
 		parse_assignment(scope, force_bit, POWER_NONE);
-		Input_ensure_EOS();
+		input_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
 		set_label(scope, stat_flags, force_bit, POWER_NONE);
@@ -228,7 +228,7 @@ static void parse_mnemo_or_global_symbol_def(bits *statement_flags)
 {
 	boolean	is_mnemonic;
 
-	is_mnemonic = CPU_state.type->keyword_is_mnemonic(Input_read_keyword());
+	is_mnemonic = CPU_state.type->keyword_is_mnemonic(input_read_keyword());
 	// It is only a label if it isn't a mnemonic
 	if ((!is_mnemonic)
 	&& first_label_of_statement(statement_flags)) {
@@ -251,7 +251,7 @@ static void parse_local_symbol_def(bits *statement_flags)
 	if (!first_label_of_statement(statement_flags))
 		return;
 
-	if (Input_read_scope_and_symbol_name(&scope) == 0)
+	if (input_read_scope_and_symbol_name(&scope) == 0)
 		parse_symbol_definition(scope, *statement_flags);
 }
 
@@ -294,7 +294,7 @@ static void parse_forward_anon_def(bits *statement_flags)
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.
-void Parse_until_eob_or_eof(void)
+void parse_until_eob_or_eof(void)
 {
 	bits	statement_flags;
 
@@ -335,7 +335,7 @@ void Parse_until_eob_or_eof(void)
 					if ((GotByte == LOCAL_PREFIX)
 					|| (GotByte == CHEAP_PREFIX)
 					|| (BYTE_CONTINUES_KEYWORD(GotByte)))
-						Macro_parse_call();
+						macro_parse_call();
 					else
 						parse_forward_anon_def(&statement_flags);
 					break;
@@ -351,7 +351,7 @@ void Parse_until_eob_or_eof(void)
 						parse_mnemo_or_global_symbol_def(&statement_flags);
 					} else {
 						Throw_error(exception_syntax);
-						Input_skip_remainder();
+						input_skip_remainder();
 					}
 				}
 			}
@@ -366,12 +366,12 @@ void Parse_until_eob_or_eof(void)
 // Skip space. If GotByte is CHAR_SOB ('{'), parse block and return TRUE.
 // Otherwise (if there is no block), return FALSE.
 // Don't forget to call EnsureEOL() afterwards.
-int Parse_optional_block(void)
+int parse_optional_block(void)
 {
 	SKIPSPACE();
 	if (GotByte != CHAR_SOB)
 		return FALSE;
-	Parse_until_eob_or_eof();
+	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
 		Throw_serious_error(exception_no_right_brace);
 	GetByte();
@@ -397,11 +397,11 @@ static void throw_message(const char *message, const char *type)
 	++throw_counter;
 	if (config.format_msvc)
 		fprintf(config.msg_stream, "%s(%d) : %s (%s %s): %s\n",
-			Input_now->original_filename, Input_now->line_number,
+			input_now->original_filename, input_now->line_number,
 			type, section_now->type, section_now->title, message);
 	else
 		fprintf(config.msg_stream, "%s - File %s, line %d (%s %s): %s\n",
-			type, Input_now->original_filename, Input_now->line_number,
+			type, input_now->original_filename, input_now->line_number,
 			section_now->type, section_now->title, message);
 }
 
@@ -461,7 +461,7 @@ void Throw_serious_error(const char *message)
 
 
 // Handle bugs
-void Bug_found(const char *message, int code)
+void BUG(const char *message, int code)
 {
 	Throw_warning("Bug in ACME, code follows");
 	fprintf(stderr, "(0x%x:)", code);
@@ -484,7 +484,7 @@ void output_object(struct object *object, struct iter_context *iter)
 		else if (object->u.number.ntype == NUMTYPE_FLOAT)
 			iter->fn(object->u.number.val.fpval);
 		else
-			Bug_found("IllegalNumberType0", object->u.number.ntype);
+			BUG("IllegalNumberType0", object->u.number.ntype);
 	} else if (object->type == &type_list) {
 		// iterate over list
 		item = object->u.listhead->next;
@@ -505,7 +505,7 @@ void output_object(struct object *object, struct iter_context *iter)
 			Throw_error("There's more than one character.");	// see alu.c for the original of this error
 		}
 	} else {
-		Bug_found("IllegalObjectType", 0);
+		BUG("IllegalObjectType", 0);
 	}
 }
 
@@ -515,7 +515,7 @@ void output_8(intval_t value)
 {
 	if ((value < -0x80) || (value > 0xff))
 		Throw_error(exception_number_out_of_8b_range);
-	Output_byte(value);
+	output_byte(value);
 }
 
 
@@ -524,8 +524,8 @@ void output_be16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
 		Throw_error(exception_number_out_of_16b_range);
-	Output_byte(value >> 8);
-	Output_byte(value);
+	output_byte(value >> 8);
+	output_byte(value);
 }
 
 
@@ -534,8 +534,8 @@ void output_le16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
 		Throw_error(exception_number_out_of_16b_range);
-	Output_byte(value);
-	Output_byte(value >> 8);
+	output_byte(value);
+	output_byte(value >> 8);
 }
 
 
@@ -544,9 +544,9 @@ void output_be24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
 		Throw_error(exception_number_out_of_24b_range);
-	Output_byte(value >> 16);
-	Output_byte(value >> 8);
-	Output_byte(value);
+	output_byte(value >> 16);
+	output_byte(value >> 8);
+	output_byte(value);
 }
 
 
@@ -555,9 +555,9 @@ void output_le24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
 		Throw_error(exception_number_out_of_24b_range);
-	Output_byte(value);
-	Output_byte(value >> 8);
-	Output_byte(value >> 16);
+	output_byte(value);
+	output_byte(value >> 8);
+	output_byte(value >> 16);
 }
 
 
@@ -572,10 +572,10 @@ void output_be32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
 //		Throw_error(exception_number_out_of_32b_range);
-	Output_byte(value >> 24);
-	Output_byte(value >> 16);
-	Output_byte(value >> 8);
-	Output_byte(value);
+	output_byte(value >> 24);
+	output_byte(value >> 16);
+	output_byte(value >> 8);
+	output_byte(value);
 }
 
 
@@ -584,8 +584,8 @@ void output_le32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
 //		Throw_error(exception_number_out_of_32b_range);
-	Output_byte(value);
-	Output_byte(value >> 8);
-	Output_byte(value >> 16);
-	Output_byte(value >> 24);
+	output_byte(value);
+	output_byte(value >> 8);
+	output_byte(value >> 16);
+	output_byte(value >> 24);
 }

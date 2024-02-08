@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // CPU type stuff
@@ -96,7 +96,7 @@ const struct cpu_type *cputype_find(void)
 	void	*node_body;
 
 	// perform lookup
-	if (!Tree_easy_scan(cputype_tree, &node_body, GlobalDynaBuf))
+	if (!tree_easy_scan(cputype_tree, &node_body, GlobalDynaBuf))
 		return NULL;
 
 	return node_body;

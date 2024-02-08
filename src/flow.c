@@ -35,18 +35,18 @@ boolean check_ifdef_condition(void)
 	struct symbol	*symbol;
 
 	// read symbol name
-	if (Input_read_scope_and_symbol_name(&scope))	// skips spaces before
+	if (input_read_scope_and_symbol_name(&scope))	// skips spaces before
 		return FALSE;	// there was an error, it has been reported, so return value is more or less meaningless anway
 
 	// look for it
-	Tree_hard_scan(&node, symbols_forest, scope, FALSE);
+	tree_hard_scan(&node, symbols_forest, scope, FALSE);
 	if (!node)
 		return FALSE;	// not found -> no, not defined
 
 	symbol = (struct symbol *) node->body;
 	symbol->has_been_read = TRUE;	// we did not really read the symbol's value, but checking for its existence still counts as "used it"
 	if (symbol->object.type == NULL)
-		Bug_found("ObjectHasNullType", 0);
+		BUG("ObjectHasNullType", 0);
 	return symbol->object.type->is_defined(&symbol->object);
 }
 
@@ -54,12 +54,12 @@ boolean check_ifdef_condition(void)
 // parse a loop body (TODO - also use for macro body?)
 static void parse_ram_block(struct block *block)
 {
-	Input_now->line_number = block->start;	// set line number to loop start
-	Input_now->src.ram_ptr = block->body;	// set RAM read pointer to loop
+	input_now->line_number = block->start;	// set line number to loop start
+	input_now->src.ram_ptr = block->body;	// set RAM read pointer to loop
 	// parse block
-	Parse_until_eob_or_eof();
+	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
-		Bug_found("IllegalBlockTerminator", GotByte);
+		BUG("IllegalBlockTerminator", GotByte);
 }
 
 
@@ -124,15 +124,15 @@ void flow_forloop(struct for_loop *loop)
 
 	// switching input makes us lose GotByte. But we know it's '}' anyway!
 	// set up new input
-	loop_input = *Input_now;	// copy current input structure into new
+	loop_input = *input_now;	// copy current input structure into new
 	loop_input.source = INPUTSRC_RAM;	// set new byte source
 	// remember old input
-	outer_input = Input_now;
+	outer_input = input_now;
 	// activate new input
 	// (not yet useable; pointer and line number are still missing)
-	Input_now = &loop_input;
+	input_now = &loop_input;
 	// fix line number (not for block, but in case symbol handling throws errors)
-	Input_now->line_number = loop->block.start;
+	input_now->line_number = loop->block.start;
 	switch (loop->algorithm) {
 	case FORALGO_OLDCOUNT:
 	case FORALGO_NEWCOUNT:
@@ -142,10 +142,10 @@ void flow_forloop(struct for_loop *loop)
 		iterating_for(loop);
 		break;
 	default:
-		Bug_found("IllegalLoopAlgo", loop->algorithm);
+		BUG("IllegalLoopAlgo", loop->algorithm);
 	}
 	// restore previous input:
-	Input_now = outer_input;
+	input_now = outer_input;
 }
 
 
@@ -160,7 +160,7 @@ static void copy_condition(struct condition *condition, char terminator)
 		// append to GlobalDynaBuf and check for quotes
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
 		if ((GotByte == '"') || (GotByte == '\'')) {
-			err = Input_quoted_to_dynabuf(GotByte);
+			err = input_quoted_to_dynabuf(GotByte);
 			// here GotByte changes, it might become CHAR_EOS
 			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add closing quotes (or CHAR_EOS) as well
 			if (err)
@@ -179,7 +179,7 @@ static void copy_condition(struct condition *condition, char terminator)
 void flow_store_doloop_condition(struct condition *condition, char terminator)
 {
 	// write line number
-	condition->line = Input_now->line_number;
+	condition->line = input_now->line_number;
 	// set defaults
 	condition->invert = FALSE;
 	condition->body = NULL;
@@ -188,7 +188,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 		return;
 
 	// seems as if there really *is* a condition, so check for until/while
-	if (Input_read_and_lower_keyword()) {
+	if (input_read_and_lower_keyword()) {
 		if (strcmp(GlobalDynaBuf->buffer, "while") == 0) {
 			//condition.invert = FALSE;
 		} else if (strcmp(GlobalDynaBuf->buffer, "until") == 0) {
@@ -208,7 +208,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 // call with GotByte = first interesting character
 void flow_store_while_condition(struct condition *condition)
 {
-	condition->line = Input_now->line_number;
+	condition->line = input_now->line_number;
 	condition->invert = FALSE;
 	copy_condition(condition, CHAR_SOB);
 }
@@ -224,8 +224,8 @@ static boolean check_condition(struct condition *condition)
 		return TRUE;	// non-existing conditions are always true
 
 	// set up input for expression evaluation
-	Input_now->line_number = condition->line;
-	Input_now->src.ram_ptr = condition->body;
+	input_now->line_number = condition->line;
+	input_now->src.ram_ptr = condition->body;
 	GetByte();	// proceed with next char
 	ALU_defined_int(&intresult);
 	if (GotByte)
@@ -241,13 +241,13 @@ void flow_do_while(struct do_while *loop)
 	struct input	*outer_input;
 
 	// set up new input
-	loop_input = *Input_now;	// copy current input structure into new
+	loop_input = *input_now;	// copy current input structure into new
 	loop_input.source = INPUTSRC_RAM;	// set new byte source
 	// remember old input
-	outer_input = Input_now;
+	outer_input = input_now;
 	// activate new input (not useable yet, as pointer and
 	// line number are not yet set up)
-	Input_now = &loop_input;
+	input_now = &loop_input;
 	for (;;) {
 		// check head condition
 		if (!check_condition(&loop->head_cond))
@@ -258,7 +258,7 @@ void flow_do_while(struct do_while *loop)
 			break;
 	}
 	// restore previous input:
-	Input_now = outer_input;
+	input_now = outer_input;
 	GotByte = CHAR_EOS;	// CAUTION! Very ugly kluge.
 	// But by switching input, we lost the outer input's GotByte. We know
 	// it was CHAR_EOS. We could just call GetByte() to get real input, but
@@ -274,11 +274,11 @@ void flow_parse_and_close_file(FILE *fd, const char *filename)
 	if (config.process_verbosity > 2)
 		printf("Parsing source file '%s'\n", filename);
 	// set up new input
-	Input_new_file(filename, fd);
-	// Parse block and check end reason
-	Parse_until_eob_or_eof();
+	input_new_file(filename, fd);
+	// parse block and check end reason
+	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
 		Throw_error("Found '}' instead of end-of-file.");
 	// close sublevel src
-	fclose(Input_now->src.fd);
+	fclose(input_now->src.fd);
 }
