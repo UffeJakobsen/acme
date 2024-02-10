@@ -19,8 +19,6 @@
 
 // Constants
 
-#define SF_FOUND_BLANK		(1u << 0)	// statement had space or tab
-#define SF_IMPLIED_LABEL	(1u << 1)	// statement had implied label def
 extern char		s_untitled[];
 // error messages during assembly
 extern const char	exception_missing_string[];
@@ -75,6 +73,7 @@ struct config {
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
+	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum version	wanted_version;	// set by --dialect (and --test --test)
 	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
@@ -126,6 +125,22 @@ extern void config_default(struct config *conf);
 
 // allocate memory and die if not available
 extern void *safe_malloc(size_t amount);
+
+// set new value for "we are in !addr block" flag,
+// return old value
+// (called by "!addr { }")
+extern boolean parser_change_addr_block_flag(boolean new_value);
+
+// set new value for "we are in !nowarn block" flag,
+// return old value
+// (called by "!nowarn { }")
+extern boolean parser_change_nowarn_block_flag(boolean new_value);
+
+// called by "!addr" pseudo op if used without block
+extern void parser_set_addr_prefix(void);
+
+// called by "!nowarn" pseudo op if used without block
+extern void parser_set_nowarn_prefix(void);
 
 // call with symbol name in GlobalDynaBuf and GotByte == '='
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)

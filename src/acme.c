@@ -65,6 +65,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_FULLSTOP		"fullstop"
 #define OPTION_IGNORE_ZEROES	"ignore-zeroes"
 #define OPTION_STRICT_SEGMENTS	"strict-segments"
+#define OPTION_STRICT		"strict"
 #define OPTION_DIALECT		"dialect"
 #define OPTION_DEBUGLEVEL	"debuglevel"
 #define OPTION_TEST		"test"
@@ -137,6 +138,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_MAXDEPTH " NUMBER  set recursion depth for macro calls and !src\n"
 "      --" OPTION_IGNORE_ZEROES "    do not determine number size by leading zeroes\n"
 "      --" OPTION_STRICT_SEGMENTS "  turn segment overlap warnings into errors\n"
+"      --" OPTION_STRICT "           treat all warnings like errors\n"
 "  -vDIGIT                set verbosity level\n"
 "  -DSYMBOL=VALUE         define global symbol\n"
 "  -I PATH/TO/DIR         add search path for input files\n"
@@ -552,6 +554,8 @@ static const char *long_option(const char *string)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
 		config.segment_warning_is_error = TRUE;
+	else if (strcmp(string, OPTION_STRICT) == 0)
+		config.all_warnings_are_errors = TRUE;
 	else if (strcmp(string, OPTION_DIALECT) == 0)
 		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_DEBUGLEVEL) == 0)

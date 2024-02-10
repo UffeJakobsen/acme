@@ -340,8 +340,11 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
 
 		// if needed, dump call stack
-		if (outer_msg_sum != pass.warning_count + pass.error_count)
-			Throw_warning("...called from here.");	// FIXME - change to "info"!
+		if (outer_msg_sum != pass.warning_count + pass.error_count) {
+			Throw_warning("...called from here.");
+			// FIXME - use this instead:
+			//throw_message(DEBUGLEVEL_INFO, "...called from here.");
+		}
 
 		input_ensure_EOS();
 	}

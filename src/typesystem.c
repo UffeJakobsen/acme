@@ -4,37 +4,10 @@
 //
 // type system stuff
 #include "typesystem.h"
-#include "config.h"
-#include "alu.h"
 #include "global.h"
 
 
-static boolean	in_address_block	= FALSE;
-static boolean	in_address_statement	= FALSE;
-
 // Functions
-
-// return whether explicit symbol definitions should force "address" mode
-boolean typesystem_says_address(void)
-{
-	return in_address_block || in_address_statement;
-}
-
-// parse a block while forcing address mode
-void typesystem_force_address_block(void)
-{
-	boolean	buffer	= in_address_block;
-
-	in_address_block = TRUE;
-	parse_optional_block();
-	in_address_block = buffer;
-}
-
-// force address mode on or off for the next statement
-void typesystem_force_address_statement(boolean value)
-{
-	in_address_statement = value;
-}
 
 // warn if result is not integer
 void typesystem_want_nonaddr(struct number *result)
@@ -50,6 +23,7 @@ void typesystem_want_nonaddr(struct number *result)
 		//printf("refcount should be 0, but is %d\n", result->addr_refs);
 	}
 }
+
 // warn if result is not address
 void typesystem_want_addr(struct number *result)
 {

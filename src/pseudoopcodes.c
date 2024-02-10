@@ -717,19 +717,6 @@ static enum eos po_rs(void)
 }
 
 
-// force explicit label definitions to set "address" flag ("!addr"). Has to be re-entrant.
-static enum eos po_address(void)	// now GotByte = illegal char
-{
-	SKIPSPACE();
-	if (GotByte == CHAR_SOB) {
-		typesystem_force_address_block();
-		return ENSURE_EOS;
-	}
-	typesystem_force_address_statement(TRUE);
-	return PARSE_REMAINDER;
-}
-
-
 #if 0
 // enumerate constants ("!enum")
 static enum eos po_enum(void)	// now GotByte = illegal char
@@ -1253,23 +1240,46 @@ static enum eos po_watch(void)
 }
 */
 
-/* // disable warnings for a statement or block of code
-static enum eos po_nowarn(void)
+// force explicit symbol definitions to set "address" flag.
+// if this is used without a block, it is only a prefix for a single statement.
+// has to be re-entrant.
+static enum eos po_address(void)	// now GotByte = illegal char
 {
-	boolean	flag_buf	= global_inhibit_warnings;
+	boolean	buf;
 
-	global_inhibit_warnings = TRUE;
-	// if there's a block, parse it and then restore old value
+	buf = parser_change_addr_block_flag(TRUE);
 	if (parse_optional_block()) {
-		global_inhibit_warnings = flag_buf;
+		// when used with a block, is used throughout the block
+		parser_change_addr_block_flag(buf);	// restore after block
 		return ENSURE_EOS;
 	} else {
-		return PARSE_REMAINDER;
-		TODO: restore previous state after the current statement,
-		do it like "!address" does it!
+		// without a block, it's only a "prefix" for the current statement
+		parser_change_addr_block_flag(buf);	// there was no block, so restore...
+		parser_set_addr_prefix();	// ...and set flag...
+		return PARSE_REMAINDER;	// ...just for this statement.
 	}
 }
-*/
+
+
+// disable warnings.
+// if this is used without a block, it is only a prefix for a single statement.
+// has to be re-entrant.
+static enum eos po_nowarn(void)	// now GotByte = illegal char
+{
+	boolean	buf;
+
+	buf = parser_change_nowarn_block_flag(TRUE);
+	if (parse_optional_block()) {
+		// when used with a block, is used throughout the block
+		parser_change_nowarn_block_flag(buf);	// restore after block
+		return ENSURE_EOS;
+	} else {
+		// without a block, it's only a "prefix" for the current statement
+		parser_change_nowarn_block_flag(buf);	// there was no block, so restore...
+		parser_set_nowarn_prefix();	// ...and set flag...
+		return PARSE_REMAINDER;	// ...just for this statement.
+	}
+}
 
 
 // variables
@@ -1405,8 +1415,6 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("as",		po_as),
 	PREDEFNODE("rl",		po_rl),
 	PREDEFNODE("rs",		po_rs),
-	PREDEFNODE("addr",		po_address),
-	PREDEFNODE("address",		po_address),
 //	PREDEFNODE("enum",		po_enum),
 	PREDEFNODE("set",		po_set),
 	PREDEFNODE("sl",		po_symbollist),
@@ -1426,7 +1434,9 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("macro",		po_macro),
 /*	PREDEFNODE("trace",		po_trace),
 	PREDEFNODE("watch",		po_watch),	*/
-//	PREDEFNODE("nowarn",		po_nowarn),
+	PREDEFNODE("addr",		po_address),
+	PREDEFNODE("address",		po_address),
+	PREDEFNODE("nowarn",		po_nowarn),
 	PREDEFNODE("debug",		po_debug),
 	PREDEFNODE("info",		po_info),
 	PREDEFNODE("warn",		po_warn),

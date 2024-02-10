@@ -118,6 +118,7 @@ void config_default(struct config *conf)
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
 	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
+	conf->all_warnings_are_errors	= FALSE;	// enabled by --strict
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
@@ -139,15 +140,56 @@ void *safe_malloc(size_t size)
 // Parser stuff
 
 
-// Check and return whether first label of statement. Complain if not.
-static int first_label_of_statement(bits *statement_flags)
+static boolean	in_addr_block	= FALSE;
+static boolean	in_nowarn_block	= FALSE;
+
+// set new value for "we are in !addr block" flag,
+// return old value
+// (called by "!addr { }")
+boolean parser_change_addr_block_flag(boolean new_value)
 {
-	if ((*statement_flags) & SF_IMPLIED_LABEL) {
+	boolean	old_value	= in_addr_block;
+
+	in_addr_block = new_value;
+	return old_value;
+}
+// set new value for "we are in !nowarn block" flag,
+// return old value
+// (called by "!nowarn { }")
+boolean parser_change_nowarn_block_flag(boolean new_value)
+{
+	boolean	old_value	= in_nowarn_block;
+
+	in_nowarn_block = new_value;
+	return old_value;
+}
+
+#define SF_FOUND_BLANK		(1u << 0)	// statement had space or tab
+#define SF_IMPLIED_LABEL	(1u << 1)	// statement had implied label def
+#define SF_ADDR_PREFIX		(1u << 2)	// explicit symbol definition is an address
+#define SF_NOWARN_PREFIX	(1u << 3)	// suppress warnings for this statement
+static bits	statement_flags;
+
+// called by "!addr" pseudo op if used without block
+extern void parser_set_addr_prefix(void)
+{
+	statement_flags |= SF_ADDR_PREFIX;
+}
+// called by "!nowarn" pseudo op if used without block
+extern void parser_set_nowarn_prefix(void)
+{
+	statement_flags |= SF_NOWARN_PREFIX;
+}
+
+// Check and return whether first label of statement. Complain if not.
+static int first_label_of_statement(void)
+{
+	if (statement_flags & SF_IMPLIED_LABEL) {
 		Throw_error(exception_syntax);
 		input_skip_remainder();
 		return FALSE;
 	}
-	(*statement_flags) |= SF_IMPLIED_LABEL;	// now there has been one
+	statement_flags |= SF_IMPLIED_LABEL;	// now there has been one
 	return TRUE;
 }
 
@@ -156,13 +198,13 @@ static int first_label_of_statement(bits *statement_flags)
 // name must be held in GlobalDynaBuf.
 // called by parse_symbol_definition, parse_backward_anon_def, parse_forward_anon_def
 // "powers" is used by backward anons to allow changes
-static void set_label(scope_t scope, bits stat_flags, bits force_bit, bits powers)
+static void set_label(scope_t scope, bits force_bit, bits powers)
 {
 	struct symbol	*symbol;
 	struct number	pc;
 	struct object	result;
 
-	if ((stat_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
+	if ((statement_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
 	symbol = symbol_find(scope);
 	vcpu_read_pc(&pc);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
@@ -182,6 +224,7 @@ static void set_label(scope_t scope, bits stat_flags, bits force_bit, bits power
 
 
 // call with symbol name in GlobalDynaBuf and GotByte == '='
+// fn is exported so "!set" pseudo opcode can call it.
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
 void parse_assignment(scope_t scope, bits force_bit, bits powers)
 {
@@ -192,7 +235,7 @@ void parse_assignment(scope_t scope, bits force_bit, bits powers)
 	symbol = symbol_find(scope);
 	ALU_any_result(&result);
 	// if wanted, mark as address reference
-	if (typesystem_says_address()) {
+	if (in_addr_block || (statement_flags & SF_ADDR_PREFIX)) {
 		// FIXME - checking types explicitly is ugly...
 		if (result.type == &type_number)
 			result.u.number.addr_refs = 1;
@@ -205,7 +248,7 @@ void parse_assignment(scope_t scope, bits force_bit, bits powers)
 
 // parse symbol definition (can be either global or local, may turn out to be a label).
 // name must be held in GlobalDynaBuf.
-static void parse_symbol_definition(scope_t scope, bits stat_flags)
+static void parse_symbol_definition(scope_t scope)
 {
 	bits	force_bit;
 
@@ -219,48 +262,48 @@ static void parse_symbol_definition(scope_t scope, bits stat_flags)
 		input_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
-		set_label(scope, stat_flags, force_bit, POWER_NONE);
+		set_label(scope, force_bit, POWER_NONE);
 	}
 }
 
 
 // Parse global symbol definition or assembler mnemonic
-static void parse_mnemo_or_global_symbol_def(bits *statement_flags)
+static void parse_mnemo_or_global_symbol_def(void)
 {
 	boolean	is_mnemonic;
 
 	is_mnemonic = CPU_state.type->keyword_is_mnemonic(input_read_keyword());
 	// It is only a label if it isn't a mnemonic
 	if ((!is_mnemonic)
-	&& first_label_of_statement(statement_flags)) {
+	&& first_label_of_statement()) {
 		// Now GotByte = illegal char
 		// 04 Jun 2005: this fix should help to explain "strange" error messages.
 		// 17 May 2014: now it works for UTF-8 as well.
 		if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
 		|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0)))
 			Throw_first_pass_warning("Label name starts with a shift-space character.");
-		parse_symbol_definition(SCOPE_GLOBAL, *statement_flags);
+		parse_symbol_definition(SCOPE_GLOBAL);
 	}
 }
 
 
 // parse (cheap) local symbol definition
-static void parse_local_symbol_def(bits *statement_flags)
+static void parse_local_symbol_def(void)
 {
 	scope_t	scope;
 
-	if (!first_label_of_statement(statement_flags))
+	if (!first_label_of_statement())
 		return;
 
 	if (input_read_scope_and_symbol_name(&scope) == 0)
-		parse_symbol_definition(scope, *statement_flags);
+		parse_symbol_definition(scope);
 }
 
 
 // parse anonymous backward label definition. Called with GotByte == '-'
-static void parse_backward_anon_def(bits *statement_flags)
+static void parse_backward_anon_def(void)
 {
-	if (!first_label_of_statement(statement_flags))
+	if (!first_label_of_statement())
 		return;
 
 	dynabuf_clear(GlobalDynaBuf);
@@ -269,14 +312,14 @@ static void parse_backward_anon_def(bits *statement_flags)
 	} while (GetByte() == '-');
 	dynabuf_append(GlobalDynaBuf, '\0');
 	// backward anons change their value!
-	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_CHANGE_VALUE);
+	set_label(section_now->local_scope, NO_FORCE_BIT, POWER_CHANGE_VALUE);
 }
 
 
 // parse anonymous forward label definition. called with GotByte == ?
-static void parse_forward_anon_def(bits *statement_flags)
+static void parse_forward_anon_def(void)
 {
-	if (!first_label_of_statement(statement_flags))
+	if (!first_label_of_statement())
 		return;
 
 	dynabuf_clear(GlobalDynaBuf);
@@ -288,7 +331,7 @@ static void parse_forward_anon_def(bits *statement_flags)
 	symbol_fix_forward_anon_name(TRUE);	// TRUE: increment counter
 	dynabuf_append(GlobalDynaBuf, '\0');
 	//printf("[%d, %s]\n", section_now->local_scope, GlobalDynaBuf->buffer);
-	set_label(section_now->local_scope, *statement_flags, NO_FORCE_BIT, POWER_NONE);
+	set_label(section_now->local_scope, NO_FORCE_BIT, POWER_NONE);
 }
 
 
@@ -297,20 +340,17 @@ static void parse_forward_anon_def(bits *statement_flags)
 // Has to be re-entrant.
 void parse_until_eob_or_eof(void)
 {
-	bits	statement_flags;
-
-//	// start with next byte, don't care about spaces
-//	NEXTANDSKIPSPACE();
 	// start with next byte
+	// (don't SKIPSPACE() here, we want to warn about "label not in leftmost column"!)
 	GetByte();
 	// loop until end of block or end of file
 	while ((GotByte != CHAR_EOB) && (GotByte != CHAR_EOF)) {
 		// process one statement
-		statement_flags = 0;	// no "label = pc" definition yet
-		typesystem_force_address_statement(FALSE);
-		// Parse until end of statement. Only loops if statement
-		// contains implicit label definition (=pc) and something else; or
-		// if "!ifdef/ifndef" is true/false, or if "!addr" is used without block.
+		statement_flags = 0;	// no spaces, no labels, no !addr, no !nowarn
+		// Parse until end of statement. Only loops in these cases:
+		// - statement contains label and something else
+		// - "!ifdef"/"!ifndef" is used without block
+		// - "!addr"/"!nowarn" is used without block
 		do {
 			// check for pseudo opcodes was moved out of switch,
 			// because prefix character is now configurable.
@@ -329,7 +369,7 @@ void parse_until_eob_or_eof(void)
 					GetByte();	// skip
 					break;
 				case '-':
-					parse_backward_anon_def(&statement_flags);
+					parse_backward_anon_def();
 					break;
 				case '+':
 					GetByte();
@@ -338,18 +378,18 @@ void parse_until_eob_or_eof(void)
 					|| (BYTE_CONTINUES_KEYWORD(GotByte)))
 						macro_parse_call();
 					else
-						parse_forward_anon_def(&statement_flags);
+						parse_forward_anon_def();
 					break;
 				case '*':
 					notreallypo_setpc();	// define program counter (fn is in pseudoopcodes.c)
 					break;
 				case LOCAL_PREFIX:
 				case CHEAP_PREFIX:
-					parse_local_symbol_def(&statement_flags);
+					parse_local_symbol_def();
 					break;
 				default:
 					if (BYTE_STARTS_KEYWORD(GotByte)) {
-						parse_mnemo_or_global_symbol_def(&statement_flags);
+						parse_mnemo_or_global_symbol_def();
 					} else {
 						Throw_error(exception_syntax);
 						input_skip_remainder();
@@ -433,9 +473,18 @@ void throw_message(enum debuglevel level, const char msg[])
 	case DEBUGLEVEL_WARNING:
 		// output a warning
 		// (something looks wrong, like "label name starts with shift-space character")
+		// first check if warnings should be suppressed right now:
+		if (in_nowarn_block || (statement_flags & SF_NOWARN_PREFIX))
+			break;
 		PLATFORM_WARNING(msg);
 		throw_msg(msg, "\033[33m", "Warning");	// yellow
 		++pass.warning_count;
+		// then check if warnings should be handled like errors:
+		if (config.all_warnings_are_errors) {
+			++pass.error_count;
+			if (pass.error_count >= config.max_errors)
+				exit(ACME_finalize(EXIT_FAILURE));
+		}
 		break;
 	case DEBUGLEVEL_INFO:
 		throw_msg(msg, "\033[32m", "Info");	// green
