@@ -66,6 +66,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_IGNORE_ZEROES	"ignore-zeroes"
 #define OPTION_STRICT_SEGMENTS	"strict-segments"
 #define OPTION_DIALECT		"dialect"
+#define OPTION_DEBUGLEVEL	"debuglevel"
 #define OPTION_TEST		"test"
 // options for "-W"
 #define OPTIONWNO_LABEL_INDENT	"no-label-indent"
@@ -148,9 +149,10 @@ static void show_help_and_exit(void)
 //"  -W                     show warning level options\n"
 "      --" OPTION_USE_STDOUT "       fix for 'Relaunch64' IDE (see docs)\n"
 "      --" OPTION_MSVC "             output errors in MS VS format\n"
-"      --" OPTION_COLOR "            uses ANSI color codes for error output\n"
+"      --" OPTION_COLOR "            use ANSI color codes for error output\n"
 "      --" OPTION_FULLSTOP "         use '.' as pseudo opcode prefix\n"
 "      --" OPTION_DIALECT " VERSION  behave like different version\n"
+"      --" OPTION_DEBUGLEVEL " VALUE drop all higher-level debug messages\n"
 "      --" OPTION_TEST "             enable experimental features\n"
 PLATFORM_OPTION_HELP
 "  -V, --" OPTION_VERSION "          show version and exit\n");
@@ -260,6 +262,7 @@ static void perform_pass(void)
 	pass.undefined_count = 0;
 	//pass.needvalue_count = 0;	FIXME - use
 	pass.error_count = 0;
+	pass.warning_count = 0;
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		if ((fd = fopen(toplevel_sources[ii], FILE_READBINARY))) {
@@ -551,6 +554,8 @@ static const char *long_option(const char *string)
 		config.segment_warning_is_error = TRUE;
 	else if (strcmp(string, OPTION_DIALECT) == 0)
 		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
+	else if (strcmp(string, OPTION_DEBUGLEVEL) == 0)
+		config.debuglevel = string_to_number(cliargs_safe_get_next("debug level"));
 	else if (strcmp(string, OPTION_TEST) == 0) {
 		config.wanted_version = VER_FUTURE;
 		config.test_new_features = TRUE;

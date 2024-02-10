@@ -77,6 +77,7 @@ struct config {
 	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum version	wanted_version;	// set by --dialect (and --test --test)
+	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
 };
 extern struct config	config;
 
@@ -85,6 +86,7 @@ struct pass {
 	int	undefined_count;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
 	//int	needvalue_count;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
 	int	error_count;
+	int	warning_count;
 	boolean	complain_about_undefined;	// will be FALSE until error pass is needed
 };
 extern struct pass	pass;
@@ -139,30 +141,31 @@ extern void parse_until_eob_or_eof(void);
 // Don't forget to call EnsureEOL() afterwards.
 extern int parse_optional_block(void);
 
-// error/warning counter so macro calls can find out whether to show a call stack
-extern int Throw_get_counter(void);
+enum debuglevel {
+	DEBUGLEVEL_SERIOUS	= -3,	// ACME stops right away
+	DEBUGLEVEL_ERROR	= -2,	// something is wrong
+	DEBUGLEVEL_WARNING	= -1,	// something looks wrong
+	DEBUGLEVEL_INFO		= 0,	// info msg ("173 bytes left in code area!")
+	DEBUGLEVEL_DEBUG	= 1	// debug msg
+	// debug messages with higher levels are suppressed,
+	// can be changed using "--debuglevel" cli switch.
+};
+// generate a debug/info/warning/error message
+void throw_message(enum debuglevel level, const char msg[]);
 
-// Output a warning.
-// This means the produced code looks as expected. But there has been a
-// situation that should be reported to the user, for example ACME may have
-// assembled a 16-bit parameter with an 8-bit value.
-extern void Throw_warning(const char *msg);
+// output a warning (something looks wrong, like "label name starts with shift-space character")
+#define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg)
 
-// Output a warning if in first pass. See above.
+// output a warning if in first pass. See above.
 extern void Throw_first_pass_warning(const char *msg);
 
-// Output an error.
-// This means something went wrong in a way that implies that the output
-// almost for sure won't look like expected, for example when there was a
-// syntax error. The assembler will try to go on with the assembly though, so
-// the user gets to know about more than one of his typos at a time.
-extern void Throw_error(const char *msg);
+// output an error (something is wrong, no output file will be generated).
+// the assembler will try to go on with the assembly, so the user gets to know
+// about more than one of his typos at a time.
+#define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg)
 
-// Output a serious error, stopping assembly.
-// Serious errors are those that make it impossible to go on with the
-// assembly. Example: "!fill" without a parameter - the program counter cannot
-// be set correctly in this case, so proceeding would be of no use at all.
-extern void Throw_serious_error(const char *msg);
+// output a serious error (assembly stops, for example if outbuffer overruns).
+#define Throw_serious_error(msg)	throw_message(DEBUGLEVEL_SERIOUS, msg)
 
 // handle bugs
 extern void BUG(const char *msg, int code);

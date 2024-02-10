@@ -222,7 +222,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 	scope_t		macro_scope,
 			symbol_scope;
 	int		arg_count	= 0;
-	int		outer_err_count;
+	int		outer_msg_sum;
 
 	// make sure arg_table is ready (if not yet initialised, do it now)
 	if (arg_table == NULL)
@@ -286,7 +286,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		// activate new input
 		input_now = &new_input;
 
-		outer_err_count = Throw_get_counter();	// remember error count (for call stack decision)
+		outer_msg_sum = pass.warning_count + pass.error_count;	// remember for call stack decision
 
 		// remember old section
 		outer_section = section_now;
@@ -339,9 +339,9 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		// restore old Gotbyte context
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
 
-		// if needed, output call stack
-		if (Throw_get_counter() != outer_err_count)
-			Throw_warning("...called from here.");
+		// if needed, dump call stack
+		if (outer_msg_sum != pass.warning_count + pass.error_count)
+			Throw_warning("...called from here.");	// FIXME - change to "info"!
 
 		input_ensure_EOS();
 	}

@@ -1271,16 +1271,13 @@ static enum eos po_nowarn(void)
 }
 */
 
-// constants
-#define USERMSG_INITIALSIZE	80
-
 
 // variables
-static	STRUCT_DYNABUF_REF(user_message, USERMSG_INITIALSIZE);	// for !warn/error/serious
+static	STRUCT_DYNABUF_REF(user_message, 80);	// for !debug/info/warn/error/serious
 
 
 // helper function to show user-defined messages
-static enum eos throw_string(const char prefix[], void (*fn)(const char *))
+static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 {
 	struct object	object;
 
@@ -1307,45 +1304,49 @@ static enum eos throw_string(const char prefix[], void (*fn)(const char *))
 		}
 	} while (input_accept_comma());
 	dynabuf_append(user_message, '\0');
-	fn(user_message->buffer);
+	throw_message(level, user_message->buffer);
 	return ENSURE_EOS;
 }
 
-
-#if 0
-// show debug data given in source code
+// show debug data as given in source code
 static enum eos po_debug(void)
 {
-	// FIXME - make debug output depend on some cli switch
-	// FIXME - add a number arg to this po so user can decide how much to display?
-	return throw_string("!debug: ", throw_message);
+	struct number	debuglevel;
+
+	ALU_defined_int(&debuglevel);
+	if (!input_accept_comma()) {
+		Throw_error("Expected comma after debug level.");
+		return SKIP_REMAINDER;
+	}
+	// drop this one?
+	if (debuglevel.val.intval > config.debuglevel)
+		return SKIP_REMAINDER;
+
+	return throw_src_string(debuglevel.val.intval, "!debug: ");
 }
-// show info given in source code
+
+// show info as given in source code
 static enum eos po_info(void)
 {
-	return throw_string("!info: ", throw_message);
+	return throw_src_string(DEBUGLEVEL_INFO, "!info: ");
 }
-#endif
-
 
 // throw warning as given in source code
 static enum eos po_warn(void)
 {
-	return throw_string("!warn: ", Throw_warning);
+	return throw_src_string(DEBUGLEVEL_WARNING, "!warn: ");
 }
-
 
 // throw error as given in source code
 static enum eos po_error(void)
 {
-	return throw_string("!error: ", Throw_error);
+	return throw_src_string(DEBUGLEVEL_ERROR, "!error: ");
 }
-
 
 // throw serious error as given in source code
 static enum eos po_serious(void)
 {
-	return throw_string("!serious: ", Throw_serious_error);
+	return throw_src_string(DEBUGLEVEL_SERIOUS, "!serious: ");
 }
 
 
@@ -1385,6 +1386,7 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("ct",		po_convtab),
 	PREDEFNODE("convtab",		po_convtab),
 	PREDEFNODE("tx",		po_text),
+	PREDEFNODE("txt",		po_text),
 	PREDEFNODE("text",		po_text),
 	PREDEFNODE("raw",		po_raw),
 	PREDEFNODE("pet",		po_pet),
@@ -1425,8 +1427,8 @@ static struct ronode	pseudo_opcode_tree[]	= {
 /*	PREDEFNODE("trace",		po_trace),
 	PREDEFNODE("watch",		po_watch),	*/
 //	PREDEFNODE("nowarn",		po_nowarn),
-//	PREDEFNODE("debug",		po_debug),
-//	PREDEFNODE("info",		po_info),
+	PREDEFNODE("debug",		po_debug),
+	PREDEFNODE("info",		po_info),
 	PREDEFNODE("warn",		po_warn),
 	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),

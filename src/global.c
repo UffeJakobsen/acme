@@ -120,6 +120,7 @@ void config_default(struct config *conf)
 	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
+	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
 }
 
 // memory allocation stuff
@@ -381,44 +382,72 @@ int parse_optional_block(void)
 
 // Error handling
 
-// error/warning counter so macro calls can find out whether to show a call stack
-static int	throw_counter	= 0;
-int Throw_get_counter(void)
-{
-	return throw_counter;
-}
-
 // This function will do the actual output for warnings, errors and serious
 // errors. It shows the given message string, as well as the current
 // context: file name, line number, source type and source title.
-// TODO: make un-static so !info and !debug can use this.
-static void throw_message(const char *message, const char *type)
+static void throw_msg(const char *message, const char *ansicolor, const char *type)
 {
-	++throw_counter;
+	const char	*resetcolor	= "\033[0m";
+
+	if (!config.format_color) {
+		ansicolor = "";
+		resetcolor = "";
+	}
+
 	if (config.format_msvc)
-		fprintf(config.msg_stream, "%s(%d) : %s (%s %s): %s\n",
+		fprintf(config.msg_stream, "%s(%d) : %s%s%s (%s %s): %s\n",
 			input_now->original_filename, input_now->line_number,
-			type, section_now->type, section_now->title, message);
+			ansicolor, type, resetcolor,
+			section_now->type, section_now->title, message);
 	else
-		fprintf(config.msg_stream, "%s - File %s, line %d (%s %s): %s\n",
-			type, input_now->original_filename, input_now->line_number,
+		fprintf(config.msg_stream, "%s%s%s - File %s, line %d (%s %s): %s\n",
+			ansicolor, type, resetcolor,
+			input_now->original_filename, input_now->line_number,
 			section_now->type, section_now->title, message);
 }
 
-
-// Output a warning.
-// This means the produced code looks as expected. But there has been a
-// situation that should be reported to the user, for example ACME may have
-// assembled a 16-bit parameter with an 8-bit value.
-void Throw_warning(const char *message)
+// generate debug/info/warning/error message
+void throw_message(enum debuglevel level, const char msg[])
 {
-	PLATFORM_WARNING(message);
-	if (config.format_color)
-		throw_message(message, "\033[33mWarning\033[0m");
-	else
-		throw_message(message, "Warning");
+	// if level is taken from source, ensure valid value:
+	if (level < DEBUGLEVEL_SERIOUS)
+		level = DEBUGLEVEL_SERIOUS;
+
+	switch (level) {
+	case DEBUGLEVEL_SERIOUS:
+		// output a serious error
+		// (assembly stops, for example if outbuffer overruns).
+		PLATFORM_SERIOUS(msg);
+		throw_msg(msg, "\033[1m\033[31m", "Serious error");	// bold + red
+		//++pass.error_count;	// FIXME - needed when problem below is solved
+		exit(ACME_finalize(EXIT_FAILURE)); // FIXME - this inhibits output of macro call stack
+	case DEBUGLEVEL_ERROR:
+		// output an error
+		// (something is wrong, no output file will be generated).
+		PLATFORM_ERROR(msg);
+		throw_msg(msg, "\033[31m", "Error");	// red
+		++pass.error_count;
+		if (pass.error_count >= config.max_errors)
+			exit(ACME_finalize(EXIT_FAILURE));
+		break;
+	case DEBUGLEVEL_WARNING:
+		// output a warning
+		// (something looks wrong, like "label name starts with shift-space character")
+		PLATFORM_WARNING(msg);
+		throw_msg(msg, "\033[33m", "Warning");	// yellow
+		++pass.warning_count;
+		break;
+	case DEBUGLEVEL_INFO:
+		throw_msg(msg, "\033[32m", "Info");	// green
+		break;
+	default:
+		// debug
+		throw_msg(msg, "\033[36m", "Debug");	// cyan
+		break;
+	}
 }
-// Output a warning if in first pass. See above.
+
+// output a warning if in first pass. See above.
 void Throw_first_pass_warning(const char *message)
 {
 	if (FIRST_PASS)
@@ -426,41 +455,7 @@ void Throw_first_pass_warning(const char *message)
 }
 
 
-// Output an error.
-// This means something went wrong in a way that implies that the output
-// almost for sure won't look like expected, for example when there was a
-// syntax error. The assembler will try to go on with the assembly though, so
-// the user gets to know about more than one of his typos at a time.
-void Throw_error(const char *message)
-{
-	PLATFORM_ERROR(message);
-	if (config.format_color)
-		throw_message(message, "\033[31mError\033[0m");
-	else
-		throw_message(message, "Error");
-	++pass.error_count;
-	if (pass.error_count >= config.max_errors)
-		exit(ACME_finalize(EXIT_FAILURE));
-}
-
-
-// Output a serious error, stopping assembly.
-// Serious errors are those that make it impossible to go on with the
-// assembly. Example: "!fill" without a parameter - the program counter cannot
-// be set correctly in this case, so proceeding would be of no use at all.
-void Throw_serious_error(const char *message)
-{
-	PLATFORM_SERIOUS(message);
-	if (config.format_color)
-		throw_message(message, "\033[1m\033[31mSerious error\033[0m");
-	else
-		throw_message(message, "Serious error");
-	// FIXME - exiting immediately inhibits output of macro call stack!
-	exit(ACME_finalize(EXIT_FAILURE));
-}
-
-
-// Handle bugs
+// handle bugs
 void BUG(const char *message, int code)
 {
 	Throw_warning("Bug in ACME, code follows");
