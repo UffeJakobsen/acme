@@ -45,7 +45,7 @@ do {				\
 
 // output of platform-specific command line switches
 #define PLATFORM_OPTION_HELP	\
-"  -t, --throwback        use the DDEUtils module's \"throwback\" protocol\n"
+"  -t, --throwback           use the DDEUtils module's \"throwback\" protocol\n"
 
 // processing of platform-specific command line switches
 #define PLATFORM_SHORTOPTION_CODE			\

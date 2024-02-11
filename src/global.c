@@ -122,6 +122,11 @@ void config_default(struct config *conf)
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
+	conf->outbuf_size		= 0x10000;	// 64K, "--test" changes to 16M
+	conf->mem_init_value		= MEMINIT_USE_DEFAULT;	// set by --initmem
+	conf->initial_pc		= NO_VALUE_GIVEN;	// set by --setpc
+	conf->outfile_start		= NO_VALUE_GIVEN;	// set by --from-to
+	conf->outfile_end		= NO_VALUE_GIVEN;	// set by --from-to
 }
 
 // memory allocation stuff
@@ -164,8 +169,8 @@ boolean parser_change_nowarn_block_flag(boolean new_value)
 	return old_value;
 }
 
-#define SF_FOUND_BLANK		(1u << 0)	// statement had space or tab
-#define SF_IMPLIED_LABEL	(1u << 1)	// statement had implied label def
+#define SF_FOUND_BLANK		(1u << 0)	// statement started with space or tab
+#define SF_FOUND_SYMBOL		(1u << 1)	// statement had label or symbol definition
 #define SF_ADDR_PREFIX		(1u << 2)	// explicit symbol definition is an address
 #define SF_NOWARN_PREFIX	(1u << 3)	// suppress warnings for this statement
 static bits	statement_flags;
@@ -181,15 +186,15 @@ extern void parser_set_nowarn_prefix(void)
 	statement_flags |= SF_NOWARN_PREFIX;
 }
 
-// Check and return whether first label of statement. Complain if not.
-static int first_label_of_statement(void)
+// Check and return whether first symbol of statement. Complain if not.
+static int first_symbol_of_statement(void)
 {
-	if (statement_flags & SF_IMPLIED_LABEL) {
+	if (statement_flags & SF_FOUND_SYMBOL) {
 		Throw_error(exception_syntax);
 		input_skip_remainder();
 		return FALSE;
 	}
-	statement_flags |= SF_IMPLIED_LABEL;	// now there has been one
+	statement_flags |= SF_FOUND_SYMBOL;	// now there has been one
 	return TRUE;
 }
 
@@ -270,20 +275,21 @@ static void parse_symbol_definition(scope_t scope)
 // Parse global symbol definition or assembler mnemonic
 static void parse_mnemo_or_global_symbol_def(void)
 {
-	boolean	is_mnemonic;
+	// read keyword and ask current cpu type if it's a mnemonic
+	if (CPU_state.type->keyword_is_mnemonic(input_read_keyword()))
+		return;	// statement has been handled
 
-	is_mnemonic = CPU_state.type->keyword_is_mnemonic(input_read_keyword());
-	// It is only a label if it isn't a mnemonic
-	if ((!is_mnemonic)
-	&& first_label_of_statement()) {
-		// Now GotByte = illegal char
-		// 04 Jun 2005: this fix should help to explain "strange" error messages.
-		// 17 May 2014: now it works for UTF-8 as well.
-		if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
-		|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0)))
-			Throw_first_pass_warning("Label name starts with a shift-space character.");
-		parse_symbol_definition(SCOPE_GLOBAL);
-	}
+	// if we're here, it wasn't a mnemonic, so it can only be a symbol name
+	if (!first_symbol_of_statement())
+		return;	// more than one symbol, error has been reported
+
+	// Now GotByte = illegal char
+	// 04 Jun 2005: this fix should help to explain "strange" error messages.
+	// 17 May 2014: now it works for UTF-8 as well.
+	if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
+	|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0)))
+		Throw_first_pass_warning("Symbol name starts with a shift-space character.");
+	parse_symbol_definition(SCOPE_GLOBAL);
 }
 
 
@@ -292,7 +298,7 @@ static void parse_local_symbol_def(void)
 {
 	scope_t	scope;
 
-	if (!first_label_of_statement())
+	if (!first_symbol_of_statement())
 		return;
 
 	if (input_read_scope_and_symbol_name(&scope) == 0)
@@ -303,7 +309,7 @@ static void parse_local_symbol_def(void)
 // parse anonymous backward label definition. Called with GotByte == '-'
 static void parse_backward_anon_def(void)
 {
-	if (!first_label_of_statement())
+	if (!first_symbol_of_statement())
 		return;
 
 	dynabuf_clear(GlobalDynaBuf);
@@ -319,7 +325,7 @@ static void parse_backward_anon_def(void)
 // parse anonymous forward label definition. called with GotByte == ?
 static void parse_forward_anon_def(void)
 {
-	if (!first_label_of_statement())
+	if (!first_symbol_of_statement())
 		return;
 
 	dynabuf_clear(GlobalDynaBuf);

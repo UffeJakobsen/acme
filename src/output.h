@@ -12,7 +12,7 @@
 
 
 // constants
-#define MEMINIT_USE_DEFAULT	256
+
 // segment flags
 #define	SEGMENT_FLAG_OVERLAY	(1u << 0)	// do not warn about this segment overwriting another one
 #define	SEGMENT_FLAG_INVISIBLE	(1u << 1)	// do not warn about other segments overwriting this one
@@ -43,7 +43,7 @@ extern void output_passinit(void);
 // outbuf stuff:
 
 // alloc and init mem buffer (done later)
-extern void output_createbuffer(signed long fill_value, boolean use_large_buf);
+extern void output_createbuffer(void);
 
 // skip over some bytes in output buffer without starting a new segment
 // (used by "!skip", and also called by "!binary" if really calling
@@ -72,7 +72,7 @@ extern int outputfile_prefer_cbm_format(void);
 // try to set output file name held in DynaBuf. Returns zero on success.
 extern int outputfile_set_filename(void);
 
-// write smallest-possible part of memory buffer to file
+// write used portion of output buffer to output file
 extern void output_save_file(FILE *fd);
 
 // change output pointer and enable output

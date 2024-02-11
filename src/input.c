@@ -339,11 +339,25 @@ static char GetQuotedByte(void)
 }
 
 // Skip remainder of statement, for example on error
-// FIXME - check for quotes, otherwise this might treat a quoted colon like EOS!
 void input_skip_remainder(void)
 {
-	while (GotByte)
+	while (GotByte) {
 		GetByte();	// Read characters until end-of-statement
+	}
+/* FIXME - check for quotes, otherwise this might treat a quoted colon like EOS!
+this has already been a bug with "!to" and "!sl" where a workaround was implemented.
+fix it here, once and for all, maybe like this:
+	dynabuf_clear(GlobalDynaBuf);
+	while (GotByte != CHAR_EOS) {
+		// check for quotes
+		if ((GotByte == '"') || (GotByte == '\'')) {
+			if (input_quoted_to_dynabuf(GotByte))
+				break;	// error (CHAR_EOS before closing quote)
+		}
+		GetByte();
+	}
+	dynabuf_clear(GlobalDynaBuf);
+*/
 }
 
 // Ensure that the remainder of the current statement is empty, for example
@@ -599,33 +613,51 @@ int input_read_and_lower_keyword(void)
 	return length;
 }
 
-// Try to read a file name.
-// If "allow_library" is TRUE, library access by using <...> quoting
-// is possible as well. If "uses_lib" is non-NULL, info about library
-// usage is stored there.
+// shared ending when trying to read a file name.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-int input_read_filename(boolean allow_library, boolean *uses_lib)
+static int read_filename_shared_end(int prefix_size)
 {
-	int	start_of_string;
-	char	*lib_prefix,
-		terminator;
+	// check length
+	if (GlobalDynaBuf->size == prefix_size) {
+		Throw_error("No file name given.");
+		return 1;	// error
+	}
+
+	// resolve backslash escapes
+	if (input_unescape_dynabuf(prefix_size))
+		return 1;	// escaping error
+
+	// terminate string
+	dynabuf_append(GlobalDynaBuf, '\0');
+#ifdef PLATFORM_CONVERTPATH
+	// platform-specific path name conversion
+	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT + prefix_size);
+#endif
+	return 0;	// ok
+}
+
+// try to read a file name for an input file.
+// library access by using <...> quoting is allowed. function will store info
+// about library usage at "uses_lib" ptr.
+// The file name given in the assembler source code is converted from
+// UNIX style to platform style.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
+// Errors are handled and reported, but caller should call
+// input_skip_remainder() then.
+int input_read_input_filename(boolean *uses_lib)
+{
+	char	*lib_prefix;	// depends on platform
+	int	prefix_size;	// this much does not get platform-converted because it is already correct
 
 	dynabuf_clear(GlobalDynaBuf);
 	SKIPSPACE();
-	switch (GotByte) {
-	case '<':	// library access
-		if (uses_lib)
-			*uses_lib = TRUE;
-		// if library access forbidden, complain
-		if (!allow_library) {
-			Throw_error("Writing to library not supported.");
-			return 1;	// error
-		}
-
+	if (GotByte == '<') {
+		// library access:
+		*uses_lib = TRUE;
 		// read platform's lib prefix
 		lib_prefix = PLATFORM_LIBPREFIX;
 #ifndef NO_NEED_FOR_ENV_VAR
@@ -635,44 +667,70 @@ int input_read_filename(boolean allow_library, boolean *uses_lib)
 			return 1;	// error
 		}
 #endif
-		// copy lib path and set quoting char
+		// copy lib path
 		dynabuf_add_string(GlobalDynaBuf, lib_prefix);
-		terminator = '>';
-		break;
-	case '"':	// normal access
-		if (uses_lib)
-			*uses_lib = FALSE;
-		terminator = '"';
-		break;
-	default:	// none of the above
-		Throw_error("File name quotes not found (\"\" or <>).");
+		// remember border between optional library prefix and string from assembler source file
+		prefix_size = GlobalDynaBuf->size;
+		// read file name string (must be a single string <literal>)
+		if (input_quoted_to_dynabuf('>'))
+			return 1;	// unterminated or escaping error
+
+		GetByte();	// eat '>' terminator
+	} else {
+		// "normal", non-library access:
+		*uses_lib = FALSE;
+		prefix_size = 0;	// no prefix in DynaBuf
+// old algo (do not merge with similar parts from "if" block!):
+		if (GotByte != '"') {
+			Throw_error("File name quotes not found (\"\" or <>).");
+			return 1;	// error
+		}
+		// read file name string
+		if (input_quoted_to_dynabuf('"'))
+			return 1;	// unterminated or escaping error
+
+		GetByte();	// eat terminator
+// new algo:
+// it should be possible to construct the name of input file from symbols, so
+// build environments can define a name at one place and use it at another.
+// FIXME - use expression parser to read filename string!
+// see lines 416 and 1317 in pseudoopcodes.c for two more possible callers!
+	}
+	// check length, unescape, terminate, do platform conversion
+	return read_filename_shared_end(prefix_size);
+}
+
+// try to read a file name for an output file.
+// library access by using <...> quoting is forbidden.
+// The file name given in the assembler source code is converted from
+// UNIX style to platform style.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
+// Errors are handled and reported, but caller should call
+// input_skip_remainder() then.
+//
+// this is only used for "!to" and "!sl", i.e. output file names. these
+// must be given as a literal string, and it should be kept this way.
+int input_read_output_filename(void)
+{
+	SKIPSPACE();
+	if (GotByte == '<') {
+		Throw_error("Writing to library not supported.");
 		return 1;	// error
 	}
-	// remember border between optional library prefix and string from assembler source file
-	start_of_string = GlobalDynaBuf->size;
-	// read file name string
-	if (input_quoted_to_dynabuf(terminator))
+	if (GotByte != '"') {
+		Throw_error("File name quotes not found (\"\").");
+		return 1;	// error
+	}
+	dynabuf_clear(GlobalDynaBuf);
+	// read file name string (must be a single string literal! do not change this!)
+	if (input_quoted_to_dynabuf('"'))
 		return 1;	// unterminated or escaping error
 
 	GetByte();	// eat terminator
-	// check length
-	if (GlobalDynaBuf->size == start_of_string) {
-		Throw_error("No file name given.");
-		return 1;	// error
-	}
-
-	// resolve backslash escapes
-	if (input_unescape_dynabuf(start_of_string))
-		return 1;	// escaping error
-
-	// terminate string
-	dynabuf_append(GlobalDynaBuf, '\0');
-#ifdef PLATFORM_CONVERTPATH
-	// platform-specific path name conversion
-	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT + start_of_string);
-#endif
-	return 0;	// ok
+	// check length, unescape, terminate, do platform conversion:
+	return read_filename_shared_end(0);	// 0 -> there is no library prefix
 }
+
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.

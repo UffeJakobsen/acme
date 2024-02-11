@@ -54,6 +54,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_VICELABELS	"vicelabels"
 #define OPTION_REPORT		"report"
 #define OPTION_SETPC		"setpc"
+#define OPTION_FROM_TO		"from-to"
 #define OPTION_CPU		"cpu"
 #define OPTION_INITMEM		"initmem"
 #define OPTION_MAXERRORS	"maxerrors"
@@ -79,9 +80,6 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 // variables
 static const char	**toplevel_sources;
 static int		toplevel_src_count	= 0;
-#define ILLEGAL_START_ADDRESS	(-1)
-static signed long	start_address		= ILLEGAL_START_ADDRESS;
-static signed long	fill_value		= MEMINIT_USE_DEFAULT;
 static const struct cpu_type	*default_cpu	= NULL;
 const char		*symbollist_filename	= NULL;
 const char		*vicelabels_filename	= NULL;
@@ -124,40 +122,41 @@ static void show_help_and_exit(void)
 "acme [OPTION...] [FILE]...\n"
 "\n"
 "Options:\n"
-"  -h, --" OPTION_HELP "             show this help and exit\n"
-"  -f, --" OPTION_FORMAT " FORMAT    set output file format\n"
-"  -o, --" OPTION_OUTFILE " FILE     set output file name\n"
-"  -r, --" OPTION_REPORT " FILE      set report file name\n"
-"  -l, --" OPTION_SYMBOLLIST " FILE  set symbol list file name\n"
-"      --" OPTION_LABELDUMP "        (old name for --" OPTION_SYMBOLLIST ")\n"
-"      --" OPTION_VICELABELS " FILE  set file name for label dump in VICE format\n"
-"      --" OPTION_SETPC " VALUE      set program counter\n"
-"      --" OPTION_CPU " CPU          set target processor\n"
-"      --" OPTION_INITMEM " VALUE    define 'empty' memory\n"
-"      --" OPTION_MAXERRORS " NUMBER set number of errors before exiting\n"
-"      --" OPTION_MAXDEPTH " NUMBER  set recursion depth for macro calls and !src\n"
-"      --" OPTION_IGNORE_ZEROES "    do not determine number size by leading zeroes\n"
-"      --" OPTION_STRICT_SEGMENTS "  turn segment overlap warnings into errors\n"
-"      --" OPTION_STRICT "           treat all warnings like errors\n"
-"  -vDIGIT                set verbosity level\n"
-"  -DSYMBOL=VALUE         define global symbol\n"
-"  -I PATH/TO/DIR         add search path for input files\n"
+"  -h, --" OPTION_HELP "                show this help and exit\n"
+"  -f, --" OPTION_FORMAT " FORMAT       set output file format\n"
+"  -o, --" OPTION_OUTFILE " FILE        set output file name\n"
+"  -r, --" OPTION_REPORT " FILE         set report file name\n"
+"  -l, --" OPTION_SYMBOLLIST " FILE     set symbol list file name\n"
+"      --" OPTION_LABELDUMP "           (old name for --" OPTION_SYMBOLLIST ")\n"
+"      --" OPTION_VICELABELS " FILE     set file name for label dump in VICE format\n"
+"      --" OPTION_SETPC " VALUE         set program counter\n"
+"      --" OPTION_FROM_TO " VALUE VALUE set start and end of output file\n"
+"      --" OPTION_CPU " CPU             set target processor\n"
+"      --" OPTION_INITMEM " VALUE       define 'empty' memory\n"
+"      --" OPTION_MAXERRORS " NUMBER    set number of errors before exiting\n"
+"      --" OPTION_MAXDEPTH " NUMBER     set recursion depth for macro calls and !src\n"
+"      --" OPTION_IGNORE_ZEROES "       do not determine number size by leading zeroes\n"
+"      --" OPTION_STRICT_SEGMENTS "     turn segment overlap warnings into errors\n"
+"      --" OPTION_STRICT "              treat all warnings like errors\n"
+"  -vDIGIT                   set verbosity level\n"
+"  -DSYMBOL=VALUE            define global symbol\n"
+"  -I PATH/TO/DIR            add search path for input files\n"
 // TODO: replace these:
-"  -W" OPTIONWNO_LABEL_INDENT "      suppress warnings about indented labels\n"
-"  -W" OPTIONWNO_OLD_FOR "           (old, use \"--dialect 0.94.8\" instead)\n"
-"  -W" OPTIONWNO_BIN_LEN "           suppress warnings about lengths of binary literals\n"
-"  -W" OPTIONWTYPE_MISMATCH "        enable type checking (warn about type mismatch)\n"
+"  -W" OPTIONWNO_LABEL_INDENT "         suppress warnings about indented labels\n"
+"  -W" OPTIONWNO_OLD_FOR "              (old, use \"--dialect 0.94.8\" instead)\n"
+"  -W" OPTIONWNO_BIN_LEN "              suppress warnings about lengths of binary literals\n"
+"  -W" OPTIONWTYPE_MISMATCH "           enable type checking (warn about type mismatch)\n"
 // with this line and add a separate function:
 //"  -W                     show warning level options\n"
-"      --" OPTION_USE_STDOUT "       fix for 'Relaunch64' IDE (see docs)\n"
-"      --" OPTION_MSVC "             output errors in MS VS format\n"
-"      --" OPTION_COLOR "            use ANSI color codes for error output\n"
-"      --" OPTION_FULLSTOP "         use '.' as pseudo opcode prefix\n"
-"      --" OPTION_DIALECT " VERSION  behave like different version\n"
-"      --" OPTION_DEBUGLEVEL " VALUE drop all higher-level debug messages\n"
-"      --" OPTION_TEST "             enable experimental features\n"
+"      --" OPTION_USE_STDOUT "          fix for 'Relaunch64' IDE (see docs)\n"
+"      --" OPTION_MSVC "                output errors in MS VS format\n"
+"      --" OPTION_COLOR "               use ANSI color codes for error output\n"
+"      --" OPTION_FULLSTOP "            use '.' as pseudo opcode prefix\n"
+"      --" OPTION_DIALECT " VERSION     behave like different version\n"
+"      --" OPTION_DEBUGLEVEL " VALUE    drop all higher-level debug messages\n"
+"      --" OPTION_TEST "                enable experimental features\n"
 PLATFORM_OPTION_HELP
-"  -V, --" OPTION_VERSION "          show version and exit\n");
+"  -V, --" OPTION_VERSION "             show version and exit\n");
 	exit(EXIT_SUCCESS);
 }
 
@@ -256,8 +255,8 @@ static void perform_pass(void)
 	output_passinit();	// disable output, PC undefined
 	cputype_passinit(default_cpu);	// set default cpu type
 	// if start address was given on command line, use it:
-	if (start_address != ILLEGAL_START_ADDRESS)
-		vcpu_set_pc(start_address, 0);
+	if (config.initial_pc != NO_VALUE_GIVEN)
+		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
 	// init variables
@@ -419,29 +418,27 @@ static signed long string_to_number(const char *string)
 		could_not_parse(end);
 	return result;
 }
-
-
-// set program counter
-static void set_starting_pc(const char expression[])
+// wrapper for fn above: complain about negative numbers
+static signed long string_to_nonneg_number(const char *string)
 {
-	start_address = string_to_number(expression);
-	if ((start_address > -1) && (start_address < 65536))
-		return;
+	signed long	result	= string_to_number(string);
 
-	fprintf(stderr, "%sProgram counter out of range (0-0xffff).\n", cliargs_error);
-	exit(EXIT_FAILURE);
+	if (result < 0) {
+		fprintf(stderr, "%sInvalid value, number is negative: '%s'.\n", cliargs_error, string);
+		exit(EXIT_FAILURE);
+	}
+	return result;
 }
 
 
 // set initial memory contents
 static void set_mem_contents(const char expression[])
 {
-	fill_value = string_to_number(expression);
-	if ((fill_value >= -128) && (fill_value <= 255))
-		return;
-
-	fprintf(stderr, "%sInitmem value out of range (0-0xff).\n", cliargs_error);
-	exit(EXIT_FAILURE);
+	config.mem_init_value = string_to_number(expression);
+	if ((config.mem_init_value < -128) || (config.mem_init_value > 255)) {
+		fprintf(stderr, "%sInitmem value out of range (0-0xff).\n", cliargs_error);
+		exit(EXIT_FAILURE);
+	}
 }
 
 
@@ -533,8 +530,11 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_REPORT) == 0)
 		report_filename = cliargs_safe_get_next(arg_reportfile);
 	else if (strcmp(string, OPTION_SETPC) == 0)
-		set_starting_pc(cliargs_safe_get_next("program counter"));
-	else if (strcmp(string, OPTION_CPU) == 0)
+		config.initial_pc = string_to_nonneg_number(cliargs_safe_get_next("program counter"));
+	else if (strcmp(string, OPTION_FROM_TO) == 0) {
+		config.outfile_start = string_to_nonneg_number(cliargs_safe_get_next("start address of output file"));
+		config.outfile_end = string_to_nonneg_number(cliargs_safe_get_next("end address of output file"));
+	} else if (strcmp(string, OPTION_CPU) == 0)
 		set_starting_cpu(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_INITMEM) == 0)
 		set_mem_contents(cliargs_safe_get_next("initmem value"));
@@ -563,6 +563,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_TEST) == 0) {
 		config.wanted_version = VER_FUTURE;
 		config.test_new_features = TRUE;
+		config.outbuf_size = 0x1000000;	// 16 MiB (FIXME - give it its own cli switch!)
 	} PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
 		config.format_color = TRUE;
@@ -656,8 +657,28 @@ int main(int argc, const char *argv[])
 	cliargs_handle_options(short_option, long_option);
 	// generate list of files to process
 	cliargs_get_rest(&toplevel_src_count, &toplevel_sources, "No top level sources given");
+
+	// now that we have processed all cli switches, check a few values for
+	// valid range:
+	if ((config.initial_pc != NO_VALUE_GIVEN) && (config.initial_pc >= config.outbuf_size)) {
+		fprintf(stderr, "%sProgram counter exceeds outbuffer size.\n", cliargs_error);
+		exit(EXIT_FAILURE);
+	}
+	if ((config.outfile_start != NO_VALUE_GIVEN) && (config.outfile_start >= config.outbuf_size)) {
+		fprintf(stderr, "%sStart address of output file exceeds outbuffer size.\n", cliargs_error);
+		exit(EXIT_FAILURE);
+	}
+	if ((config.outfile_end != NO_VALUE_GIVEN) && (config.outfile_end >= config.outbuf_size)) {
+		fprintf(stderr, "%sEnd address of output file exceeds outbuffer size.\n", cliargs_error);
+		exit(EXIT_FAILURE);
+	}
+	if (config.outfile_start > config.outfile_end) {
+		fprintf(stderr, "%sStart address of output file exceeds end address.\n", cliargs_error);
+		exit(EXIT_FAILURE);
+	}
+
 	// init output buffer
-	output_createbuffer(fill_value, /* use_large_buf= */ config.test_new_features);
+	output_createbuffer();
 	if (do_actual_work())
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted

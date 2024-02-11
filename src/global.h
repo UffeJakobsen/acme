@@ -14,8 +14,8 @@
 #include <string.h>
 #include "config.h"
 
-#define LOCAL_PREFIX		'.'	// FIXME - this is not yet used consistently!
-#define CHEAP_PREFIX		'@'	// prefix character for cheap locals
+#define LOCAL_PREFIX	'.'	// FIXME - this is not yet used consistently!
+#define CHEAP_PREFIX	'@'	// prefix character for cheap locals
 
 // Constants
 
@@ -77,6 +77,13 @@ struct config {
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum version	wanted_version;	// set by --dialect (and --test --test)
 	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
+	signed long	outbuf_size;	// 64K, "--test" changes to 16M
+#define MEMINIT_USE_DEFAULT	256	// default value for next field if cli switch not used:
+	signed long	mem_init_value;	// set by --initmem
+#define NO_VALUE_GIVEN	(-1)	// default value for these fields if cli switch not used:
+	signed long	initial_pc;	// set by --setpc
+	signed long	outfile_start;	// set by --from-to
+	signed long	outfile_end;	// set by --from-to
 };
 extern struct config	config;
 

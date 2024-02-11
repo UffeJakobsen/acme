@@ -136,7 +136,7 @@ static enum eos po_to(void)
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
-	if (input_read_filename(FALSE, NULL))
+	if (input_read_output_filename())
 		return SKIP_REMAINDER;
 
 	// only act upon this pseudo opcode in first pass
@@ -360,6 +360,15 @@ static enum eos predefined_encoding(void)
 }
 // set current encoding ("!convtab" pseudo opcode)
 // (allows for block, so must be reentrant)
+// FIXME: current code does not allow for stuff like
+//	!convtab some_string_symbol + ".bin"
+// because anything not starting with '<' or '"' is supposed to be a keyword.
+// maybe fix this by using
+//	!convtab file = base + ".txt"
+// in the future?
+// another workaround would be:
+//	!convtab "" + some_string_symbol + ".bin"
+// but even then input_read_input_filename needs to be fixed!
 static enum eos po_convtab(void)
 {
 	boolean	uses_lib;
@@ -367,7 +376,7 @@ static enum eos po_convtab(void)
 
 	if ((GotByte == '<') || (GotByte == '"')) {
 		// encoding table from file
-		if (input_read_filename(TRUE, &uses_lib))
+		if (input_read_input_filename(&uses_lib))
 			return SKIP_REMAINDER;	// missing or unterminated file name
 
 		stream = includepaths_open_ro(uses_lib);
@@ -403,6 +412,8 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			// eat closing quote
 			GetByte();
 			// now convert to unescaped version
+			// FIXME - next call does nothing because wanted<escaping!
+			// FIXME - there is another block like this in line 1317!
 			if (input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
@@ -467,7 +478,7 @@ static enum eos po_binary(void)
 	skip.val.intval	= 0;
 
 	// if file name is missing, don't bother continuing
-	if (input_read_filename(TRUE, &uses_lib))
+	if (input_read_input_filename(&uses_lib))
 		return SKIP_REMAINDER;
 
 	// try to open file
@@ -767,7 +778,7 @@ static enum eos po_symbollist(void)
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
-	if (input_read_filename(FALSE, NULL))
+	if (input_read_output_filename())
 		return SKIP_REMAINDER;
 
 	// only process this pseudo opcode in first pass
@@ -849,7 +860,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	if (--source_recursions_left < 0)
 		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 	// read file name. quit function on error
-	if (input_read_filename(TRUE, &uses_lib))
+	if (input_read_input_filename(&uses_lib))
 		return SKIP_REMAINDER;
 
 	// if file could be opened, parse it. otherwise, complain
@@ -1302,6 +1313,8 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 			// eat closing quote
 			GetByte();
 			// now convert to unescaped version
+			// FIXME - next call does nothing because wanted<escaping!
+			// FIXME - there is another block like this in line 416!
 			if (input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 

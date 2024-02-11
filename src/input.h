@@ -116,16 +116,24 @@ extern int input_read_keyword(void);
 // Zero lengths will produce a "missing string" error.
 extern int input_read_and_lower_keyword(void);
 
-// Try to read a file name.
-// If "allow_library" is TRUE, library access by using <...> quoting
-// is possible as well. If "uses_lib" is non-NULL, info about library
-// usage is stored there.
+// try to read a file name for an input file.
+// library access by using <...> quoting is allowed. function will store info
+// about library usage at "uses_lib" ptr.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-extern int input_read_filename(boolean library_allowed, boolean *uses_lib);
+extern int input_read_input_filename(boolean *uses_lib);
+
+// try to read a file name for an output file ("!to" and "!sl" only).
+// library access by using <...> quoting is forbidden.
+// The file name given in the assembler source code is converted from
+// UNIX style to platform style.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
+// Errors are handled and reported, but caller should call
+// input_skip_remainder() then.
+extern int input_read_output_filename(void);
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.

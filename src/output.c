@@ -38,8 +38,7 @@ struct segment {
 // structure for all output stuff:
 struct output {
 	// output buffer stuff
-	intval_t	bufsize;	// either 64 KiB or 16 MiB
-	char		*buffer;	// holds assembled code
+	char		*buffer;	// holds assembled code (size is config.outbuf_size)
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
 	intval_t	highest_written;	// largest address used
@@ -111,7 +110,7 @@ static void find_segment_max(intval_t new_pc)
 	while (test_segment->start <= new_pc)
 		test_segment = test_segment->next;
 	if (test_segment == &out->segment.list_head)
-		out->segment.max = out->bufsize - 1;
+		out->segment.max = config.outbuf_size - 1;
 	else
 		out->segment.max = test_segment->start - 1;	// last free address available
 }
@@ -120,7 +119,7 @@ static void find_segment_max(intval_t new_pc)
 //
 static void border_crossed(int current_offset)
 {
-	if (current_offset >= out->bufsize)
+	if (current_offset >= config.outbuf_size)
 		Throw_serious_error("Produced too much code.");
 	// TODO - get rid of FIRST_PASS condition, because user can suppress these warnings if they want
 	if (FIRST_PASS) {
@@ -206,7 +205,7 @@ void output_skip(int size)
 // fill output buffer with given byte value
 static void fill_completely(char value)
 {
-	memset(out->buffer, value, out->bufsize);
+	memset(out->buffer, value, config.outbuf_size);
 }
 
 
@@ -276,42 +275,54 @@ int outputfile_set_filename(void)
 
 
 // init output struct (done later)
-void output_createbuffer(signed long fill_value, boolean use_large_buf)
+void output_createbuffer(void)
 {
-	out->bufsize = use_large_buf ? 0x1000000 : 0x10000;
-	out->buffer = safe_malloc(out->bufsize);
-	if (fill_value == MEMINIT_USE_DEFAULT) {
-		fill_value = FILLVALUE_INITIAL;
-		out->initvalue_set = FALSE;
+	char	fill_value	= 0;	// default value for output buffer
+
+	out->buffer = safe_malloc(config.outbuf_size);
+	if (config.mem_init_value == MEMINIT_USE_DEFAULT) {
+		out->initvalue_set = FALSE;	// "!initmem" can be used
 	} else {
-		out->initvalue_set = TRUE;
+		out->initvalue_set = TRUE;	// "!initmem" generates a warning
+		fill_value = 0xff & config.mem_init_value;
 	}
 	// init output buffer (fill memory with initial value)
-	fill_completely(fill_value & 0xff);
+	fill_completely(fill_value);
 	// init ring list of segments
 	out->segment.list_head.next = &out->segment.list_head;
 	out->segment.list_head.prev = &out->segment.list_head;
 }
 
 
-// dump used portion of output buffer into output file
+// write used portion of output buffer to output file
 void output_save_file(FILE *fd)
 {
 	intval_t	start,
+			end,
 			amount;
 
-	if (out->highest_written < out->lowest_written) {
+	start = out->lowest_written;
+	end = out->highest_written;
+	// if cli args were given, they override the actual values:
+	if (config.outfile_start != NO_VALUE_GIVEN)
+		start = config.outfile_start;
+	if (config.outfile_end != NO_VALUE_GIVEN)
+		end = config.outfile_end;
+
+	if (end < start) {
 		// nothing written
 		start = 0;	// I could try to use some segment start, but what for?
 		amount = 0;
+		// FIXME - how about not writing anything in this case?
+		// a CBM file would consist of a bogus load address and nothing else!
 	} else {
-		start = out->lowest_written;
-		amount = out->highest_written - start + 1;
+		amount = end - start + 1;
 	}
 	if (config.process_verbosity)
 		printf("Saving %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
 			amount, amount, start, start + amount);
 	// output file header according to file format
+	// FIXME - add checks and error messages for "start is above $ffff"!)
 	switch (output_format) {
 	case OUTPUT_FORMAT_APPLE:
 		PLATFORM_SETFILETYPE_APPLE(output_filename);
@@ -402,13 +413,13 @@ void output_passinit(void)
 //	}
 
 	// invalidate start and end (first byte actually written will fix them)
-	out->lowest_written = out->bufsize - 1;
+	out->lowest_written = config.outbuf_size - 1;
 	out->highest_written = 0;
 	// deactivate output - any byte written will trigger error:
 	output_byte = no_output;
 	out->write_idx = 0;	// same as pc on pass init!
 	out->segment.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
-	out->segment.max = out->bufsize - 1;	// TODO - use end of bank?
+	out->segment.max = config.outbuf_size - 1;	// TODO - use end of bank?
 	out->segment.flags = 0;
 	out->xor = 0;
 
@@ -467,7 +478,7 @@ void output_start_segment(intval_t address_change, bits segment_flags)
 	output_end_segment();
 
 	// calculate start of new segment
-	out->write_idx = (out->write_idx + address_change) & (out->bufsize - 1);
+	out->write_idx = (out->write_idx + address_change) & (config.outbuf_size - 1);
 	out->segment.start = out->write_idx;
 	out->segment.flags = segment_flags;
 	// allow writing to output buffer
@@ -568,7 +579,7 @@ int vcpu_get_statement_size(void)
 // adjust program counter (called at end of each statement)
 void vcpu_end_statement(void)
 {
-	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & (out->bufsize - 1);
+	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & (config.outbuf_size - 1);
 	CPU_state.add_to_pc = 0;
 }
 
@@ -607,7 +618,7 @@ void pseudopc_end(void)
 		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
 			BUG("ClosingUnopenedPseudopcBlock", 0);
 	} else {
-		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & (out->bufsize - 1);	// pc might have wrapped around
+		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
 		CPU_state.pc.ntype = pseudopc_current_context->ntype;
 		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	}
@@ -631,7 +642,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 1;	// error
 		}
 		// FIXME - in future, check both target and context for NUMTYPE_UNDEFINED!
-		target->val.intval = (target->val.intval - context->offset) & (out->bufsize - 1);	// FIXME - is masking really needed?	TODO
+		target->val.intval = (target->val.intval - context->offset) & (config.outbuf_size - 1);	// FIXME - is masking really needed?	TODO
 		context = context->outer;
 	}
 	return 0;	// ok

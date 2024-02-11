@@ -72,8 +72,6 @@ struct listitem {
 // maximum nesting depth of "!src" and macro calls
 // is not actually a limitation, but a means of finding recursions
 #define MAX_NESTING	64
-// default value for output buffer
-#define FILLVALUE_INITIAL	0
 // default value for "!fill"
 #define FILLVALUE_FILL		0
 
