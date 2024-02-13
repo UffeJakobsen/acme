@@ -36,7 +36,6 @@ extern struct vcpu	CPU_state;	// current CPU state	FIXME - restrict visibility t
 // Prototypes
 
 // clear segment list and disable output
-//TODO - does this belong to outbuf stuff?
 extern void output_passinit(void);
 
 
@@ -58,6 +57,9 @@ extern void (*output_byte)(intval_t);
 // returns zero if ok, nonzero if already set
 extern int output_setdefault(char content);
 
+// remember current outbuf index as start/limit of output file
+extern void outbuf_set_outfile_start(void);
+extern void outbuf_set_outfile_limit(void);
 
 // outfile stuff:
 

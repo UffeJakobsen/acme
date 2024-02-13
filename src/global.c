@@ -117,7 +117,7 @@ void config_default(struct config *conf)
 	conf->format_color		= FALSE;	// enabled by --color
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
-	conf->segment_warning_is_error	= FALSE;	// enabled by --strict-segments		TODO - toggle default?
+	conf->debuglevel_segmentprobs	= DEBUGLEVEL_WARNING;	// changed to ERROR by --strict-segments		TODO - toggle default?
 	conf->all_warnings_are_errors	= FALSE;	// enabled by --strict
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
@@ -126,7 +126,7 @@ void config_default(struct config *conf)
 	conf->mem_init_value		= MEMINIT_USE_DEFAULT;	// set by --initmem
 	conf->initial_pc		= NO_VALUE_GIVEN;	// set by --setpc
 	conf->outfile_start		= NO_VALUE_GIVEN;	// set by --from-to
-	conf->outfile_end		= NO_VALUE_GIVEN;	// set by --from-to
+	conf->outfile_limit		= NO_VALUE_GIVEN;	// end+1, set by --from-to
 }
 
 // memory allocation stuff

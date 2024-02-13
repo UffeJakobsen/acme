@@ -1372,6 +1372,35 @@ static enum eos po_serious(void)
 	return throw_src_string(DEBUGLEVEL_SERIOUS, "!serious: ");
 }
 
+// use current outbuf index as "first byte of output file"
+static enum eos po_outfilestart(void)
+{
+	static int	last_pass_number	= -1;
+
+	if ((config.outfile_start != NO_VALUE_GIVEN)
+	|| (last_pass_number == pass.number)) {
+		Throw_first_pass_warning("Start of output file already chosen.");
+	} else {
+		last_pass_number = pass.number;
+		outbuf_set_outfile_start();
+	}
+	return ENSURE_EOS;
+}
+// use current outbuf index as "end+1 of output file"
+static enum eos po_outfilelimit(void)
+{
+	static int	last_pass_number	= -1;
+
+	if ((config.outfile_limit != NO_VALUE_GIVEN)
+	|| (last_pass_number == pass.number)) {
+		Throw_first_pass_warning("End of output file already chosen.");
+	} else {
+		last_pass_number = pass.number;
+		outbuf_set_outfile_limit();
+	}
+	return ENSURE_EOS;
+}
+
 
 // end of source file ("!endoffile" or "!eof")
 static enum eos po_endoffile(void)
@@ -1455,8 +1484,8 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("warn",		po_warn),
 	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),
-//	PREDEFNODE("filestart",		po_),
-//	PREDEFNODE("filestop",		po_),
+	PREDEFNODE("outfilestart",	po_outfilestart),
+	PREDEFNODE("outfilelimit",	po_outfilelimit),
 	PREDEFNODE("eof",		po_endoffile),
 	PREDEF_END("endoffile",		po_endoffile),
 	//    ^^^^ this marks the last element

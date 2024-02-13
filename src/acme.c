@@ -130,7 +130,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_LABELDUMP "           (old name for --" OPTION_SYMBOLLIST ")\n"
 "      --" OPTION_VICELABELS " FILE     set file name for label dump in VICE format\n"
 "      --" OPTION_SETPC " VALUE         set program counter\n"
-"      --" OPTION_FROM_TO " VALUE VALUE set start and end of output file\n"
+"      --" OPTION_FROM_TO " VALUE VALUE set start and end+1 of output file\n"
 "      --" OPTION_CPU " CPU             set target processor\n"
 "      --" OPTION_INITMEM " VALUE       define 'empty' memory\n"
 "      --" OPTION_MAXERRORS " NUMBER    set number of errors before exiting\n"
@@ -533,7 +533,7 @@ static const char *long_option(const char *string)
 		config.initial_pc = string_to_nonneg_number(cliargs_safe_get_next("program counter"));
 	else if (strcmp(string, OPTION_FROM_TO) == 0) {
 		config.outfile_start = string_to_nonneg_number(cliargs_safe_get_next("start address of output file"));
-		config.outfile_end = string_to_nonneg_number(cliargs_safe_get_next("end address of output file"));
+		config.outfile_limit = string_to_nonneg_number(cliargs_safe_get_next("end+1 of output file"));
 	} else if (strcmp(string, OPTION_CPU) == 0)
 		set_starting_cpu(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_INITMEM) == 0)
@@ -553,7 +553,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_IGNORE_ZEROES) == 0)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
-		config.segment_warning_is_error = TRUE;
+		config.debuglevel_segmentprobs = DEBUGLEVEL_ERROR;
 	else if (strcmp(string, OPTION_STRICT) == 0)
 		config.all_warnings_are_errors = TRUE;
 	else if (strcmp(string, OPTION_DIALECT) == 0)
@@ -668,12 +668,15 @@ int main(int argc, const char *argv[])
 		fprintf(stderr, "%sStart address of output file exceeds outbuffer size.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
-	if ((config.outfile_end != NO_VALUE_GIVEN) && (config.outfile_end >= config.outbuf_size)) {
-		fprintf(stderr, "%sEnd address of output file exceeds outbuffer size.\n", cliargs_error);
+	// "limit" is end+1 and therefore we need ">" instead of ">=":
+	if ((config.outfile_limit != NO_VALUE_GIVEN) && (config.outfile_limit > config.outbuf_size)) {
+		fprintf(stderr, "%sEnd+1 of output file exceeds outbuffer size.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
-	if (config.outfile_start > config.outfile_end) {
-		fprintf(stderr, "%sStart address of output file exceeds end address.\n", cliargs_error);
+	if ((config.outfile_start != NO_VALUE_GIVEN)
+	&& (config.outfile_limit != NO_VALUE_GIVEN)
+	&& (config.outfile_start >= config.outfile_limit)) {
+		fprintf(stderr, "%sStart address of output file exceeds end+1.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
 

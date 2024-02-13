@@ -60,6 +60,15 @@ enum version {
 					//	ignore leading zeroes?
 	VER_FUTURE			// far future
 };
+enum debuglevel {
+	DEBUGLEVEL_SERIOUS	= -3,	// ACME stops right away
+	DEBUGLEVEL_ERROR	= -2,	// something is wrong
+	DEBUGLEVEL_WARNING	= -1,	// something looks wrong
+	DEBUGLEVEL_INFO		= 0,	// info msg ("173 bytes left in code area!")
+	DEBUGLEVEL_DEBUG	= 1	// debug msg
+	// debug messages with higher levels are suppressed,
+	// can be changed using "--debuglevel" cli switch.
+};
 // configuration
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
@@ -72,7 +81,7 @@ struct config {
 	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
-	boolean		segment_warning_is_error;	// FALSE, enabled by --strict-segments
+	enum debuglevel	debuglevel_segmentprobs;	// WARNING, changed to ERROR by --strict-segments
 	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum version	wanted_version;	// set by --dialect (and --test --test)
@@ -83,7 +92,7 @@ struct config {
 #define NO_VALUE_GIVEN	(-1)	// default value for these fields if cli switch not used:
 	signed long	initial_pc;	// set by --setpc
 	signed long	outfile_start;	// set by --from-to
-	signed long	outfile_end;	// set by --from-to
+	signed long	outfile_limit;	// end+1, set by --from-to
 };
 extern struct config	config;
 
@@ -163,15 +172,6 @@ extern void parse_until_eob_or_eof(void);
 // Don't forget to call EnsureEOL() afterwards.
 extern int parse_optional_block(void);
 
-enum debuglevel {
-	DEBUGLEVEL_SERIOUS	= -3,	// ACME stops right away
-	DEBUGLEVEL_ERROR	= -2,	// something is wrong
-	DEBUGLEVEL_WARNING	= -1,	// something looks wrong
-	DEBUGLEVEL_INFO		= 0,	// info msg ("173 bytes left in code area!")
-	DEBUGLEVEL_DEBUG	= 1	// debug msg
-	// debug messages with higher levels are suppressed,
-	// can be changed using "--debuglevel" cli switch.
-};
 // generate a debug/info/warning/error message
 void throw_message(enum debuglevel level, const char msg[]);
 

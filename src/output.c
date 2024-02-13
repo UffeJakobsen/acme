@@ -42,7 +42,7 @@ struct output {
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
 	intval_t	highest_written;	// largest address used
-	boolean		initvalue_set;
+	boolean		initvalue_set;	// default byte value for buffer has been set
 	struct {
 		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
 		intval_t	max;	// highest address segment may use
@@ -123,11 +123,7 @@ static void border_crossed(int current_offset)
 		Throw_serious_error("Produced too much code.");
 	// TODO - get rid of FIRST_PASS condition, because user can suppress these warnings if they want
 	if (FIRST_PASS) {
-		// TODO: make warn/err an arg for a general "Throw" function
-		if (config.segment_warning_is_error)
-			Throw_error("Segment reached another one, overwriting it.");
-		else
-			Throw_warning("Segment reached another one, overwriting it.");
+		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.");
 		find_segment_max(current_offset + 1);	// find new (next) limit
 	}
 }
@@ -233,6 +229,32 @@ int output_setdefault(char content)
 	return 0;	// ok
 }
 
+// remember current outbuf index as start/limit of output file
+static boolean	force_file_start	= FALSE;
+static intval_t	forced_start_idx;
+void outbuf_set_outfile_start(void)
+{
+	// check whether ptr undefined
+	if (output_byte == no_output) {
+		Throw_error(exception_pc_undefined);
+	} else {
+		force_file_start = TRUE;
+		forced_start_idx = out->write_idx;
+	}
+}
+static boolean	force_file_limit	= FALSE;
+static intval_t	forced_limit_idx;
+void outbuf_set_outfile_limit(void)
+{
+	// check whether ptr undefined
+	if (output_byte == no_output) {
+		Throw_error(exception_pc_undefined);
+	} else {
+		force_file_limit = TRUE;
+		forced_limit_idx = out->write_idx;
+	}
+}
+
 
 // try to set output format held in DynaBuf. Returns zero on success.
 int outputfile_set_format(void)
@@ -298,29 +320,35 @@ void output_createbuffer(void)
 void output_save_file(FILE *fd)
 {
 	intval_t	start,
-			end,
+			limit,	// end+1
 			amount;
 
 	start = out->lowest_written;
-	end = out->highest_written;
-	// if cli args were given, they override the actual values:
+	limit = out->highest_written + 1;
+	// if pseudo opcodes were used, they override the actual values:
+	if (force_file_start)
+		start = forced_start_idx;
+	if (force_file_limit)
+		limit = forced_limit_idx;
+	// if cli args were given, they override even harder:
 	if (config.outfile_start != NO_VALUE_GIVEN)
 		start = config.outfile_start;
-	if (config.outfile_end != NO_VALUE_GIVEN)
-		end = config.outfile_end;
+	if (config.outfile_limit != NO_VALUE_GIVEN)
+		limit = config.outfile_limit;
 
-	if (end < start) {
+	if (limit <= start) {
 		// nothing written
 		start = 0;	// I could try to use some segment start, but what for?
 		amount = 0;
 		// FIXME - how about not writing anything in this case?
 		// a CBM file would consist of a bogus load address and nothing else!
 	} else {
-		amount = end - start + 1;
+		amount = limit - start;
 	}
-	if (config.process_verbosity)
-		printf("Saving %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
+	if (config.process_verbosity) {
+		printf("Saving %ld (0x%04lx) bytes (0x%04lx - 0x%04lx exclusive).\n",
 			amount, amount, start, start + amount);
+	}
 	// output file header according to file format
 	// FIXME - add checks and error messages for "start is above $ffff"!)
 	switch (output_format) {
@@ -386,10 +414,7 @@ static void check_segment(intval_t new_pc)
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
 			// TODO - include overlap size in error message!
-			if (config.segment_warning_is_error)
-				Throw_error("Segment starts inside another one, overwriting it.");
-			else
-				Throw_warning("Segment starts inside another one, overwriting it.");
+			throw_message(config.debuglevel_segmentprobs, "Segment starts inside another one, overwriting it.");
 			return;
 		}
 
