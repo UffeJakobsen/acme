@@ -8,7 +8,7 @@ FILES	= $(foreach N,$(CPUS),$(N).o)
 	echo "Testing CPU:" $(subst .o,,$@)
 	acme $(ACMEFLAGS) -o test.o $<
 	cmp test.o expected-$@
-	rm test.o
+	$(RM) test.o
 	echo "Ok."
 
 all: $(FILES)

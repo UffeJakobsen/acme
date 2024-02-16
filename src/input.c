@@ -341,12 +341,8 @@ static char GetQuotedByte(void)
 // Skip remainder of statement, for example on error
 void input_skip_remainder(void)
 {
-	while (GotByte) {
-		GetByte();	// Read characters until end-of-statement
-	}
-/* FIXME - check for quotes, otherwise this might treat a quoted colon like EOS!
-this has already been a bug with "!to" and "!sl" where a workaround was implemented.
-fix it here, once and for all, maybe like this:
+	// read characters until end-of-statement, but check for quotes,
+	// otherwise this might treat a quoted colon like EOS!
 	dynabuf_clear(GlobalDynaBuf);
 	while (GotByte != CHAR_EOS) {
 		// check for quotes
@@ -357,7 +353,6 @@ fix it here, once and for all, maybe like this:
 		GetByte();
 	}
 	dynabuf_clear(GlobalDynaBuf);
-*/
 }
 
 // Ensure that the remainder of the current statement is empty, for example

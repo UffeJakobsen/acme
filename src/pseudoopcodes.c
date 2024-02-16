@@ -68,6 +68,8 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			mutually exclusive with all other arguments!
 			this would mean to keep all previous segment data,
 			so it could be used with "*=*-5" or "*=*+3"
+		} else if (strcmp(GlobalDynaBuf->buffer, "outfilestart") == 0) {
+FIXME			set flag to automatically do "!outfilestart" afterward.
 		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
 			skip '='
 			read segment name (quoted string!)	*/
@@ -129,18 +131,13 @@ static enum eos po_xor(void)
 // select output file and format ("!to" pseudo opcode)
 static enum eos po_to(void)
 {
-	// bugfix: first read filename, *then* check for first pass.
-	// if skipping right away, quoted colons might be misinterpreted as EOS
-	// FIXME - fix the skipping code to handle quotes! :)
-	// "!sl" has been fixed as well
+	// only act upon this pseudo opcode in first pass
+	if (!FIRST_PASS)
+		return SKIP_REMAINDER;
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
 	if (input_read_output_filename())
-		return SKIP_REMAINDER;
-
-	// only act upon this pseudo opcode in first pass
-	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
 	if (outputfile_set_filename())
@@ -771,18 +768,13 @@ static enum eos po_set(void)	// now GotByte = illegal char
 // set file name for symbol list
 static enum eos po_symbollist(void)
 {
-	// bugfix: first read filename, *then* check for first pass.
-	// if skipping right away, quoted colons might be misinterpreted as EOS
-	// FIXME - why not just fix the skipping code to handle quotes? :)
-	// "!to" has been fixed as well
+	// only process this pseudo opcode in first pass
+	if (!FIRST_PASS)
+		return SKIP_REMAINDER;
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
 	if (input_read_output_filename())
-		return SKIP_REMAINDER;
-
-	// only process this pseudo opcode in first pass
-	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
 	// if symbol list file name already set, complain and exit
