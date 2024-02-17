@@ -59,6 +59,7 @@ static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when n
 // variables
 static struct output	default_output;
 static struct output	*out	= &default_output;
+static int		statement_size;	// add to PC after statement
 // FIXME - make static
 struct vcpu		CPU_state;	// current CPU state
 
@@ -151,7 +152,7 @@ static void real_output(intval_t byte)
 	if (report->fd)
 		report_binary(byte & 0xff);	// file for reporting, taking also CPU_2add
 	out->buffer[out->write_idx++] = (byte & 0xff) ^ out->xor;
-	++CPU_state.add_to_pc;
+	++statement_size;	// count this byte
 }
 
 
@@ -194,7 +195,7 @@ void output_skip(int size)
 		out->highest_written = out->write_idx + size - 1;
 	// advance ptrs
 	out->write_idx += size;
-	CPU_state.add_to_pc += size;
+	statement_size += size;	// count bytes so PC will be adjusted correctly after this
 }
 
 
@@ -280,21 +281,6 @@ int outputfile_prefer_cbm_format(void)
 	return 1;
 }
 
-// select output file ("!to" pseudo opcode)
-// returns zero on success, nonzero if already set
-int outputfile_set_filename(void)
-{
-	// if output file already chosen, complain and exit
-	if (output_filename) {
-		Throw_warning("Output file already chosen.");
-		return 1;	// failed
-	}
-
-	// get malloc'd copy of filename
-	output_filename = dynabuf_get_copy(GlobalDynaBuf);
-	return 0;	// ok
-}
-
 
 // init output struct (done later)
 void output_createbuffer(void)
@@ -353,7 +339,7 @@ void output_save_file(FILE *fd)
 	// FIXME - add checks and error messages for "start is above $ffff"!)
 	switch (output_format) {
 	case OUTPUT_FORMAT_APPLE:
-		PLATFORM_SETFILETYPE_APPLE(output_filename);
+		PLATFORM_SETFILETYPE_APPLE(config.output_filename);
 		// output 16-bit load address in little-endian byte order
 		putc(start & 255, fd);
 		putc(start >> 8, fd);
@@ -363,10 +349,10 @@ void output_save_file(FILE *fd)
 		break;
 	case OUTPUT_FORMAT_UNSPECIFIED:
 	case OUTPUT_FORMAT_PLAIN:
-		PLATFORM_SETFILETYPE_PLAIN(output_filename);
+		PLATFORM_SETFILETYPE_PLAIN(config.output_filename);
 		break;
 	case OUTPUT_FORMAT_CBM:
-		PLATFORM_SETFILETYPE_CBM(output_filename);
+		PLATFORM_SETFILETYPE_CBM(config.output_filename);
 		// output 16-bit load address in little-endian byte order
 		putc(start & 255, fd);
 		putc(start >> 8, fd);
@@ -454,7 +440,7 @@ void output_passinit(void)
 	// FIXME - number type is "undefined", but still the intval 0 below will
 	// be used to calculate diff when pc is first set.
 	CPU_state.pc.val.intval = 0;	// same as output's write_idx on pass init
-	CPU_state.add_to_pc = 0;	// increase PC by this at end of statement
+	statement_size = 0;	// increase PC by this at end of statement
 
 	// pseudopc stuff:
 	pseudopc_current_context = NULL;
@@ -597,15 +583,15 @@ void vcpu_read_pc(struct number *target)
 // get size of current statement (until now) - needed for "!bin" verbose output
 int vcpu_get_statement_size(void)
 {
-	return CPU_state.add_to_pc;
+	return statement_size;
 }
 
 
 // adjust program counter (called at end of each statement)
 void vcpu_end_statement(void)
 {
-	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + CPU_state.add_to_pc) & (config.outbuf_size - 1);
-	CPU_state.add_to_pc = 0;
+	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + statement_size) & (config.outbuf_size - 1);
+	statement_size = 0;	// reset
 }
 
 

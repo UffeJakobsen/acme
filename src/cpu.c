@@ -70,6 +70,8 @@ static struct cpu_type	cpu_type_m65	= {
 
 // variables
 
+boolean	cpu_a_is_long	= FALSE;
+boolean	cpu_xy_are_long	= FALSE;
 // predefined stuff
 static struct ronode	cputype_tree[]	= {
 	PREDEF_START,
@@ -121,6 +123,6 @@ void cputype_passinit(const struct cpu_type *cpu_type)
 {
 	// handle cpu type (default is 6502)
 	CPU_state.type = cpu_type ? cpu_type : &cpu_type_6502;
-	CPU_state.a_is_long = FALSE;	// short accu
-	CPU_state.xy_are_long = FALSE;	// short index regs
+	cpu_a_is_long = FALSE;	// short accu
+	cpu_xy_are_long = FALSE;	// short index regs
 }

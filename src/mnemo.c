@@ -889,10 +889,10 @@ static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediat
 		return ((unsigned int) opcode) << 8;	// opcode in bits8.15 forces two-byte argument
 
 	case IM_ACCUMULATOR:	// for 65816
-		long_register = CPU_state.a_is_long;
+		long_register = cpu_a_is_long;
 		break;
 	case IM_INDEXREGS:	// for 65816
-		long_register = CPU_state.xy_are_long;
+		long_register = cpu_xy_are_long;
 		break;
 	default:
 		BUG("IllegalImmediateMode", immediate_mode);

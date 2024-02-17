@@ -23,9 +23,6 @@
 struct vcpu {
 	const struct cpu_type	*type;		// current CPU type (default 6502)	(FIXME - move out of struct again?)
 	struct number		pc;		// current program counter (pseudo value)
-	int			add_to_pc;	// add to PC after statement
-	boolean			a_is_long;
-	boolean			xy_are_long;
 };
 
 
@@ -70,9 +67,6 @@ extern const char	outputfile_formats[];	// string to show if outputfile_set_form
 // if file format was already chosen, returns zero.
 // if file format isn't set, chooses CBM and returns 1.
 extern int outputfile_prefer_cbm_format(void);
-
-// try to set output file name held in DynaBuf. Returns zero on success.
-extern int outputfile_set_filename(void);
 
 // write used portion of output buffer to output file
 extern void output_save_file(FILE *fd);

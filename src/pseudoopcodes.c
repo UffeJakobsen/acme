@@ -33,19 +33,24 @@ enum eos {
 
 // constants
 static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
+static const char	exception_missing_equals[]		= "Missing '=' character.";
 
+
+// local prototype because "*=" might fake a "!outfilestart":
+static enum eos po_outfilestart(void);
 
 // this is not really a pseudo opcode, but similar enough to be put here:
 // called when "*= EXPRESSION" is parsed, to set the program counter
 void notreallypo_setpc(void)	// GotByte is '*'
 {
 	bits		segment_flags	= 0;
+	boolean		do_outfilestart	= FALSE;
 	struct number	intresult;
 
 	// next non-space must be '='
 	NEXTANDSKIPSPACE();
 	if (GotByte != '=') {
-		Throw_error(exception_syntax);
+		Throw_error(exception_missing_equals);
 		goto fail;
 	}
 
@@ -61,6 +66,8 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			segment_flags |= SEGMENT_FLAG_OVERLAY;
 		} else if (strcmp(GlobalDynaBuf->buffer, "invisible") == 0) {
 			segment_flags |= SEGMENT_FLAG_INVISIBLE;
+		} else if (strcmp(GlobalDynaBuf->buffer, "outfilestart") == 0) {
+			do_outfilestart	= TRUE;
 /*TODO		} else if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
 			skip '='
 			read memory limit
@@ -68,8 +75,6 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			mutually exclusive with all other arguments!
 			this would mean to keep all previous segment data,
 			so it could be used with "*=*-5" or "*=*+3"
-		} else if (strcmp(GlobalDynaBuf->buffer, "outfilestart") == 0) {
-FIXME			set flag to automatically do "!outfilestart" afterward.
 		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
 			skip '='
 			read segment name (quoted string!)	*/
@@ -79,7 +84,11 @@ FIXME			set flag to automatically do "!outfilestart" afterward.
 		}
 	}
 	vcpu_set_pc(intresult.val.intval, segment_flags);
-	// TODO - allow block syntax, so it is possible to put data "somewhere else" and then return to old position?
+
+	// if wanted, perform "!outfilestart":
+	if (do_outfilestart)
+		po_outfilestart();
+
 	input_ensure_EOS();
 	return;
 
@@ -128,20 +137,26 @@ static enum eos po_xor(void)
 }
 
 
-// select output file and format ("!to" pseudo opcode)
+// select output file name and format ("!to" pseudo opcode)
 static enum eos po_to(void)
 {
-	// only act upon this pseudo opcode in first pass
+	// only process this pseudo opcode in first pass
 	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
+
+	// cli arg and earlier calls supersede this call
+	if (config.output_filename) {
+		Throw_warning("Output file already chosen.");
+		return SKIP_REMAINDER;
+	}
 
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
 	if (input_read_output_filename())
 		return SKIP_REMAINDER;
 
-	if (outputfile_set_filename())
-		return SKIP_REMAINDER;
+	// get malloc'd copy of filename
+	config.output_filename = dynabuf_get_copy(GlobalDynaBuf);
 
 	// select output format
 	// if no comma found, use default file format
@@ -308,18 +323,32 @@ static enum eos po_cbm(void)
 
 // read encoding table from file
 // (allows for block, so must be reentrant)
-static enum eos user_defined_encoding(FILE *stream)
+static enum eos use_encoding_from_file(void)
 {
+	boolean			uses_lib;
+	FILE			*stream;
 	unsigned char		local_table[256],
-				*buffered_table		= encoding_loaded_table;
-	const struct encoder	*buffered_encoder	= encoder_current;
+				*buffered_table;
+	const struct encoder	*buffered_encoder;
 
+	// read file name
+	if (input_read_input_filename(&uses_lib))
+		return SKIP_REMAINDER;	// missing or unterminated file name
+
+	// read from file
+	stream = includepaths_open_ro(uses_lib);
 	if (stream) {
-		encoding_load_from_file(local_table, stream);
+		// try to load encoding table from given file
+		if (fread(local_table, sizeof(char), 256, stream) != 256)
+			Throw_error("Conversion table incomplete.");
 		fclose(stream);
 	}
-	encoder_current = &encoder_file;	// activate new encoding
-	encoding_loaded_table = local_table;		// activate local table
+
+	// now switch encoding
+	buffered_encoder = encoder_current;
+	encoder_current = &encoder_file;
+	buffered_table = encoding_loaded_table;
+	encoding_loaded_table = local_table;
 	// if there's a block, parse that and then restore old values
 	if (parse_optional_block()) {
 		encoder_current = buffered_encoder;
@@ -335,19 +364,17 @@ static enum eos user_defined_encoding(FILE *stream)
 
 // use one of the pre-defined encodings (raw, pet, scr)
 // (allows for block, so must be reentrant)
-static enum eos predefined_encoding(void)
+static enum eos use_predefined_encoding(const struct encoder *new_encoder)
 {
 	unsigned char		local_table[256],
-				*buffered_table		= encoding_loaded_table;
-	const struct encoder	*buffered_encoder	= encoder_current;
+				*buffered_table;
+	const struct encoder	*buffered_encoder;
 
-	if (input_read_and_lower_keyword()) {
-		const struct encoder	*new_encoder	= encoding_find();
-
-		if (new_encoder)
-			encoder_current = new_encoder;	// activate new encoder
-	}
-	encoding_loaded_table = local_table;	// activate local table
+	// switch encoding
+	buffered_encoder = encoder_current;
+	encoder_current = new_encoder;
+	buffered_table = encoding_loaded_table;
+	encoding_loaded_table = local_table;
 	// if there's a block, parse that and then restore old values
 	if (parse_optional_block())
 		encoder_current = buffered_encoder;
@@ -355,33 +382,42 @@ static enum eos predefined_encoding(void)
 	encoding_loaded_table = buffered_table;
 	return ENSURE_EOS;
 }
+
 // set current encoding ("!convtab" pseudo opcode)
 // (allows for block, so must be reentrant)
-// FIXME: current code does not allow for stuff like
-//	!convtab some_string_symbol + ".bin"
-// because anything not starting with '<' or '"' is supposed to be a keyword.
-// maybe fix this by using
-//	!convtab file = base + ".txt"
-// in the future?
-// another workaround would be:
-//	!convtab "" + some_string_symbol + ".bin"
-// but even then input_read_input_filename needs to be fixed!
 static enum eos po_convtab(void)
 {
-	boolean	uses_lib;
-	FILE	*stream;
+	// is file name given old-style, without "file" keyword?
+	if ((GotByte == '<') || (GotByte == '"'))
+		return use_encoding_from_file();
 
-	if ((GotByte == '<') || (GotByte == '"')) {
-		// encoding table from file
-		if (input_read_input_filename(&uses_lib))
-			return SKIP_REMAINDER;	// missing or unterminated file name
+	// expect keyword: either one of the pre-defined encodings or
+	// "file" with a filename argument:
+	if (input_read_and_lower_keyword() == 0)
+		return SKIP_REMAINDER;	// "No string given" error has already been thrown
 
-		stream = includepaths_open_ro(uses_lib);
-		return user_defined_encoding(stream);
-	} else {
-		// one of the pre-defined encodings
-		return predefined_encoding();
+	// now check for known keywords:
+	if (strcmp(GlobalDynaBuf->buffer, "pet") == 0)
+		return use_predefined_encoding(&encoder_pet);
+
+	if (strcmp(GlobalDynaBuf->buffer, "raw") == 0)
+		return use_predefined_encoding(&encoder_raw);
+
+	if (strcmp(GlobalDynaBuf->buffer, "scr") == 0)
+		return use_predefined_encoding(&encoder_scr);
+
+	if (strcmp(GlobalDynaBuf->buffer, "file") == 0) {
+		SKIPSPACE();
+		if (GotByte != '=') {
+			Throw_error(exception_missing_equals);
+			return SKIP_REMAINDER;
+		}
+		GetByte();	// eat '='
+		return use_encoding_from_file();
 	}
+
+	Throw_error("Unknown encoding.");
+	return use_predefined_encoding(encoder_current);	// keep going
 }
 // insert string(s)
 static enum eos encode_string(const struct encoder *inner_encoder, unsigned char xor)
@@ -410,7 +446,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			GetByte();
 			// now convert to unescaped version
 			// FIXME - next call does nothing because wanted<escaping!
-			// FIXME - there is another block like this in line 1317!
+			// FIXME - there is another block like this, scan for ROOSTA!
 			if (input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
@@ -694,34 +730,34 @@ static enum eos po_cpu(void)
 // (allows for block, so must be reentrant)
 static enum eos set_register_length(boolean *var, boolean make_long)
 {
-	int	old_size	= *var;
+	boolean	long_before	= *var;
 
 	// set new register length (or complain - whichever is more fitting)
 	vcpu_check_and_set_reg_length(var, make_long);
 	// if there's a block, parse that and then restore old value!
 	if (parse_optional_block())
-		vcpu_check_and_set_reg_length(var, old_size);	// restore old length
+		vcpu_check_and_set_reg_length(var, long_before);	// restore old length
 	return ENSURE_EOS;
 }
 // switch to long accumulator ("!al" pseudo opcode)
 static enum eos po_al(void)
 {
-	return set_register_length(&CPU_state.a_is_long, TRUE);
+	return set_register_length(&cpu_a_is_long, TRUE);
 }
 // switch to short accumulator ("!as" pseudo opcode)
 static enum eos po_as(void)
 {
-	return set_register_length(&CPU_state.a_is_long, FALSE);
+	return set_register_length(&cpu_a_is_long, FALSE);
 }
 // switch to long index registers ("!rl" pseudo opcode)
 static enum eos po_rl(void)
 {
-	return set_register_length(&CPU_state.xy_are_long, TRUE);
+	return set_register_length(&cpu_xy_are_long, TRUE);
 }
 // switch to short index registers ("!rs" pseudo opcode)
 static enum eos po_rs(void)
 {
-	return set_register_length(&CPU_state.xy_are_long, FALSE);
+	return set_register_length(&cpu_xy_are_long, FALSE);
 }
 
 
@@ -750,7 +786,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 
 	force_bit = input_get_force_bit();	// skips spaces after
 	if (GotByte != '=') {
-		Throw_error(exception_syntax);
+		Throw_error(exception_missing_equals);
 		return SKIP_REMAINDER;
 	}
 
@@ -772,19 +808,20 @@ static enum eos po_symbollist(void)
 	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
+	// cli arg and earlier calls supersede this call
+	if (config.symbollist_filename) {
+		Throw_warning("Symbol list file name already chosen.");
+		return SKIP_REMAINDER;
+	}
+
 	// read filename to global dynamic buffer
 	// if no file name given, exit (complaining will have been done)
 	if (input_read_output_filename())
 		return SKIP_REMAINDER;
 
-	// if symbol list file name already set, complain and exit
-	if (symbollist_filename) {
-		Throw_warning("Symbol list file name already chosen.");
-		return SKIP_REMAINDER;
-	}
-
 	// get malloc'd copy of filename
-	symbollist_filename = dynabuf_get_copy(GlobalDynaBuf);
+	config.symbollist_filename = dynabuf_get_copy(GlobalDynaBuf);
+
 	// ensure there's no garbage at end of line
 	return ENSURE_EOS;
 }
@@ -1306,7 +1343,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 			GetByte();
 			// now convert to unescaped version
 			// FIXME - next call does nothing because wanted<escaping!
-			// FIXME - there is another block like this in line 416!
+			// FIXME - there is another block like this, scan for ROOSTA!
 			if (input_unescape_dynabuf(0))
 				return SKIP_REMAINDER;	// escaping error
 
@@ -1485,7 +1522,7 @@ static struct ronode	pseudo_opcode_tree[]	= {
 
 
 // parse a pseudo opcode. has to be re-entrant.
-void pseudoopcode_parse(void)	// now GotByte = "!"
+void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop)
 {
 	void		*node_body;
 	enum eos	(*fn)(void),

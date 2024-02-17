@@ -80,11 +80,6 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 // variables
 static const char	**toplevel_sources;
 static int		toplevel_src_count	= 0;
-static const struct cpu_type	*default_cpu	= NULL;
-const char		*symbollist_filename	= NULL;
-const char		*vicelabels_filename	= NULL;
-const char		*output_filename	= NULL;
-const char		*report_filename	= NULL;
 // maximum recursion depth for macro calls and "!source"
 signed long	macro_recursions_left	= MAX_NESTING;
 signed long	source_recursions_left	= MAX_NESTING;
@@ -197,25 +192,25 @@ int ACME_finalize(int exit_code)
 	FILE	*fd;
 
 	report_close(report);
-	if (symbollist_filename) {
-		fd = fopen(symbollist_filename, FILE_WRITETEXT);	// FIXME - what if filename is given via !sl in sub-dir? fix path!
+	if (config.symbollist_filename) {
+		fd = fopen(config.symbollist_filename, FILE_WRITETEXT);	// FIXME - what if filename is given via !sl in sub-dir? fix path!
 		if (fd) {
 			symbols_list(fd);
 			fclose(fd);
-			PLATFORM_SETFILETYPE_TEXT(symbollist_filename);
+			PLATFORM_SETFILETYPE_TEXT(config.symbollist_filename);
 		} else {
-			fprintf(stderr, "Error: Cannot open symbol list file \"%s\".\n", symbollist_filename);
+			fprintf(stderr, "Error: Cannot open symbol list file \"%s\".\n", config.symbollist_filename);
 			exit_code = EXIT_FAILURE;
 		}
 	}
-	if (vicelabels_filename) {
-		fd = fopen(vicelabels_filename, FILE_WRITETEXT);
+	if (config.vicelabels_filename) {
+		fd = fopen(config.vicelabels_filename, FILE_WRITETEXT);
 		if (fd) {
 			symbols_vicelabels(fd);
 			fclose(fd);
-			PLATFORM_SETFILETYPE_TEXT(vicelabels_filename);
+			PLATFORM_SETFILETYPE_TEXT(config.vicelabels_filename);
 		} else {
-			fprintf(stderr, "Error: Cannot open VICE label dump file \"%s\".\n", vicelabels_filename);
+			fprintf(stderr, "Error: Cannot open VICE label dump file \"%s\".\n", config.vicelabels_filename);
 			exit_code = EXIT_FAILURE;
 		}
 	}
@@ -229,14 +224,13 @@ static void save_output_file(void)
 	FILE	*fd;
 
 	// if no output file chosen, tell user and do nothing
-	if (output_filename == NULL) {
+	if (config.output_filename == NULL) {
 		fputs("No output file specified (use the \"-o\" option or the \"!to\" pseudo opcode).\n", stderr);
 		return;
 	}
-	fd = fopen(output_filename, FILE_WRITEBINARY);	// FIXME - what if filename is given via !to in sub-dir? fix path!
+	fd = fopen(config.output_filename, FILE_WRITEBINARY);	// FIXME - what if filename is given via !to in sub-dir? fix path!
 	if (fd == NULL) {
-		fprintf(stderr, "Error: Cannot open output file \"%s\".\n",
-			output_filename);
+		fprintf(stderr, "Error: Cannot open output file \"%s\".\n", config.output_filename);
 		return;
 	}
 	output_save_file(fd);
@@ -253,7 +247,7 @@ static void perform_pass(void)
 	++pass.number;
 	// call modules' "pass init" functions
 	output_passinit();	// disable output, PC undefined
-	cputype_passinit(default_cpu);	// set default cpu type
+	cputype_passinit(config.default_cpu);	// set default cpu type
 	// if start address was given on command line, use it:
 	if (config.initial_pc != NO_VALUE_GIVEN)
 		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
@@ -312,10 +306,10 @@ static boolean do_actual_work(void)
 	if (pass.undefined_count == 0) {	// FIXME - use pass.needvalue_count instead!
 		// if listing report is wanted and there were no errors,
 		// do another pass to generate listing report
-		if (report_filename) {
+		if (config.report_filename) {
 			if (config.process_verbosity > 1)
 				puts("Extra pass to generate listing report.");
-			if (report_open(report, report_filename) == 0) {
+			if (report_open(report, config.report_filename) == 0) {
 				perform_pass();
 				report_close(report);
 			}
@@ -370,7 +364,7 @@ static void set_starting_cpu(const char cpu_name[])
 		keyword_to_dynabuf(cpu_name);
 		new_cpu_type = cputype_find();
 		if (new_cpu_type) {
-			default_cpu = new_cpu_type;
+			config.default_cpu = new_cpu_type;
 			return;	// ok
 		}
 		fputs("Error: Unknown CPU type.\n", stderr);
@@ -520,15 +514,15 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_FORMAT) == 0)
 		set_output_format(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_OUTFILE) == 0)
-		output_filename = cliargs_safe_get_next(name_outfile);
+		config.output_filename = cliargs_safe_get_next(name_outfile);
 	else if (strcmp(string, OPTION_LABELDUMP) == 0)	// old
-		symbollist_filename = cliargs_safe_get_next(arg_symbollist);
+		config.symbollist_filename = cliargs_safe_get_next(arg_symbollist);
 	else if (strcmp(string, OPTION_SYMBOLLIST) == 0)	// new
-		symbollist_filename = cliargs_safe_get_next(arg_symbollist);
+		config.symbollist_filename = cliargs_safe_get_next(arg_symbollist);
 	else if (strcmp(string, OPTION_VICELABELS) == 0)
-		vicelabels_filename = cliargs_safe_get_next(arg_vicelabels);
+		config.vicelabels_filename = cliargs_safe_get_next(arg_vicelabels);
 	else if (strcmp(string, OPTION_REPORT) == 0)
-		report_filename = cliargs_safe_get_next(arg_reportfile);
+		config.report_filename = cliargs_safe_get_next(arg_reportfile);
 	else if (strcmp(string, OPTION_SETPC) == 0)
 		config.initial_pc = string_to_nonneg_number(cliargs_safe_get_next("program counter"));
 	else if (strcmp(string, OPTION_FROM_TO) == 0) {
@@ -596,13 +590,13 @@ static char short_option(const char *argument)
 				includepaths_add(cliargs_safe_get_next("include path"));
 			goto done;
 		case 'l':	// "-l" selects symbol list filename
-			symbollist_filename = cliargs_safe_get_next(arg_symbollist);
+			config.symbollist_filename = cliargs_safe_get_next(arg_symbollist);
 			break;
 		case 'o':	// "-o" selects output filename
-			output_filename = cliargs_safe_get_next(name_outfile);
+			config.output_filename = cliargs_safe_get_next(name_outfile);
 			break;
 		case 'r':	// "-r" selects report filename
-			report_filename = cliargs_safe_get_next(arg_reportfile);
+			config.report_filename = cliargs_safe_get_next(arg_reportfile);
 			break;
 		case 'v':	// "-v" changes verbosity
 			++config.process_verbosity;

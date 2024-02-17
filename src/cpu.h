@@ -25,6 +25,10 @@ struct cpu_type {
 #define CPUFLAG_DECIMALSUBTRACTBUGGY	(1u << 4)	// warn if "sed" is assembled
 #define CPUFLAG_WARN_ABOUT_FF_PTR	(1u << 5)	// warn if MNEMO($ff) is assembled
 
+// variables
+extern boolean	cpu_a_is_long;
+extern boolean	cpu_xy_are_long;
+
 // if cpu type and value match, set register length variable to value.
 // if cpu type and value don't match, complain instead.
 extern void vcpu_check_and_set_reg_length(boolean *var, boolean make_long);

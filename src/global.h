@@ -87,6 +87,11 @@ struct config {
 	enum version	wanted_version;	// set by --dialect (and --test --test)
 	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
 	signed long	outbuf_size;	// 64K, "--test" changes to 16M
+	const struct cpu_type	*default_cpu;
+	const char	*symbollist_filename;
+	const char	*vicelabels_filename;
+	const char	*output_filename;	// TODO - put in "part" struct
+	const char	*report_filename;	// TODO - put in "part" struct
 #define MEMINIT_USE_DEFAULT	256	// default value for next field if cli switch not used:
 	signed long	mem_init_value;	// set by --initmem
 #define NO_VALUE_GIVEN	(-1)	// default value for these fields if cli switch not used:

@@ -35,7 +35,7 @@ char		s_untitled[]	= "<untitled>";	// FIXME - this is actually const
 // Exception messages during assembly
 const char	exception_missing_string[]	= "No string given.";
 const char	exception_negative_size[]	= "Negative size argument.";
-const char	exception_no_left_brace[]	= "Missing '{'.";
+const char	exception_no_left_brace[]	= "Missing '{' character.";
 const char	exception_no_memory_left[]	= "Out of memory.";
 const char	exception_no_right_brace[]	= "Found end-of-file instead of '}'.";
 //const char	exception_not_yet[]	= "Sorry, feature not yet implemented.";
@@ -123,6 +123,11 @@ void config_default(struct config *conf)
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
 	conf->outbuf_size		= 0x10000;	// 64K, "--test" changes to 16M
+	conf->default_cpu		= NULL;
+	conf->symbollist_filename	= NULL;
+	conf->vicelabels_filename	= NULL;
+	conf->output_filename		= NULL;
+	conf->report_filename		= NULL;
 	conf->mem_init_value		= MEMINIT_USE_DEFAULT;	// set by --initmem
 	conf->initial_pc		= NO_VALUE_GIVEN;	// set by --setpc
 	conf->outfile_start		= NO_VALUE_GIVEN;	// set by --from-to
