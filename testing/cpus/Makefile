@@ -1,13 +1,13 @@
 ACMEFLAGS	= -v0
 CPUS	:= $(subst .a,,$(subst test-,,$(wildcard test-*.a)))
-FILES	= $(foreach N,$(CPUS),$(N).o)
+FILES	= $(foreach N,$(CPUS),$(N).exp)
 
 .SILENT:
 
-%.o: test-%.a
-	echo "Testing CPU:" $(subst .o,,$@)
+%.exp: test-%.a
+	echo "Testing CPU:" $(subst .exp,,$@)
 	acme $(ACMEFLAGS) -o test.o $<
-	cmp test.o expected-$@
+	cmp test.o out-$@
 	$(RM) test.o
 	echo "Ok."
 

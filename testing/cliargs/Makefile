@@ -9,6 +9,6 @@ all: outformats
 	echo "Testing cliargs: PASSED"
 	echo
 
-outformats: outformats.a outformats.sh outformat-*.o
+outformats: outformats.a outformats.sh outformat-*.exp
 	echo "Testing output formats:"
 	bash outformats.sh

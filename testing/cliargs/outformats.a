@@ -10,5 +10,5 @@
 		!error "unexpected FORMAT"
 	}
 	*=$1000
-		lda #1
+		lda #0
 		rts
