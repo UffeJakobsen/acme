@@ -221,20 +221,88 @@ int ACME_finalize(int exit_code)
 // save output file
 static void save_output_file(void)
 {
-	FILE	*fd;
+	const char	*body;
+	intval_t	amount,
+			loadaddr;
+	unsigned char	header[4];
+	int		headersize	= 0;
+	FILE		*fd;
 
 	// if no output file chosen, tell user and do nothing
 	if (config.output_filename == NULL) {
 		fputs("No output file specified (use the \"-o\" option or the \"!to\" pseudo opcode).\n", stderr);
 		return;
 	}
+
+	// get memory pointer, block size and load address
+	output_get_result(&body, &amount, &loadaddr);
+
+	// generate header according to file format
+	switch (config.outfile_format) {
+	case OUTFILE_FORMAT_UNSPECIFIED:
+	case OUTFILE_FORMAT_PLAIN:
+		headersize = 0;	// no header
+		break;
+	case OUTFILE_FORMAT_CBM:
+		if (loadaddr > 0xffff) {
+			fprintf(stderr, "Error: Load address 0x%04lx too large for cbm file format.\n", loadaddr);
+			exit(EXIT_FAILURE);
+		}
+		header[0] = loadaddr & 255;
+		header[1] = loadaddr >> 8;
+		headersize = 2;	// 16-bit load address, little-endian
+		break;
+	case OUTFILE_FORMAT_APPLE:
+		if (loadaddr > 0xffff) {
+			fprintf(stderr, "Error: Load address 0x%04lx too large for apple file format.\n", loadaddr);
+			exit(EXIT_FAILURE);
+		}
+		if (amount > 0xffff) {
+			fprintf(stderr, "Error: File size 0x%04lx too large for apple file format.\n", loadaddr);
+			exit(EXIT_FAILURE);
+		}
+		header[0] = loadaddr & 255;
+		header[1] = loadaddr >> 8;
+		header[2] = amount & 255;
+		header[3] = amount >> 8;
+		headersize = 4;	// 16-bit load address and 16-bit length, little-endian
+		break;
+	default:
+		BUG("IllegalOutformat1", config.outfile_format);
+	}
+
+	// open file
 	fd = fopen(config.output_filename, FILE_WRITEBINARY);	// FIXME - what if filename is given via !to in sub-dir? fix path!
 	if (fd == NULL) {
 		fprintf(stderr, "Error: Cannot open output file \"%s\".\n", config.output_filename);
-		return;
+		exit(EXIT_FAILURE);
 	}
-	output_save_file(fd);
+
+	if (config.process_verbosity) {
+		printf("Saving %ld (0x%04lx) bytes (0x%04lx - 0x%04lx exclusive).\n",
+			amount, amount, loadaddr, loadaddr + amount);
+	}
+
+	// write header and body
+	fwrite(header, headersize, 1, fd);
+	fwrite(body, amount, 1, fd);
 	fclose(fd);
+
+	// set file type
+	switch (config.outfile_format) {
+	case OUTFILE_FORMAT_UNSPECIFIED:
+	case OUTFILE_FORMAT_PLAIN:
+		PLATFORM_SETFILETYPE_PLAIN(config.output_filename);
+		break;
+	case OUTFILE_FORMAT_APPLE:
+		PLATFORM_SETFILETYPE_APPLE(config.output_filename);
+		break;
+	case OUTFILE_FORMAT_CBM:
+		PLATFORM_SETFILETYPE_CBM(config.output_filename);
+		break;
+	default:
+		BUG("IllegalOutformat2", config.outfile_format);
+	}
 }
 
 
@@ -247,7 +315,7 @@ static void perform_pass(void)
 	++pass.number;
 	// call modules' "pass init" functions
 	output_passinit();	// disable output, PC undefined
-	cputype_passinit(config.default_cpu);	// set default cpu type
+	cputype_passinit(config.initial_cpu_type);
 	// if start address was given on command line, use it:
 	if (config.initial_pc != NO_VALUE_GIVEN)
 		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
@@ -342,14 +410,15 @@ static void set_output_format(const char format_name[])
 	// caution, name may be NULL!
 	if (format_name) {
 		keyword_to_dynabuf(format_name);
-		if (!outputfile_set_format())
+		config.outfile_format = outputformat_find();
+		if (config.outfile_format != OUTFILE_FORMAT_UNSPECIFIED)
 			return;	// ok
 
 		fputs("Error: Unknown output format.\n", stderr);
 	} else {
 		fputs("Error: No output format specified.\n", stderr);
 	}
-	fprintf(stderr, "Supported formats are:\n\n\t%s\n\n", outputfile_formats);
+	fprintf(stderr, "Supported formats are:\n\n\t%s\n\n", outputformat_names);
 	exit(EXIT_FAILURE);
 }
 
@@ -364,7 +433,7 @@ static void set_starting_cpu(const char cpu_name[])
 		keyword_to_dynabuf(cpu_name);
 		new_cpu_type = cputype_find();
 		if (new_cpu_type) {
-			config.default_cpu = new_cpu_type;
+			config.initial_cpu_type = new_cpu_type;
 			return;	// ok
 		}
 		fputs("Error: Unknown CPU type.\n", stderr);
@@ -676,6 +745,7 @@ int main(int argc, const char *argv[])
 
 	// init output buffer
 	output_createbuffer();
+	// do the actual work
 	if (do_actual_work())
 		save_output_file();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted

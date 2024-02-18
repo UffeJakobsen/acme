@@ -123,10 +123,11 @@ void config_default(struct config *conf)
 	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
 	conf->outbuf_size		= 0x10000;	// 64K, "--test" changes to 16M
-	conf->default_cpu		= NULL;
+	conf->initial_cpu_type		= NULL;
 	conf->symbollist_filename	= NULL;
 	conf->vicelabels_filename	= NULL;
 	conf->output_filename		= NULL;
+	conf->outfile_format		= OUTFILE_FORMAT_UNSPECIFIED;
 	conf->report_filename		= NULL;
 	conf->mem_init_value		= MEMINIT_USE_DEFAULT;	// set by --initmem
 	conf->initial_pc		= NO_VALUE_GIVEN;	// set by --setpc
@@ -281,7 +282,7 @@ static void parse_symbol_definition(scope_t scope)
 static void parse_mnemo_or_global_symbol_def(void)
 {
 	// read keyword and ask current cpu type if it's a mnemonic
-	if (CPU_state.type->keyword_is_mnemonic(input_read_keyword()))
+	if (cpu_current_type->keyword_is_mnemonic(input_read_keyword()))
 		return;	// statement has been handled
 
 	// if we're here, it wasn't a mnemonic, so it can only be a symbol name
@@ -643,4 +644,24 @@ void output_le32(intval_t value)
 	output_byte(value >> 8);
 	output_byte(value >> 16);
 	output_byte(value >> 24);
+}
+
+
+// string shown in CLI error message if outputformat_set() returns nonzero:
+const char	outputformat_names[]	= "'plain', 'cbm', 'apple'";
+
+// convert output format name held in DynaBuf to enum.
+// returns OUTFILE_FORMAT_UNSPECIFIED on error.
+enum outfile_format outputformat_find(void)
+{
+	if (strcmp(GlobalDynaBuf->buffer, "plain") == 0)
+		return OUTFILE_FORMAT_PLAIN;
+	else if (strcmp(GlobalDynaBuf->buffer, "cbm") == 0)
+		return OUTFILE_FORMAT_CBM;
+	else if (strcmp(GlobalDynaBuf->buffer, "apple") == 0)
+		return OUTFILE_FORMAT_APPLE;
+//	else if (strcmp(GlobalDynaBuf->buffer, "o65") == 0)
+//		return OUTFILE_FORMAT_O65;
+
+	return OUTFILE_FORMAT_UNSPECIFIED;
 }

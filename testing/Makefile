@@ -1,9 +1,9 @@
 
 .SILENT:
 
-.PHONY: auto bugfixes cpus errors warnings
+.PHONY: auto bugfixes cliargs cpus errors warnings
 
-all: auto bugfixes cpus errors warnings
+all: auto bugfixes cliargs cpus errors warnings
 
 auto:
 	echo "Performing self-tests..."
@@ -14,6 +14,11 @@ bugfixes:
 	echo "Testing bugfixes..."
 	echo
 	make -C bugfixes
+
+cliargs:
+	echo "Testing cliargs..."
+	echo
+	make -C cliargs
 
 cpus:
 	echo "Testing CPUs..."

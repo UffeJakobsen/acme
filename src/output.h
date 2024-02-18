@@ -2,12 +2,11 @@
 // Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
-// Output stuff (FIXME - split into outbuf, outfile/format and vcpu parts)
+// output buffer stuff
 #ifndef output_H
 #define output_H
 
 
-#include <stdio.h>
 #include "config.h"
 
 
@@ -18,35 +17,20 @@
 #define	SEGMENT_FLAG_INVISIBLE	(1u << 1)	// do not warn about other segments overwriting this one
 
 
-// current CPU state
-// FIXME - move vcpu struct definition to .c file and change other .c files' accesses to fn calls. then replace "struct number" with minimized version.
-struct vcpu {
-	const struct cpu_type	*type;		// current CPU type (default 6502)	(FIXME - move out of struct again?)
-	struct number		pc;		// current program counter (pseudo value)
-};
+// prototypes
 
-
-// variables
-extern struct vcpu	CPU_state;	// current CPU state	FIXME - restrict visibility to .c file
-
-
-// Prototypes
-
-// clear segment list and disable output
-extern void output_passinit(void);
-
-
-// outbuf stuff:
-
-// alloc and init mem buffer (done later)
+// alloc and init mem buffer (called once on startup)
 extern void output_createbuffer(void);
+
+// clear segment list and disable output (called on each pass)
+extern void output_passinit(void);
 
 // skip over some bytes in output buffer without starting a new segment
 // (used by "!skip", and also called by "!binary" if really calling
 // output_byte would be a waste of time)
 extern void output_skip(int size);
 
-// Send low byte of arg to output buffer and advance pointer
+// send low byte of arg to output buffer and advance pointer
 // FIXME - replace by output_sequence(char *src, size_t size)
 extern void (*output_byte)(intval_t);
 
@@ -58,27 +42,14 @@ extern int output_setdefault(char content);
 extern void outbuf_set_outfile_start(void);
 extern void outbuf_set_outfile_limit(void);
 
-// outfile stuff:
-
-// try to set output format held in DynaBuf. Returns zero on success.
-extern int outputfile_set_format(void);
-extern const char	outputfile_formats[];	// string to show if outputfile_set_format() returns nonzero
-
-// if file format was already chosen, returns zero.
-// if file format isn't set, chooses CBM and returns 1.
-extern int outputfile_prefer_cbm_format(void);
-
-// write used portion of output buffer to output file
-extern void output_save_file(FILE *fd);
-
 // change output pointer and enable output
 extern void output_start_segment(intval_t address_change, bits segment_flags);
 
-// Show start and end of current segment
+// show start and end of current segment
 extern void output_end_segment(void);
 
+// get/set "encryption" byte
 extern char output_get_xor(void);
-
 extern void output_set_xor(char xor);
 
 // set program counter to defined value (TODO - allow undefined!)
@@ -92,6 +63,10 @@ extern int vcpu_get_statement_size(void);
 
 // adjust program counter (called at end of each statement)
 extern void vcpu_end_statement(void);
+
+// return start and size of memory block to write to output file,
+// along with load address for cbm/apple headers.
+extern void output_get_result(const char **ptr, intval_t *size, intval_t *loadaddr);
 
 
 // pseudopc stuff:

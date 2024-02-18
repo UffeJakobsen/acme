@@ -133,6 +133,8 @@ extern int input_read_input_filename(boolean *uses_lib);
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
+// FIXME - the name suggests this fn reads "the" output filename, but it only
+// reads "an" output filename: either symbollist or the real output file.
 extern int input_read_output_filename(void);
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma

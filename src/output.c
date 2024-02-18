@@ -20,7 +20,6 @@
 #include "global.h"
 #include "input.h"
 #include "platform.h"
-#include "tree.h"
 
 
 // constants
@@ -58,34 +57,10 @@ static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when n
 
 // variables
 static struct output	default_output;
-static struct output	*out	= &default_output;
+static struct output	*out	= &default_output;	// FIXME - never changes! is the ptr a preparation for "assembling several different parts in one go"?
 static int		statement_size;	// add to PC after statement
-// FIXME - make static
-struct vcpu		CPU_state;	// current CPU state
-
-// FIXME - move output _file_ stuff to some other .c file!
-// possible file formats
-enum output_format {
-	OUTPUT_FORMAT_UNSPECIFIED,	// default (uses "plain" actually)
-	OUTPUT_FORMAT_APPLE,		// load address, length, code
-	OUTPUT_FORMAT_CBM,		// load address, code (default for "!to" pseudo opcode)
-	OUTPUT_FORMAT_PLAIN		// code only
-};
-// predefined stuff
-// tree to hold output formats (FIXME - a tree for three items, really?)
-static struct ronode	file_format_tree[]	= {
-	PREDEF_START,
-#define KNOWN_FORMATS	"'plain', 'cbm', 'apple'"	// shown in CLI error message for unknown formats
-	PREDEFNODE("apple",	OUTPUT_FORMAT_APPLE),
-	PREDEFNODE("cbm",	OUTPUT_FORMAT_CBM),
-//	PREDEFNODE("o65",	OUTPUT_FORMAT_O65),
-	PREDEF_END("plain",	OUTPUT_FORMAT_PLAIN),
-	//    ^^^^ this marks the last element
-};
-// chosen file format
-static enum output_format	output_format	= OUTPUT_FORMAT_UNSPECIFIED;
-const char			outputfile_formats[]	= KNOWN_FORMATS;	// string to show if outputfile_set_format() returns nonzero
-
+static intval_t		program_counter;	// current program counter (pseudopc value)
+static enum numtype	pc_ntype;
 
 // report binary output
 static void report_binary(char value)
@@ -134,7 +109,7 @@ static void border_crossed(int current_offset)
 void (*output_byte)(intval_t byte);
 
 
-// send low byte to output buffer, automatically increasing program counter
+// send low byte to output buffer and remember to later increase program counter
 static void real_output(intval_t byte)
 {
 	// CAUTION - there are two copies of these checks!
@@ -257,32 +232,7 @@ void outbuf_set_outfile_limit(void)
 }
 
 
-// try to set output format held in DynaBuf. Returns zero on success.
-int outputfile_set_format(void)
-{
-	void	*node_body;
-
-	// perform lookup
-	if (!tree_easy_scan(file_format_tree, &node_body, GlobalDynaBuf))
-		return 1;
-
-	output_format = (enum output_format) node_body;
-	return 0;
-}
-
-// if file format was already chosen, returns zero.
-// if file format isn't set, chooses CBM and returns 1.
-int outputfile_prefer_cbm_format(void)
-{
-	if (output_format != OUTPUT_FORMAT_UNSPECIFIED)
-		return 0;
-
-	output_format = OUTPUT_FORMAT_CBM;
-	return 1;
-}
-
-
-// init output struct (done later)
+// init output struct
 void output_createbuffer(void)
 {
 	char	fill_value	= 0;	// default value for output buffer
@@ -299,66 +249,6 @@ void output_createbuffer(void)
 	// init ring list of segments
 	out->segment.list_head.next = &out->segment.list_head;
 	out->segment.list_head.prev = &out->segment.list_head;
-}
-
-
-// write used portion of output buffer to output file
-void output_save_file(FILE *fd)
-{
-	intval_t	start,
-			limit,	// end+1
-			amount;
-
-	start = out->lowest_written;
-	limit = out->highest_written + 1;
-	// if pseudo opcodes were used, they override the actual values:
-	if (force_file_start)
-		start = forced_start_idx;
-	if (force_file_limit)
-		limit = forced_limit_idx;
-	// if cli args were given, they override even harder:
-	if (config.outfile_start != NO_VALUE_GIVEN)
-		start = config.outfile_start;
-	if (config.outfile_limit != NO_VALUE_GIVEN)
-		limit = config.outfile_limit;
-
-	if (limit <= start) {
-		// nothing written
-		start = 0;	// I could try to use some segment start, but what for?
-		amount = 0;
-		// FIXME - how about not writing anything in this case?
-		// a CBM file would consist of a bogus load address and nothing else!
-	} else {
-		amount = limit - start;
-	}
-	if (config.process_verbosity) {
-		printf("Saving %ld (0x%04lx) bytes (0x%04lx - 0x%04lx exclusive).\n",
-			amount, amount, start, start + amount);
-	}
-	// output file header according to file format
-	// FIXME - add checks and error messages for "start is above $ffff"!)
-	switch (output_format) {
-	case OUTPUT_FORMAT_APPLE:
-		PLATFORM_SETFILETYPE_APPLE(config.output_filename);
-		// output 16-bit load address in little-endian byte order
-		putc(start & 255, fd);
-		putc(start >> 8, fd);
-		// output 16-bit length in little-endian byte order
-		putc(amount & 255, fd);
-		putc(amount >> 8, fd);
-		break;
-	case OUTPUT_FORMAT_UNSPECIFIED:
-	case OUTPUT_FORMAT_PLAIN:
-		PLATFORM_SETFILETYPE_PLAIN(config.output_filename);
-		break;
-	case OUTPUT_FORMAT_CBM:
-		PLATFORM_SETFILETYPE_CBM(config.output_filename);
-		// output 16-bit load address in little-endian byte order
-		putc(start & 255, fd);
-		putc(start >> 8, fd);
-	}
-	// dump output buffer to file
-	fwrite(out->buffer + start, amount, 1, fd);
 }
 
 
@@ -435,11 +325,10 @@ void output_passinit(void)
 	out->xor = 0;
 
 	//vcpu stuff:
-	CPU_state.pc.ntype = NUMTYPE_UNDEFINED;	// not defined yet
-	CPU_state.pc.flags = 0;
+	pc_ntype = NUMTYPE_UNDEFINED;	// not defined yet
 	// FIXME - number type is "undefined", but still the intval 0 below will
 	// be used to calculate diff when pc is first set.
-	CPU_state.pc.val.intval = 0;	// same as output's write_idx on pass init
+	program_counter = 0;	// same as output's write_idx on pass init
 	statement_size = 0;	// increase PC by this at end of statement
 
 	// pseudopc stuff:
@@ -536,10 +425,9 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 			// stuff happens! i see no reason to try to mimic that.
 		}
 	}
-	pc_change = new_pc - CPU_state.pc.val.intval;
-	CPU_state.pc.val.intval = new_pc;	// FIXME - oversized values are accepted without error and will be wrapped at end of statement!
-	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
-	CPU_state.pc.addr_refs = 1;	// yes, PC counts as address
+	pc_change = new_pc - program_counter;
+	program_counter = new_pc;	// FIXME - oversized values are accepted without error and will be wrapped at end of statement!
+	pc_ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	// now tell output buffer to start a new segment
 	output_start_segment(pc_change, segment_flags);
 }
@@ -567,16 +455,19 @@ when encountering "*= VALUE":
 Problem: always check for "undefined"; there are some problematic combinations.
 I need a way to return the size of a generated code block even if PC undefined.
 Maybe like this:
-	*= new_address [, invisible] [, overlay] [, &size_symbol_ref {]
+	*= new_address [, invisible] [, overlay] [, size_counter = symbol {]
 		...code...
-	[} ; at end of block, size is written to size symbol given above!]
+	[} ; at end of block, size is written to symbol given above!]
 */
 
 
 // get program counter
 void vcpu_read_pc(struct number *target)
 {
-	*target = CPU_state.pc;
+	target->ntype = pc_ntype;
+	target->flags = 0;	// FIXME - if defined, check for FITS_BYTE etc.? use pc_flags?
+	target->val.intval = program_counter;
+	target->addr_refs = 1;	// yes, PC counts as address
 }
 
 
@@ -590,10 +481,49 @@ int vcpu_get_statement_size(void)
 // adjust program counter (called at end of each statement)
 void vcpu_end_statement(void)
 {
-	CPU_state.pc.val.intval = (CPU_state.pc.val.intval + statement_size) & (config.outbuf_size - 1);
+	program_counter = (program_counter + statement_size) & (config.outbuf_size - 1);	// FIXME - this cannot be right!
 	statement_size = 0;	// reset
 }
 
+
+// return start and size of memory block to write to output file,
+// along with load address for cbm/apple headers.
+void output_get_result(const char **ptr, intval_t *size, intval_t *loadaddr)
+{
+	intval_t	start,
+			limit,	// end+1
+			amount;
+
+	start = out->lowest_written;
+	limit = out->highest_written + 1;
+	// if pseudo opcodes were used, they override the actual values:
+	if (force_file_start)
+		start = forced_start_idx;
+	if (force_file_limit)
+		limit = forced_limit_idx;
+	// if cli args were given, they override even harder:
+	if (config.outfile_start != NO_VALUE_GIVEN)
+		start = config.outfile_start;
+	if (config.outfile_limit != NO_VALUE_GIVEN)
+		limit = config.outfile_limit;
+
+	if (limit <= start) {
+		// nothing written
+		start = 0;	// I could try to use some segment start, but what for?
+		amount = 0;
+		// FIXME - how about not writing anything in this case?
+		// a CBM file would consist of a bogus load address and nothing else!
+	} else {
+		amount = limit - start;
+	}
+
+	*ptr = out->buffer + start;
+	*size = amount;
+	*loadaddr = start;
+}
+
+
+// pseudopc stuff:
 
 // struct to describe a pseudopc context
 struct pseudopc {
@@ -610,11 +540,11 @@ void pseudopc_start(struct number *new_pc)
 	new_context->outer = pseudopc_current_context;	// let it point to previous one
 	pseudopc_current_context = new_context;	// make it the current one
 
-	new_context->ntype = CPU_state.pc.ntype;
-	new_context->offset = new_pc->val.intval - CPU_state.pc.val.intval;
-	CPU_state.pc.val.intval = new_pc->val.intval;
-	CPU_state.pc.ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
-	//new: CPU_state.pc.flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
+	new_context->ntype = pc_ntype;
+	new_context->offset = new_pc->val.intval - program_counter;
+	program_counter = new_pc->val.intval;
+	pc_ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
+	//new: pc_flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
 void pseudopc_end(void)
@@ -629,15 +559,16 @@ void pseudopc_end(void)
 		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
 			BUG("ClosingUnopenedPseudopcBlock", 0);
 	} else {
-		CPU_state.pc.val.intval = (CPU_state.pc.val.intval - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
-		CPU_state.pc.ntype = pseudopc_current_context->ntype;
+		program_counter = (program_counter - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
+		pc_ntype = pseudopc_current_context->ntype;
 		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	}
 }
 // this is only for old, deprecated, obsolete, stupid "realpc":
 void pseudopc_end_all(void)
 {
-	while (pseudopc_current_context)
+	// FIXME - this needs changing if we start with a "offset is 0" struct in the future!
+	while (pseudopc_current_context != NULL)
 		pseudopc_end();
 }
 // un-pseudopc a label value by given number of levels

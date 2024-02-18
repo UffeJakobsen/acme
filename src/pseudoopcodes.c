@@ -140,13 +140,15 @@ static enum eos po_xor(void)
 // select output file name and format ("!to" pseudo opcode)
 static enum eos po_to(void)
 {
+	enum outfile_format	format;
+
 	// only process this pseudo opcode in first pass
 	if (!FIRST_PASS)
 		return SKIP_REMAINDER;
 
-	// cli arg and earlier calls supersede this call
+	// the "--outfile" cli arg and earlier calls have priority
 	if (config.output_filename) {
-		Throw_warning("Output file already chosen.");
+		Throw_warning("Output file name already chosen.");
 		return SKIP_REMAINDER;
 	}
 
@@ -159,27 +161,33 @@ static enum eos po_to(void)
 	config.output_filename = dynabuf_get_copy(GlobalDynaBuf);
 
 	// select output format
-	// if no comma found, use default file format
-	if (input_accept_comma() == FALSE) {
-		if (outputfile_prefer_cbm_format()) {
-			// output deprecation warning (unless user requests really old behaviour)
-			if (config.wanted_version >= VER_DEPRECATE_REALPC)
-				Throw_warning("Used \"!to\" without file format indicator. Defaulting to \"cbm\".");
+	if (input_accept_comma()) {
+		// parse output format name
+		// if no keyword given, give up
+		if (input_read_and_lower_keyword() == 0)
+			return SKIP_REMAINDER;
+
+		format = outputformat_find();
+		if (format == OUTFILE_FORMAT_UNSPECIFIED) {
+			Throw_error("Unknown output format.");
+			return SKIP_REMAINDER;
 		}
-		return ENSURE_EOS;
+	} else {
+		// no comma: complain unless user requested really old behaviour
+		if (config.wanted_version >= VER_DEPRECATE_REALPC)
+			Throw_warning("Used \"!to\" without file format indicator.");
+		// default to cbm
+		format = OUTFILE_FORMAT_CBM;
 	}
 
-	// parse output format name
-	// if no keyword given, give up
-	if (input_read_and_lower_keyword() == 0)
-		return SKIP_REMAINDER;
-
-	if (outputfile_set_format()) {
-		// error occurred
-		Throw_error("Unknown output format.");
-		return SKIP_REMAINDER;
+	// the "--format" cli arg has priority
+	if (config.outfile_format != OUTFILE_FORMAT_UNSPECIFIED) {
+		Throw_warning("Output file format already chosen.");
+	} else {
+		config.outfile_format = format;
 	}
-	return ENSURE_EOS;	// success
+
+	return ENSURE_EOS;
 }
 
 
@@ -210,7 +218,7 @@ static enum eos po_byte(void)
 // Insert 16-bit values ("!16" / "!wo" / "!word" pseudo opcode)
 static enum eos po_16(void)
 {
-	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be16 : output_le16);
+	return iterate((cpu_current_type->flags & CPUFLAG_ISBIGENDIAN) ? output_be16 : output_le16);
 }
 // Insert 16-bit values big-endian ("!be16" pseudo opcode)
 static enum eos po_be16(void)
@@ -227,7 +235,7 @@ static enum eos po_le16(void)
 // Insert 24-bit values ("!24" pseudo opcode)
 static enum eos po_24(void)
 {
-	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be24 : output_le24);
+	return iterate((cpu_current_type->flags & CPUFLAG_ISBIGENDIAN) ? output_be24 : output_le24);
 }
 // Insert 24-bit values big-endian ("!be24" pseudo opcode)
 static enum eos po_be24(void)
@@ -244,7 +252,7 @@ static enum eos po_le24(void)
 // Insert 32-bit values ("!32" pseudo opcode)
 static enum eos po_32(void)
 {
-	return iterate((CPU_state.type->flags & CPUFLAG_ISBIGENDIAN) ? output_be32 : output_le32);
+	return iterate((cpu_current_type->flags & CPUFLAG_ISBIGENDIAN) ? output_be32 : output_le32);
 }
 // Insert 32-bit values big-endian ("!be32" pseudo opcode)
 static enum eos po_be32(void)
@@ -625,7 +633,7 @@ static enum eos po_align(void)
 	if (input_accept_comma())
 		ALU_any_int(&fill);
 	else
-		fill = CPU_state.type->default_align_value;
+		fill = cpu_current_type->default_align_value;
 
 	// make sure PC is defined
 	vcpu_read_pc(&pc);
@@ -709,19 +717,19 @@ static enum eos po_realpc(void)
 // (allows for block, so must be reentrant)
 static enum eos po_cpu(void)
 {
-	const struct cpu_type	*cpu_buffer	= CPU_state.type;	// remember current cpu
+	const struct cpu_type	*cpu_buffer	= cpu_current_type;	// remember
 	const struct cpu_type	*new_cpu_type;
 
 	if (input_read_and_lower_keyword()) {
 		new_cpu_type = cputype_find();
 		if (new_cpu_type)
-			CPU_state.type = new_cpu_type;	// activate new cpu type
+			cpu_current_type = new_cpu_type;	// activate new cpu type
 		else
 			Throw_error("Unknown processor.");
 	}
 	// if there's a block, parse that and then restore old value
 	if (parse_optional_block())
-		CPU_state.type = cpu_buffer;
+		cpu_current_type = cpu_buffer;
 	return ENSURE_EOS;
 }
 

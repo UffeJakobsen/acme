@@ -775,7 +775,7 @@ static void group_only_implied_addressing(int opcode)
 	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
-	if ((opcode == 0xf8) && (CPU_state.type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY))
+	if ((opcode == 0xf8) && (cpu_current_type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY))
 		Throw_first_pass_warning("Found SED instruction for CPU with known decimal SBC bug.");
 	output_byte(opcode);
 	input_ensure_EOS();
@@ -898,7 +898,7 @@ static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediat
 		BUG("IllegalImmediateMode", immediate_mode);
 	}
 	// if the CPU does not support long registers...
-	if ((CPU_state.type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0)
+	if ((cpu_current_type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0)
 		return opcode;	// result in bits 0..7 forces single-byte argument
 
 	// check force bits - if no force bits given, use cpu state and convert to force bit
@@ -913,7 +913,7 @@ static void check_zp_wraparound(struct number *result)
 {
 	if ((result->ntype == NUMTYPE_INT)
 	&& (result->val.intval == 0xff)
-	&& (CPU_state.type->flags & CPUFLAG_WARN_ABOUT_FF_PTR))
+	&& (cpu_current_type->flags & CPUFLAG_WARN_ABOUT_FF_PTR))
 		Throw_warning("Zeropage pointer wraps around from $ff to $00");
 }
 
@@ -1002,7 +1002,7 @@ static void group_misc(int index, bits immediate_mode)
 		// below - "force_bit" might be undefined (depends on compiler).
 		make_instruction(force_bit, &result, immediate_opcodes);
 		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
-		if ((CPU_state.type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
+		if ((cpu_current_type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
 		&& (result.ntype == NUMTYPE_INT)
 		&& (result.val.intval != 0x00)) {
 			if (immediate_opcodes == 0x8b)
@@ -1137,7 +1137,7 @@ static void group_jump(int index)
 		// check whether to warn about 6502's JMP() bug
 		if ((result.ntype == NUMTYPE_INT)
 		&& ((result.val.intval & 0xff) == 0xff)
-		&& (CPU_state.type->flags & CPUFLAG_INDIRECTJMPBUGGY))
+		&& (cpu_current_type->flags & CPUFLAG_INDIRECTJMPBUGGY))
 			Throw_warning("Assembling buggy JMP($xxff) instruction");
 		break;
 	case X_INDEXED_INDIRECT_ADDRESSING:	// ($ffff,x)

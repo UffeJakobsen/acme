@@ -69,6 +69,12 @@ enum debuglevel {
 	// debug messages with higher levels are suppressed,
 	// can be changed using "--debuglevel" cli switch.
 };
+enum outfile_format {
+	OUTFILE_FORMAT_UNSPECIFIED,	// default (uses "plain" actually)
+	OUTFILE_FORMAT_PLAIN,		// no header, just code
+	OUTFILE_FORMAT_CBM,		// 16-bit load address, code (default for "!to" pseudo opcode)
+	OUTFILE_FORMAT_APPLE		// 16-bit load address, 16-bit length, code
+};
 // configuration
 struct config {
 	char		pseudoop_prefix;	// '!' or '.'
@@ -87,10 +93,11 @@ struct config {
 	enum version	wanted_version;	// set by --dialect (and --test --test)
 	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
 	signed long	outbuf_size;	// 64K, "--test" changes to 16M
-	const struct cpu_type	*default_cpu;
+	const struct cpu_type	*initial_cpu_type;
 	const char	*symbollist_filename;
 	const char	*vicelabels_filename;
 	const char	*output_filename;	// TODO - put in "part" struct
+	enum outfile_format	outfile_format;
 	const char	*report_filename;	// TODO - put in "part" struct
 #define MEMINIT_USE_DEFAULT	256	// default value for next field if cli switch not used:
 	signed long	mem_init_value;	// set by --initmem
@@ -139,7 +146,7 @@ do {				\
 } while (0)
 
 
-// Prototypes
+// prototypes
 
 // set configuration to default values
 extern void config_default(struct config *conf);
@@ -225,6 +232,14 @@ extern void output_be32(intval_t value);
 
 // output 32-bit value (without range check) little-endian
 extern void output_le32(intval_t value);
+
+
+// string to show if outputformat_set() returns nonzero
+extern const char	outputformat_names[];
+
+// convert output format name held in DynaBuf to enum.
+// returns OUTFILE_FORMAT_UNSPECIFIED on error.
+extern enum outfile_format outputformat_find(void);
 
 
 #endif

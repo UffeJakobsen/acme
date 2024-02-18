@@ -14,7 +14,8 @@
 #include "tree.h"
 
 
-// constants
+// predefined stuff
+
 static struct cpu_type	cpu_type_6502	= {
 	keyword_is_6502_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY,	// warn about "XYZ ($ff),y" and "jmp ($XYff)"
@@ -67,15 +68,8 @@ static struct cpu_type	cpu_type_m65	= {
 	234	// !align fills with "NOP"
 };
 
-
-// variables
-
-boolean	cpu_a_is_long	= FALSE;
-boolean	cpu_xy_are_long	= FALSE;
-// predefined stuff
 static struct ronode	cputype_tree[]	= {
 	PREDEF_START,
-#define KNOWN_TYPES	"'6502', 'nmos6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'm65', 'c64dtv2'"	// shown in CLI error message for unknown types
 //	PREDEFNODE("z80",		&cpu_type_Z80),
 	PREDEFNODE("6502",		&cpu_type_6502),
 	PREDEFNODE("nmos6502",		&cpu_type_nmos6502),
@@ -90,7 +84,15 @@ static struct ronode	cputype_tree[]	= {
 	PREDEF_END("c64dtv2",		&cpu_type_c64dtv2),
 	//    ^^^^ this marks the last element
 };
-const char	cputype_names[]	= KNOWN_TYPES;	// string to show if cputype_find() returns NULL
+// string shown in CLI error message if cputype_find() returns NULL:
+const char	cputype_names[]	= "'6502', 'nmos6502', '6510', '65c02', 'r65c02', 'w65c02', '65816', '65ce02', '4502', 'm65', 'c64dtv2'";
+
+
+// variables
+const struct cpu_type	*cpu_current_type	= NULL;
+boolean			cpu_a_is_long		= FALSE;
+boolean			cpu_xy_are_long		= FALSE;
+
 
 // lookup cpu type held in DynaBuf and return its struct pointer (or NULL on failure)
 const struct cpu_type *cputype_find(void)
@@ -111,7 +113,7 @@ const struct cpu_type *cputype_find(void)
 // initial change, but because of reverting back to old cpu type after "{}" block!
 void vcpu_check_and_set_reg_length(boolean *var, boolean make_long)
 {
-	if (((CPU_state.type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0) && make_long)
+	if (((cpu_current_type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0) && make_long)
 		Throw_error("Chosen CPU does not support long registers.");
 	else
 		*var = make_long;
@@ -122,7 +124,7 @@ void vcpu_check_and_set_reg_length(boolean *var, boolean make_long)
 void cputype_passinit(const struct cpu_type *cpu_type)
 {
 	// handle cpu type (default is 6502)
-	CPU_state.type = cpu_type ? cpu_type : &cpu_type_6502;
+	cpu_current_type = cpu_type ? cpu_type : &cpu_type_6502;
 	cpu_a_is_long = FALSE;	// short accu
 	cpu_xy_are_long = FALSE;	// short index regs
 }
