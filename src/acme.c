@@ -313,12 +313,8 @@ static void perform_pass(void)
 	int	ii;
 
 	++pass.number;
-	// call modules' "pass init" functions
-	output_passinit();	// disable output, PC undefined
-	cputype_passinit(config.initial_cpu_type);
-	// if start address was given on command line, use it:
-	if (config.initial_pc != NO_VALUE_GIVEN)
-		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
+	cputype_passinit();	// set default cpu type
+	output_passinit();	// set initial pc or start with undefined pc
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
 	// init variables
@@ -337,11 +333,10 @@ static void perform_pass(void)
  			++pass.error_count;
 		}
 	}
-	output_end_segment();
-/*	TODO:
-	if --save-start is given, parse arg string
-	if --save-limit is given, parse arg string
-*/
+	output_endofpass();	// make sure last code segment is closed
+	// TODO: atm "--from-to" reads two numbers. if that is changed in the
+	// future to two general expressions, this is the point where they would
+	// need to be evaluated.
 	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
 }
@@ -524,37 +519,37 @@ static void define_symbol(const char definition[])
 }
 
 
-struct dialect {
-	enum version	dialect;
+struct dialect_info {
+	enum dialect	dialect;
 	const char	*version;
 	const char	*description;
 };
-struct dialect	dialects[]	= {
-	{VER_OLDEST_SUPPORTED,		"0.85",		"(the oldest version supported)"},
-	{VER_DEPRECATE_REALPC,		"0.86",		"\"!realpc\" gives a warning, \"!to\" wants a file format"},
-//	{VER_SHORTER_SETPC_WARNING,	"0.93",		"\"*=\" in offset assembly gives shorter warning but still switches off"},
-	{VER_RIGHTASSOCIATIVEPOWEROF,	"0.94.6",	"\"power of\" is now right-associative"},
-//	{VER_,				"0.94.7",	"empty code segments are no longer included in output file"},
-	{VER_DISABLED_OBSOLETE_STUFF,	"0.94.8",	"\"*=\" works inside \"!pseudopc\", disabled \"!cbm/!realpc/!subzone\""},
-	{VER_NEWFORSYNTAX,		"0.94.12",	"new \"!for\" syntax"},
-//	{VER_,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
-	{VER_BACKSLASHESCAPING,		"0.97",		"backslash escaping and strings"},
-//	{VER_CURRENT,			"default",	"default"},
-	{VER_FUTURE,			"future",	"enable all experimental features"},
+struct dialect_info	dialects[]	= {
+	{V0_85__OLDEST_SUPPORTED,	"0.85",		"(the oldest version supported)"},
+	{V0_86__DEPRECATE_REALPC,	"0.86",		"\"!realpc\" gives a warning, \"!to\" wants a file format"},
+//	{V0_93__SHORTER_SETPC_WARNING,	"0.93",		"\"*=\" in offset assembly gives shorter warning but still switches off"},
+	{V0_94_6__RIGHT_ASSOC_POWER,	"0.94.6",	"\"power of\" is now right-associative"},
+//	{V,				"0.94.7",	"empty code segments are no longer included in output file"},
+	{V0_94_8__DISABLED_OBSOLETE,	"0.94.8",	"\"*=\" works inside \"!pseudopc\", disabled \"!cbm/!realpc/!subzone\""},
+	{V0_94_12__NEWFORSYNTAX,	"0.94.12",	"new \"!for\" syntax"},
+//	{V,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
+	{V0_97__BACKSLASHESCAPING,	"0.97",		"backslash escaping and strings"},
+//	{V__CURRENT_VERSION,		"default",	"default"},
+	{V__FUTURE_VERSION,		"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
 };
 
 // choose dialect (mimic behaviour of different version)
 static void set_dialect(const char version[])
 {
-	struct dialect	*dia;
+	struct dialect_info	*dia;
 
 	// caution, version may be NULL!
 	if (version) {
 		// scan array
 		for (dia = dialects; dia->version; ++dia) {
 			if (strcmp(version, dia->version) == 0) {
-				config.wanted_version = dia->dialect;
+				config.dialect = dia->dialect;
 				return;	// found
 			}
 		}
@@ -624,7 +619,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_DEBUGLEVEL) == 0)
 		config.debuglevel = string_to_number(cliargs_safe_get_next("debug level"));
 	else if (strcmp(string, OPTION_TEST) == 0) {
-		config.wanted_version = VER_FUTURE;
+		config.dialect = V__FUTURE_VERSION;
 		config.test_new_features = TRUE;
 		config.outbuf_size = 0x1000000;	// 16 MiB (FIXME - give it its own cli switch!)
 	} PLATFORM_LONGOPTION_CODE
@@ -682,7 +677,7 @@ static char short_option(const char *argument)
 				config.warn_on_indented_labels = FALSE;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_OLD_FOR) == 0) {
-				config.wanted_version = VER_NEWFORSYNTAX - 1;
+				config.dialect = V0_94_12__NEWFORSYNTAX - 1;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_BIN_LEN) == 0) {
 				config.warn_bin_mask = 0;

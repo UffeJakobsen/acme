@@ -10,16 +10,8 @@
 // 22 Sep 2015	Added big-endian output functions
 // 20 Apr 2019	Prepared for "make segment overlap warnings into errors" later on
 #include "output.h"
-#include <stdlib.h>
 #include <string.h>	// for memset()
-#include "acme.h"
-#include "alu.h"
-#include "config.h"
-#include "cpu.h"
-#include "dynabuf.h"
 #include "global.h"
-#include "input.h"
-#include "platform.h"
 
 
 // constants
@@ -52,7 +44,7 @@ struct output {
 };
 
 // for offset assembly:
-static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when not in pseudopc block)
+static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when not in pseudopc block - FIXME, will change in future!)
 
 
 // variables
@@ -332,13 +324,19 @@ void output_passinit(void)
 	statement_size = 0;	// increase PC by this at end of statement
 
 	// pseudopc stuff:
-	pseudopc_current_context = NULL;
+	pseudopc_current_context = NULL;	// FIXME - let it point to dummy struct!
+
+// this was moved over from caller - does it make sense to merge into some if/else?
+
+	// if start address was given on command line, use it:
+	if (config.initial_pc != NO_VALUE_GIVEN)
+		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
 }
 
 
 // show start and end of current segment
 // called whenever a new segment begins, and at end of pass.
-void output_end_segment(void)
+static void end_segment(void)
 {
 	intval_t	amount;
 
@@ -370,12 +368,20 @@ void output_end_segment(void)
 }
 
 
+// make sure last code segment is closed
+// (this gets called exactly once at the end of each pass, as opposed to
+// the static fn "end_segment" which is also called when a new segment starts)
+void output_endofpass(void)
+{
+	end_segment();
+}
+
+
 // change output pointer and enable output
-// TODO - this only gets called from vcpu_set_pc so could be made static!
-void output_start_segment(intval_t address_change, bits segment_flags)
+static void start_segment(intval_t address_change, bits segment_flags)
 {
 	// properly finalize previous segment (link to list, announce)
-	output_end_segment();
+	end_segment();
 
 	// calculate start of new segment
 	out->write_idx = (out->write_idx + address_change) & (config.outbuf_size - 1);
@@ -393,11 +399,11 @@ void output_start_segment(intval_t address_change, bits segment_flags)
 }
 
 
+// get/set "encryption" byte
 char output_get_xor(void)
 {
 	return out->xor;
 }
-
 void output_set_xor(char xor)
 {
 	out->xor = xor;
@@ -411,25 +417,11 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 {
 	intval_t	pc_change;
 
-	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
-	if (pseudopc_current_context != NULL) {
-		if (config.wanted_version < VER_SHORTER_SETPC_WARNING) {
-			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
-			pseudopc_end_all();
-		} else if (config.wanted_version < VER_DISABLED_OBSOLETE_STUFF) {
-			Throw_warning("Offset assembly still active at end of segment.");
-			pseudopc_end_all();	// warning no longer said it
-			// would switch off, but still did. nevertheless, there
-			// is something different to older versions: when the
-			// closing '}' or !realpc is encountered, _really_ weird
-			// stuff happens! i see no reason to try to mimic that.
-		}
-	}
 	pc_change = new_pc - program_counter;
 	program_counter = new_pc;	// FIXME - oversized values are accepted without error and will be wrapped at end of statement!
 	pc_ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
 	// now tell output buffer to start a new segment
-	output_start_segment(pc_change, segment_flags);
+	start_segment(pc_change, segment_flags);
 }
 /*
 TODO - overhaul program counter and memory pointer stuff:
@@ -450,7 +442,8 @@ when encountering "*= VALUE":
 	parse new value (NEW: might be undefined!)
 	calculate difference between current PC and new value
 	set PC to new value
-	tell outbuf to add difference to mem ptr (starting a new segment) - if new value is undefined, tell outbuf to disable output
+	tell outbuf to add difference to mem ptr (starting a new segment)
+		if new value is undefined, tell outbuf to disable output
 
 Problem: always check for "undefined"; there are some problematic combinations.
 I need a way to return the size of a generated code block even if PC undefined.
@@ -472,16 +465,19 @@ void vcpu_read_pc(struct number *target)
 
 
 // get size of current statement (until now) - needed for "!bin" verbose output
-int vcpu_get_statement_size(void)
+int output_get_statement_size(void)
 {
 	return statement_size;
 }
 
 
 // adjust program counter (called at end of each statement)
-void vcpu_end_statement(void)
+void output_end_statement(void)
 {
-	program_counter = (program_counter + statement_size) & (config.outbuf_size - 1);	// FIXME - this cannot be right!
+	// FIXME - that '&' cannot be right!
+	// it makes sense from a cpu point of view (which wraps around to 0),
+	// but not from "outbuf" point of view.
+	program_counter = (program_counter + statement_size) & (config.outbuf_size - 1);
 	statement_size = 0;	// reset
 }
 
@@ -549,27 +545,10 @@ void pseudopc_start(struct number *new_pc)
 // end offset assembly
 void pseudopc_end(void)
 {
-	if (pseudopc_current_context == NULL) {
-		// trying to end offset assembly though it isn't active:
-		// in current versions this cannot happen and so must be a bug.
-		// but in versions older than 0.94.8 this was possible using
-		// !realpc, and offset assembly got automatically disabled when
-		// encountering "*=".
-		// so if wanted version is new enough, choke on bug!
-		if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
-			BUG("ClosingUnopenedPseudopcBlock", 0);
-	} else {
-		program_counter = (program_counter - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
-		pc_ntype = pseudopc_current_context->ntype;
-		pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
-	}
-}
-// this is only for old, deprecated, obsolete, stupid "realpc":
-void pseudopc_end_all(void)
-{
-	// FIXME - this needs changing if we start with a "offset is 0" struct in the future!
-	while (pseudopc_current_context != NULL)
-		pseudopc_end();
+	// FIXME - check this "wraparound" stuff, it may no longer make sense!
+	program_counter = (program_counter - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
+	pc_ntype = pseudopc_current_context->ntype;
+	pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 }
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)
@@ -589,9 +568,14 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 	}
 	return 0;	// ok
 }
-// return pointer to current "pseudopc" struct (may be NULL!)
+// return pointer to current "pseudopc" struct (may be NULL!)	FIXME - not anymore?
 // this gets called when parsing label definitions
 struct pseudopc *pseudopc_get_context(void)
 {
 	return pseudopc_current_context;
+}
+// returns nonzero if "!pseudopc" is in effect, zero otherwise
+int pseudopc_isactive(void)
+{
+	return pseudopc_current_context != NULL;	// FIXME - compare to dummy struct instead!
 }

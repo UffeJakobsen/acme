@@ -24,7 +24,7 @@ alu.o: config.h platform.h cpu.h dynabuf.h encoding.h global.h input.h section.h
 
 cliargs.o: cliargs.h cliargs.c
 
-cpu.o: config.h alu.h dynabuf.h global.h input.h mnemo.h output.h tree.h cpu.h cpu.c
+cpu.o: config.h dynabuf.h global.h mnemo.h tree.h cpu.h cpu.c
 
 dynabuf.o: config.h acme.h global.h input.h dynabuf.h dynabuf.c
 
@@ -40,7 +40,7 @@ macro.o: config.h acme.h alu.h dynabuf.h global.h input.h section.h symbol.h tre
 
 mnemo.o: config.h alu.h cpu.h dynabuf.h global.h input.h output.h tree.h mnemo.h mnemo.c
 
-output.o: config.h acme.h alu.h cpu.h dynabuf.h global.h input.h tree.h output.h output.c
+output.o: config.h global.h output.h output.c
 
 platform.o: config.h platform.h platform.c
 

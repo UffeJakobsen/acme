@@ -57,6 +57,7 @@ extern char *DOS_lib_prefix;	// header string of library tree
 
 // used as PLATFORM_INIT: reads "ACME" environment variable
 extern void DOS_entry(void);
+
 // Convert UNIX-style pathname to DOS-style pathname
 extern void DOS_convert_path(char *p);
 

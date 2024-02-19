@@ -42,27 +42,24 @@ extern int output_setdefault(char content);
 extern void outbuf_set_outfile_start(void);
 extern void outbuf_set_outfile_limit(void);
 
-// change output pointer and enable output
-extern void output_start_segment(intval_t address_change, bits segment_flags);
-
-// show start and end of current segment
-extern void output_end_segment(void);
+// make sure last code segment is closed
+extern void output_endofpass(void);
 
 // get/set "encryption" byte
 extern char output_get_xor(void);
 extern void output_set_xor(char xor);
 
 // set program counter to defined value (TODO - allow undefined!)
-extern void vcpu_set_pc(intval_t new_pc, bits flags);
+extern void vcpu_set_pc(intval_t new_pc, bits segment_flags);
 
 // get program counter
 extern void vcpu_read_pc(struct number *target);
 
 // get size of current statement (until now) - needed for "!bin" verbose output
-extern int vcpu_get_statement_size(void);
+extern int output_get_statement_size(void);
 
 // adjust program counter (called at end of each statement)
-extern void vcpu_end_statement(void);
+extern void output_end_statement(void);
 
 // return start and size of memory block to write to output file,
 // along with load address for cbm/apple headers.
@@ -78,9 +75,6 @@ extern void pseudopc_start(struct number *new_pc);
 // end offset assembly
 extern void pseudopc_end(void);
 
-// this is only for old, deprecated, obsolete, stupid "realpc":
-extern void pseudopc_end_all(void);
-
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)
 extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
@@ -88,6 +82,9 @@ extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, un
 // return pointer to current "pseudopc" struct (may be NULL!)
 // this gets called when parsing label definitions
 extern struct pseudopc *pseudopc_get_context(void);
+
+// returns nonzero if "!pseudopc" is in effect, zero otherwise
+int pseudopc_isactive(void);
 
 
 #endif

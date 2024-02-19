@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // ALU stuff (the expression parser)
@@ -67,11 +67,14 @@ struct expression {
 
 // stores int value (0 if result was undefined)
 extern void ALU_any_int(intval_t *target);
+
 // stores int value and flags (floats are transformed to int)
 // if result was undefined, serious error is thrown
 extern void ALU_defined_int(struct number *intresult);
+
 // stores int value and flags, allowing for "paren" '(' too many (x-indirect addr).
 extern void ALU_addrmode_int(struct expression *expression, int paren);
+
 // stores resulting object
 extern void ALU_any_result(struct object *result);
 

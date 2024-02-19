@@ -1,10 +1,11 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for RISC OS)
 #ifndef platform_H
 #define platform_H
+
 
 #include "config.h"
 
@@ -65,10 +66,13 @@ extern bits	RISCOS_flags;	// Holds platform-specific flags
 
 // used as PLATFORM_INIT: registers exit handler
 extern void RISCOS_entry(void);
+
 // convert UNIX-style pathname to RISC OS-style pathname
 extern void RISCOS_convert_path(char *path);
+
 // setting the created files' types
 extern void RISCOS_set_filetype(const char *filename, int type);
+
 // use DDEUtils module's "Throwback" protocol
 extern void RISCOS_throwback(const char *msg, int type);
 

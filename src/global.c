@@ -11,7 +11,7 @@
 //  9 Jan 2018	Made '/' a syntax char to allow for "//" comments
 // 14 Apr 2020	Added config vars for "ignore zeroes" and "segment warnings to errors"
 #include "global.h"
-#include <stdio.h>
+#include <string.h>	// for strcmp()
 #include "platform.h"
 #include "acme.h"
 #include "alu.h"
@@ -120,7 +120,7 @@ void config_default(struct config *conf)
 	conf->debuglevel_segmentprobs	= DEBUGLEVEL_WARNING;	// changed to ERROR by --strict-segments		TODO - toggle default?
 	conf->all_warnings_are_errors	= FALSE;	// enabled by --strict
 	conf->test_new_features		= FALSE;	// enabled by --test
-	conf->wanted_version		= VER_CURRENT;	// changed by --dialect
+	conf->dialect			= V__CURRENT_VERSION;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
 	conf->outbuf_size		= 0x10000;	// 64K, "--test" changes to 16M
 	conf->initial_cpu_type		= NULL;
@@ -409,7 +409,7 @@ void parse_until_eob_or_eof(void)
 				}
 			}
 		} while (GotByte != CHAR_EOS);	// until end-of-statement
-		vcpu_end_statement();	// adjust program counter
+		output_end_statement();	// adjust program counter
 		// go on with next byte
 		GetByte();	//NEXTANDSKIPSPACE();
 	}

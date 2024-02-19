@@ -4,13 +4,9 @@
 //
 // CPU type stuff
 #include "cpu.h"
-#include "config.h"
-#include "alu.h"
 #include "dynabuf.h"
 #include "global.h"
-#include "input.h"
 #include "mnemo.h"
-#include "output.h"
 #include "tree.h"
 
 
@@ -121,10 +117,14 @@ void vcpu_check_and_set_reg_length(boolean *var, boolean make_long)
 
 
 // set default values for pass
-void cputype_passinit(const struct cpu_type *cpu_type)
+void cputype_passinit(void)
 {
-	// handle cpu type (default is 6502)
-	cpu_current_type = cpu_type ? cpu_type : &cpu_type_6502;
-	cpu_a_is_long = FALSE;	// short accu
-	cpu_xy_are_long = FALSE;	// short index regs
+	// set cpu type (default to 6502)
+	if (config.initial_cpu_type != NULL)
+		cpu_current_type = config.initial_cpu_type;
+	else
+		cpu_current_type = &cpu_type_6502;
+	// start with short registers
+	cpu_a_is_long = FALSE;
+	cpu_xy_are_long = FALSE;
 }

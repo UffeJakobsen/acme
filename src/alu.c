@@ -425,7 +425,7 @@ static void parse_quoted(char closing_quote)
 	// without backslash escaping, both ' and " are used for single
 	// characters.
 	// with backslash escaping, ' is for characters and " is for strings:
-	if ((closing_quote == '"') && (config.wanted_version >= VER_BACKSLASHESCAPING)) {
+	if ((closing_quote == '"') && (config.dialect >= V0_97__BACKSLASHESCAPING)) {
 		// string //////////////////////////////////
 		string_prepare_string(&arg_stack[arg_sp], GlobalDynaBuf->size);	// create string object and put on arg stack
 		memcpy(arg_stack[arg_sp].u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// copy payload
@@ -827,7 +827,7 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 		// if priorities are the same, check associativity:
 		if ((PREVIOUS_OPERATOR->priority == NEWEST_OPERATOR->priority)
 		&& (NEWEST_OPERATOR->priority == PRIO_POWEROF)
-		&& (config.wanted_version >= VER_RIGHTASSOCIATIVEPOWEROF))
+		&& (config.dialect >= V0_94_6__RIGHT_ASSOC_POWER))
 			return;
 
 		// ok, so now perform operation indicated by previous operator!

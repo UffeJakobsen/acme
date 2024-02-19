@@ -46,7 +46,7 @@ extern boolean			cpu_xy_are_long;
 extern void vcpu_check_and_set_reg_length(boolean *var, boolean make_long);
 
 // set default value for pass
-extern void cputype_passinit(const struct cpu_type *cpu_type);
+extern void cputype_passinit(void);
 
 // lookup cpu type held in DynaBuf and return its struct pointer (or NULL on failure)
 extern const struct cpu_type *cputype_find(void);

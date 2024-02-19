@@ -6,6 +6,7 @@
 #include "pseudoopcodes.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>	// for memcpy()
 #include "acme.h"
 #include "config.h"
 #include "cpu.h"
@@ -34,6 +35,14 @@ enum eos {
 // constants
 static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
 static const char	exception_missing_equals[]		= "Missing '=' character.";
+
+
+// helper function, just for old, deprecated, obsolete, stupid "realpc":
+static void end_all_pseudopc(void)
+{
+	while (pseudopc_isactive())
+		pseudopc_end();
+}
 
 
 // local prototype because "*=" might fake a "!outfilestart":
@@ -83,6 +92,23 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			goto fail;
 		}
 	}
+
+	// before actually setting pc,
+	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
+	if (pseudopc_isactive()) {
+		if (config.dialect < V0_93__SHORTER_SETPC_WARNING) {
+			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+			end_all_pseudopc();
+		} else if (config.dialect < V0_94_8__DISABLED_OBSOLETE) {
+			Throw_warning("Offset assembly still active at end of segment.");
+			end_all_pseudopc();	// warning no longer said it
+			// would switch off, but still did. nevertheless, there
+			// is something different to older versions: when the
+			// closing '}' or !realpc is encountered, _really_ weird
+			// stuff happens! i see no reason to try to mimic that.
+		}
+	}
+
 	vcpu_set_pc(intresult.val.intval, segment_flags);
 
 	// if wanted, perform "!outfilestart":
@@ -174,7 +200,7 @@ static enum eos po_to(void)
 		}
 	} else {
 		// no comma: complain unless user requested really old behaviour
-		if (config.wanted_version >= VER_DEPRECATE_REALPC)
+		if (config.dialect >= V0_86__DEPRECATE_REALPC)
 			Throw_warning("Used \"!to\" without file format indicator.");
 		// default to cbm
 		format = OUTFILE_FORMAT_CBM;
@@ -320,7 +346,7 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 // "!cbm" pseudo opcode (now obsolete)
 static enum eos po_cbm(void)
 {
-	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF) {
+	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
 		Throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
 	} else {
 		encoder_current = &encoder_pet;
@@ -442,7 +468,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 	do {
 		// we need to keep the old string handler code, because if user selects
 		// older dialect, the new code will complain about string lengths > 1!
-		if ((GotByte == '"') && (config.wanted_version < VER_BACKSLASHESCAPING)) {
+		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASHESCAPING)) {
 			// the old way of handling string literals:
 			int	offset;
 
@@ -574,7 +600,7 @@ static enum eos po_binary(void)
 	fclose(stream);
 	// if verbose, produce some output
 	if (FIRST_PASS && (config.process_verbosity > 1)) {
-		int	amount	= vcpu_get_statement_size();
+		int	amount	= output_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
 			amount, amount, skip.val.intval, skip.val.intval);
@@ -652,11 +678,11 @@ static enum eos po_align(void)
 static void old_offset_assembly(void)
 {
 	// really old versions allowed it
-	if (config.wanted_version < VER_DEPRECATE_REALPC)
+	if (config.dialect < V0_86__DEPRECATE_REALPC)
 		return;
 
 	// then it was deprecated
-	if (config.wanted_version < VER_DISABLED_OBSOLETE_STUFF) {
+	if (config.dialect < V0_94_8__DISABLED_OBSOLETE) {
 		Throw_first_pass_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
 		return;
 	}
@@ -708,7 +734,7 @@ static enum eos po_pseudopc(void)
 static enum eos po_realpc(void)
 {
 	old_offset_assembly();
-	pseudopc_end_all();	// restore outermost state
+	end_all_pseudopc();	// restore outermost state
 	return ENSURE_EOS;
 }
 
@@ -875,7 +901,7 @@ static enum eos po_zone(void)
 // "!subzone" or "!sz" pseudo opcode (now obsolete)
 static enum eos po_subzone(void)
 {
-	if (config.wanted_version >= VER_DISABLED_OBSOLETE_STUFF)
+	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE)
 		Throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
 	else
 		Throw_first_pass_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
@@ -1076,7 +1102,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		if (input_accept_comma()) {
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
-			if (config.wanted_version < VER_NEWFORSYNTAX)
+			if (config.dialect < V0_94_12__NEWFORSYNTAX)
 				Throw_first_pass_warning("Found new \"!for\" syntax.");
 			loop.u.counter.first = intresult.val.intval;	// use first argument
 			ALU_defined_int(&intresult);	// read second argument
@@ -1098,7 +1124,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		} else {
 			// old counter syntax
 			loop.algorithm = FORALGO_OLDCOUNT;
-			if (config.wanted_version >= VER_NEWFORSYNTAX)
+			if (config.dialect >= V0_94_12__NEWFORSYNTAX)
 				Throw_first_pass_warning("Found old \"!for\" syntax.");
 			if (intresult.val.intval < 0)
 				Throw_serious_error("Loop count is negative.");
@@ -1342,7 +1368,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 	dynabuf_clear(user_message);
 	dynabuf_add_string(user_message, prefix);
 	do {
-		if ((GotByte == '"') && (config.wanted_version < VER_BACKSLASHESCAPING)) {
+		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASHESCAPING)) {
 			dynabuf_clear(GlobalDynaBuf);
 			if (input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error

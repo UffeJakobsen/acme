@@ -9,12 +9,11 @@
 #define global_H
 
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <stdio.h>	// for FILE
 #include "config.h"
 
-#define LOCAL_PREFIX	'.'	// FIXME - this is not yet used consistently!
+
+#define LOCAL_PREFIX	'.'	// DO NOT CHANGE (or change expression parser accordingly)
 #define CHEAP_PREFIX	'@'	// prefix character for cheap locals
 
 // Constants
@@ -44,21 +43,21 @@ extern const char	global_byte_flags[];
 // TODO - put in runtime struct:
 extern char	GotByte;	// Last byte read (processed)
 
-enum version {
-	VER_OLDEST_SUPPORTED,		// v0.85 looks like the oldest version it makes sense to actually support
-	VER_DEPRECATE_REALPC,		// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
-	VER_SHORTER_SETPC_WARNING,	// v0.93 claimed to allow *= inside !pseudopc blocks, but didn't. It shortened the warning, but '}' or !realpc clobbered PC
-	VER_RIGHTASSOCIATIVEPOWEROF,	// v0.94.6 made "power of" operator right-associative
+enum dialect {
+	V0_85__OLDEST_SUPPORTED,	// v0.85 looks like the oldest version it makes sense to actually support
+	V0_86__DEPRECATE_REALPC,	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format
+	V0_93__SHORTER_SETPC_WARNING,	// v0.93 claimed to allow *= inside !pseudopc blocks, but didn't. It shortened the warning, but '}' or !realpc clobbered PC
+	V0_94_6__RIGHT_ASSOC_POWER,	// v0.94.6 made "power of" operator right-associative
 					// v0.94.7 fixed a bug: empty code segments no longer included in output file
-	VER_DISABLED_OBSOLETE_STUFF,	// v0.94.8 made *= work inside !pseudopc, disabled !cbm/!realpc/!subzone
-	VER_NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
+	V0_94_8__DISABLED_OBSOLETE,	// v0.94.8 made *= work inside !pseudopc, disabled !cbm/!realpc/!subzone
+	V0_94_12__NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
 					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
-	VER_BACKSLASHESCAPING,		// v0.97 introduced backslash escaping (and therefore strings)
-	VER_CURRENT,			// "RELEASE"
+	V0_97__BACKSLASHESCAPING,	// v0.97 introduced backslash escaping (and therefore strings)
+	V__CURRENT_VERSION,		// "RELEASE"
 					// possible changes in future versions:
 					//	paths should be relative to file, not start dir
 					//	ignore leading zeroes?
-	VER_FUTURE			// far future
+	V__FUTURE_VERSION		// future (for testing new features)
 };
 enum debuglevel {
 	DEBUGLEVEL_SERIOUS	= -3,	// ACME stops right away
@@ -90,7 +89,7 @@ struct config {
 	enum debuglevel	debuglevel_segmentprobs;	// WARNING, changed to ERROR by --strict-segments
 	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
-	enum version	wanted_version;	// set by --dialect (and --test --test)
+	enum dialect	dialect;	// set by --dialect (and --test --test)
 	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
 	signed long	outbuf_size;	// 64K, "--test" changes to 16M
 	const struct cpu_type	*initial_cpu_type;

@@ -396,7 +396,7 @@ int input_quoted_to_dynabuf(char closing_quote)
 			if (GotByte == closing_quote)
 				return 0;	// ok
 
-			if ((GotByte == '\\') && (config.wanted_version >= VER_BACKSLASHESCAPING))
+			if ((GotByte == '\\') && (config.dialect >= V0_97__BACKSLASHESCAPING))
 				escaped = TRUE;
 		}
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
@@ -412,7 +412,7 @@ int input_unescape_dynabuf(int read_index)
 	char	byte;
 	boolean	escaped;
 
-	if (config.wanted_version < VER_BACKSLASHESCAPING)
+	if (config.dialect < V0_97__BACKSLASHESCAPING)
 		return 0;	// ok
 
 	write_index = read_index;
