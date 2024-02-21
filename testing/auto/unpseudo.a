@@ -1,0 +1,7 @@
+	*=$1000
+		nop
+	!pseudopc $0300 {
+		nop
+		!if * != $0301 { !error "pseudo pc is not $301" }
+		!if &* != $1002 { !error "un-pseudo'd pc is not $1002" }
+	}

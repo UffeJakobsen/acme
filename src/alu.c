@@ -321,7 +321,7 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 	}
 
 	dynabuf_clear(errormsg_dyna_buf);
-	dynabuf_add_string(errormsg_dyna_buf, "Value not defined (");
+	dynabuf_add_string(errormsg_dyna_buf, "Symbol not defined (");
 	length += errormsg_dyna_buf->size;
 
 	dynabuf_add_string(errormsg_dyna_buf, name);
@@ -385,6 +385,7 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = "*"
 {
 	struct number	pc;
+	struct object	*arg;
 
 	GetByte();
 	vcpu_read_pc(&pc);
@@ -393,7 +394,10 @@ static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = 
 		is_not_defined(NULL, "*", 1);
 	if (unpseudo_count)
 		pseudopc_unpseudo(&pc, pseudopc_get_context(), unpseudo_count);
-	PUSH_INT_ARG(pc.val.intval, pc.flags, pc.addr_refs);	// FIXME - when undefined pc is allowed, this must be changed for numtype!
+	// push to arg stack
+	arg = &arg_stack[arg_sp++];
+	arg->type = &type_number;
+	arg->u.number = pc;
 }
 
 

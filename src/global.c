@@ -212,18 +212,13 @@ static int first_symbol_of_statement(void)
 static void set_label(scope_t scope, bits force_bit, bits powers)
 {
 	struct symbol	*symbol;
-	struct number	pc;
 	struct object	result;
 
 	if ((statement_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
 		Throw_first_pass_warning("Label name not in leftmost column.");
 	symbol = symbol_find(scope);
-	vcpu_read_pc(&pc);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
 	result.type = &type_number;
-	result.u.number.ntype = NUMTYPE_INT;	// FIXME - if undefined, use NUMTYPE_UNDEFINED!
-	result.u.number.flags = 0;
-	result.u.number.val.intval = pc.val.intval;
-	result.u.number.addr_refs = pc.addr_refs;
+	vcpu_read_pc(&result.u.number);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
 	symbol_set_object(symbol, &result, powers);
 	if (force_bit)
 		symbol_set_force_bit(symbol, force_bit);

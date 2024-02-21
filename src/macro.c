@@ -133,7 +133,7 @@ static void report_redefinition(struct rwnode *macro_node)
 	struct macro	*original_macro	= macro_node->body;
 
 	// show warning with location of current definition
-	Throw_warning(exception_macro_twice);
+	Throw_warning(exception_macro_twice);	// FIXME - throw as info?
 	// CAUTION, ugly kluge: fiddle with input_now and section_now
 	// data to generate helpful error messages
 	input_now->original_filename = original_macro->def_filename;
