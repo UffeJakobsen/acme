@@ -103,6 +103,7 @@ char		GotByte;			// Last byte read (processed)
 struct report 	*report			= NULL;
 struct config	config;
 struct pass	pass;
+struct sanity	sanity;
 
 // set configuration to default values
 void config_default(struct config *conf)
@@ -113,6 +114,7 @@ void config_default(struct config *conf)
 	conf->warn_on_type_mismatch	= FALSE;	// use type-checking system
 	conf->warn_bin_mask		= 3;  // %11 -> warn if not divisible by four
 	conf->max_errors		= MAXERRORS;	// errors before giving up
+	conf->sanity_limit		= SANITY_LIMIT;	// changed by --maxdepth
 	conf->format_msvc		= FALSE;	// enabled by --msvc
 	conf->format_color		= FALSE;	// enabled by --color
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout

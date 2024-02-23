@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>	// for memcpy()
-#include "acme.h"
 #include "config.h"
 #include "cpu.h"
 #include "alu.h"
@@ -920,7 +919,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 
 	// enter new nesting level
 	// quit program if recursion too deep
-	if (--source_recursions_left < 0)
+	if (--sanity.source_recursions_left < 0)
 		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 	// read file name. quit function on error
 	if (input_read_input_filename(&uses_lib))
@@ -948,7 +947,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 #endif
 	}
 	// leave nesting level
-	++source_recursions_left;
+	++sanity.source_recursions_left;
 	return ENSURE_EOS;
 }
 

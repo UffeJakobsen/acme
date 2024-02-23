@@ -7,7 +7,6 @@
 #include <string.h>	// needs strlen() + memcpy()
 #include "config.h"
 #include "platform.h"
-#include "acme.h"
 #include "alu.h"
 #include "dynabuf.h"
 #include "global.h"
@@ -230,7 +229,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 
 	// Enter deeper nesting level
 	// Quit program if recursion too deep.
-	if (--macro_recursions_left < 0)
+	if (--sanity.macro_recursions_left < 0)
 		Throw_serious_error("Too deeply nested. Recursive macro calls?");
 	macro_scope = get_scope_and_title();
 	// now GotByte = first non-space after title
@@ -348,5 +347,5 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 
 		input_ensure_EOS();
 	}
-	++macro_recursions_left;	// leave this nesting level
+	++sanity.macro_recursions_left;	// leave this nesting level
 }

@@ -80,9 +80,6 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 // variables
 static const char	**toplevel_sources;
 static int		toplevel_src_count	= 0;
-// maximum recursion depth for macro calls and "!source"
-signed long	macro_recursions_left	= MAX_NESTING;
-signed long	source_recursions_left	= MAX_NESTING;
 
 
 // show release and platform info (and exit, if wanted)
@@ -364,6 +361,9 @@ static boolean do_actual_work(void)
 		if (config.process_verbosity > 1)
 			puts("Further pass.");
 		perform_pass();
+		if (--sanity.passes_left < 0) {
+			// FIXME - exit with error
+		}
 	}
 	// any errors left?
 	if (pass.undefined_count == 0) {	// FIXME - use pass.needvalue_count instead!
@@ -599,9 +599,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_MAXERRORS) == 0)
 		config.max_errors = string_to_number(cliargs_safe_get_next("maximum error count"));
 	else if (strcmp(string, OPTION_MAXDEPTH) == 0)
-		macro_recursions_left = (source_recursions_left = string_to_number(cliargs_safe_get_next("recursion depth")));
-//	else if (strcmp(string, "strictsyntax") == 0)
-//		strict_syntax = TRUE;
+		config.sanity_limit = string_to_number(cliargs_safe_get_next("recursion depth"));
 	else if (strcmp(string, OPTION_USE_STDOUT) == 0)
 		config.msg_stream = stdout;
 	else if (strcmp(string, OPTION_MSVC) == 0)
@@ -737,6 +735,10 @@ int main(int argc, const char *argv[])
 		fprintf(stderr, "%sStart address of output file exceeds end+1.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
+
+	sanity.macro_recursions_left = config.sanity_limit;
+	sanity.source_recursions_left = config.sanity_limit;
+	sanity.passes_left = config.sanity_limit;
 
 	// init output buffer
 	output_createbuffer();

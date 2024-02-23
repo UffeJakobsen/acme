@@ -69,9 +69,9 @@ struct listitem {
 // debugging flag, should be undefined in release version
 // #define FDEBUG
 
-// maximum nesting depth of "!src" and macro calls
+// maximum nesting depth of "!src" and macro calls, also max number of passes
 // is not actually a limitation, but a means of finding recursions
-#define MAX_NESTING	64
+#define SANITY_LIMIT	64
 // default value for "!fill"
 #define FILLVALUE_FILL		0
 

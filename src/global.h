@@ -81,7 +81,8 @@ struct config {
 	boolean		warn_on_indented_labels;	// warn if indented label is encountered
 	boolean		warn_on_type_mismatch;	// use type-checking system
 	int		warn_bin_mask;	// bitmask for digit counter of binary literals
-	signed long	max_errors;	// errors before giving up
+	int		max_errors;	// errors before giving up
+	int		sanity_limit;	// max recursion depth for "!src" and macro calls, also max number of passes
 	boolean		format_msvc;		// enabled by --msvc
 	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
@@ -117,6 +118,13 @@ struct pass {
 };
 extern struct pass	pass;
 #define FIRST_PASS	(pass.number == 0)
+
+struct sanity {
+	int	macro_recursions_left;	// for macro calls
+	int	source_recursions_left;	// for "!src"
+	int	passes_left;
+};
+extern struct sanity	sanity;
 
 // report stuff
 #define REPORT_ASCBUFSIZE	1024
