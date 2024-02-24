@@ -1,0 +1,2 @@
+	*=$1000
+	beq $1083	; -> "Target out of range (129; 2 too far)."

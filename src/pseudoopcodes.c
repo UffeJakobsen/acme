@@ -95,16 +95,20 @@ void notreallypo_setpc(void)	// GotByte is '*'
 	// before actually setting pc,
 	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
 	if (pseudopc_isactive()) {
-		if (config.dialect < V0_93__SHORTER_SETPC_WARNING) {
-			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
-			end_all_pseudopc();
-		} else if (config.dialect < V0_94_8__DISABLED_OBSOLETE) {
+		if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
+			// current behaviour:
+			// setting pc does not disable pseudopc
+		} else if (config.dialect >= V0_93__SHORTER_SETPC_WARNING) {
 			Throw_warning("Offset assembly still active at end of segment.");
-			end_all_pseudopc();	// warning no longer said it
-			// would switch off, but still did. nevertheless, there
+			end_all_pseudopc();	// warning did not say it would
+			// disable pseudopc, but still did. nevertheless, there
 			// is something different to older versions: when the
 			// closing '}' or !realpc is encountered, _really_ weird
 			// stuff happens! i see no reason to try to mimic that.
+		} else {
+			// prior to 0.93, setting pc disabled pseudopc with a warning:
+			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+			end_all_pseudopc();
 		}
 	}
 
@@ -676,18 +680,15 @@ static enum eos po_align(void)
 // not using a block is no longer allowed
 static void old_offset_assembly(void)
 {
-	// really old versions allowed it
-	if (config.dialect < V0_86__DEPRECATE_REALPC)
-		return;
-
-	// then it was deprecated
-	if (config.dialect < V0_94_8__DISABLED_OBSOLETE) {
+	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
+		// now it's obsolete
+		Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
+	} else if (config.dialect >= V0_86__DEPRECATE_REALPC) {
+		// earlier it was deprecated
 		Throw_first_pass_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
-		return;
+	} else {
+		// really old versions allowed it
 	}
-
-	// now it's obsolete
-	Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
 }
 
 // start offset assembly
