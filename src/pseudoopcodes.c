@@ -721,7 +721,19 @@ static enum eos po_pseudopc(void)
 	pseudopc_start(&new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (parse_optional_block()) {
-		pseudopc_end();	// restore old state
+		// restore old state
+		if (pseudopc_isactive()) {
+			pseudopc_end();
+		} else {
+			// calling pseudopc_end() here would create a segfault.
+			// the only way this point can be reached is when the user
+			// a) asked for an older dialect where "*=" disabled "!pseudopc"
+			// and
+			// b) did exactly that in the source.
+			//
+			// ...*or* it is a bug! maybe set a flag in the case above which
+			// can then be checked here, and if it isn't set, call BUG()?
+		}
 	} else {
 		old_offset_assembly();
 	}

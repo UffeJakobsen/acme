@@ -2,6 +2,11 @@
 		nop
 	!pseudopc $0300 {
 		nop
-		!if * != $0301 { !error "pseudo pc is not $301" }
+		!if * != $0301 { !error "pseudo pc is not $0301" }
 		!if &* != $1002 { !error "un-pseudo'd pc is not $1002" }
+	*=$0380
+		nop
+		!if * != $0381 { !error "pseudo pc is not $0381" }
+		!if &* != $1082 { !error "un-pseudo'd pc is not $1082" }
 	}
+	!if * != $1082 { !error "pc is not $1082" }

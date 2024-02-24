@@ -363,6 +363,8 @@ static boolean do_actual_work(void)
 		perform_pass();
 		if (--sanity.passes_left < 0) {
 			// FIXME - exit with error
+			//puts("Exceeded maximum number of passes, please check your sources.");
+			//break;
 		}
 	}
 	// any errors left?
