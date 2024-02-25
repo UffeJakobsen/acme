@@ -471,7 +471,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 	do {
 		// we need to keep the old string handler code, because if user selects
 		// older dialect, the new code will complain about string lengths > 1!
-		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASHESCAPING)) {
+		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
 			// the old way of handling string literals:
 			int	offset;
 
@@ -1114,7 +1114,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		if (input_accept_comma()) {
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
-			if (config.dialect < V0_94_12__NEWFORSYNTAX)
+			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX)
 				Throw_first_pass_warning("Found new \"!for\" syntax.");
 			loop.u.counter.first = intresult.val.intval;	// use first argument
 			ALU_defined_int(&intresult);	// read second argument
@@ -1136,7 +1136,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		} else {
 			// old counter syntax
 			loop.algorithm = FORALGO_OLDCOUNT;
-			if (config.dialect >= V0_94_12__NEWFORSYNTAX)
+			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX)
 				Throw_first_pass_warning("Found old \"!for\" syntax.");
 			if (intresult.val.intval < 0)
 				Throw_serious_error("Loop count is negative.");
@@ -1380,7 +1380,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 	dynabuf_clear(user_message);
 	dynabuf_add_string(user_message, prefix);
 	do {
-		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASHESCAPING)) {
+		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
 			dynabuf_clear(GlobalDynaBuf);
 			if (input_quoted_to_dynabuf('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping error

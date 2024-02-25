@@ -429,7 +429,7 @@ static void parse_quoted(char closing_quote)
 	// without backslash escaping, both ' and " are used for single
 	// characters.
 	// with backslash escaping, ' is for characters and " is for strings:
-	if ((closing_quote == '"') && (config.dialect >= V0_97__BACKSLASHESCAPING)) {
+	if ((closing_quote == '"') && (config.dialect >= V0_97__BACKSLASH_ESCAPING)) {
 		// string //////////////////////////////////
 		string_prepare_string(&arg_stack[arg_sp], GlobalDynaBuf->size);	// create string object and put on arg stack
 		memcpy(arg_stack[arg_sp].u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// copy payload

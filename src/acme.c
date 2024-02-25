@@ -533,9 +533,9 @@ struct dialect_info	dialects[]	= {
 	{V0_94_6__RIGHT_ASSOC_POWER,	"0.94.6",	"\"power of\" is now right-associative"},
 //	{V,				"0.94.7",	"empty code segments are no longer included in output file"},
 	{V0_94_8__DISABLED_OBSOLETE,	"0.94.8",	"\"*=\" works inside \"!pseudopc\", disabled \"!cbm/!realpc/!subzone\""},
-	{V0_94_12__NEWFORSYNTAX,	"0.94.12",	"new \"!for\" syntax"},
-//	{V,				"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
-	{V0_97__BACKSLASHESCAPING,	"0.97",		"backslash escaping and strings"},
+	{V0_94_12__NEW_FOR_SYNTAX,	"0.94.12",	"new \"!for\" syntax"},
+	{V0_95_2__NEW_ANC_OPCODE,	"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
+	{V0_97__BACKSLASH_ESCAPING,	"0.97",		"backslash escaping and strings"},
 //	{V__CURRENT_VERSION,		"default",	"default"},
 	{V__FUTURE_VERSION,		"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
@@ -677,7 +677,7 @@ static char short_option(const char *argument)
 				config.warn_on_indented_labels = FALSE;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_OLD_FOR) == 0) {
-				config.dialect = V0_94_12__NEWFORSYNTAX - 1;
+				config.dialect = V0_94_12__NEW_FOR_SYNTAX - 1;
 				goto done;
 			} else if (strcmp(argument + 1, OPTIONWNO_BIN_LEN) == 0) {
 				config.warn_bin_mask = 0;

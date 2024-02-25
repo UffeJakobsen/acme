@@ -50,9 +50,9 @@ enum dialect {
 	V0_94_6__RIGHT_ASSOC_POWER,	// v0.94.6 made "power of" operator right-associative
 					// v0.94.7 fixed a bug: empty code segments no longer included in output file
 	V0_94_8__DISABLED_OBSOLETE,	// v0.94.8 made *= work inside !pseudopc, disabled !cbm/!realpc/!subzone
-	V0_94_12__NEWFORSYNTAX,		// v0.94.12 introduced the new "!for" syntax
-					// v0.95.2 changed ANC#8 from 0x2b to 0x0b
-	V0_97__BACKSLASHESCAPING,	// v0.97 introduced backslash escaping (and therefore strings)
+	V0_94_12__NEW_FOR_SYNTAX,	// v0.94.12 introduced the new "!for" syntax
+	V0_95_2__NEW_ANC_OPCODE,	// v0.95.2 changed ANC#8 from opcode 0x2b to 0x0b
+	V0_97__BACKSLASH_ESCAPING,	// v0.97 introduced backslash escaping (and therefore strings)
 	V__CURRENT_VERSION,		// "RELEASE"
 					// possible changes in future versions:
 					//	paths should be relative to file, not start dir
