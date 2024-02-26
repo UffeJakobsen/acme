@@ -28,11 +28,10 @@ static const char	exception_macro_twice[]	= "Macro already defined.";
 
 // macro struct type definition
 struct macro {
-	int	def_line_number;	// line number of definition	for error msgs
-	char	*def_filename,	// file name of definition	for error msgs
-		*original_name,	// user-supplied name		for error msgs
-		*parameter_list,	// parameters (whole line)
-		*body;	// RAM block containing macro body
+	struct location	definition;	// for "macro twice" error
+	char		*original_name,	// as section title in error msgs
+			*parameter_list,	// parameters (whole line)
+			*body;	// RAM block containing macro body
 };
 // there's no need to make this a struct and add a type component:
 // when the macro has been found, accessing its parameter_list component
@@ -98,6 +97,8 @@ static int pipe_comma(void)
 }
 
 // Return malloc'd copy of string
+// (yes, we could also use strdup() from <string.h>, but then we still would
+// need to check for NULL etc.)
 static char *get_string_copy(const char *original)
 {
 	size_t	size;
@@ -124,23 +125,39 @@ static int search_for_macro(struct rwnode **result, scope_t scope, int create)
 }
 
 // This function is called when an already existing macro is re-defined.
-// It first outputs a warning and then a serious error, stopping assembly.
+// It first outputs a warning and then an error.
 // Showing the first message as a warning guarantees that ACME does not reach
 // the maximum error limit inbetween.
 static void report_redefinition(struct rwnode *macro_node)
 {
 	struct macro	*original_macro	= macro_node->body;
+	const char	*buffered_filename;
+	int		buffered_linenum;
+	const char	*buffered_section_type;
+	char		*buffered_section_title;
 
 	// show warning with location of current definition
 	Throw_warning(exception_macro_twice);	// FIXME - throw as info?
 	// CAUTION, ugly kluge: fiddle with input_now and section_now
 	// data to generate helpful error messages
-	input_now->original_filename = original_macro->def_filename;
-	input_now->line_number = original_macro->def_line_number;
-	section_now->type = "original";
+	// FIXME - move this to a function so "symbol twice" error can also use it
+	// buffer old data
+	buffered_filename = input_now->original_filename;
+	buffered_linenum = input_now->line_number;
+	buffered_section_type = section_now->type;
+	buffered_section_title = section_now->title;
+	// set new (fake) data
+	input_now->original_filename = original_macro->definition.filename;
+	input_now->line_number = original_macro->definition.line_number;
+	section_now->type = "earlier";
 	section_now->title = "definition";
-	// show serious error with location of original definition
-	Throw_serious_error(exception_macro_twice);
+	// show error with location of earlier definition
+	Throw_error(exception_macro_twice);
+	// restore old data
+	input_now->original_filename = buffered_filename;
+	input_now->line_number = buffered_linenum;
+	section_now->type = buffered_section_type;
+	section_now->title = buffered_section_title;
 }
 
 // This function is only called during the first pass, so there's no need to
@@ -194,11 +211,11 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	// Search for macro. Create if not found.
 	// But if found, complain (macro twice).
 	if (search_for_macro(&macro_node, macro_scope, TRUE) == FALSE)
-		report_redefinition(macro_node);	// quits with serious error
+		report_redefinition(macro_node);
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
-	new_macro->def_line_number = input_now->line_number;
-	new_macro->def_filename = get_string_copy(input_now->original_filename);
+	new_macro->definition.line_number = input_now->line_number;
+	new_macro->definition.filename = get_string_copy(input_now->original_filename);
 	new_macro->original_name = get_string_copy(user_macro_name->buffer);
 	new_macro->parameter_list = formal_parameters;
 	new_macro->body = input_skip_or_store_block(TRUE);	// changes LineNumber
@@ -275,8 +292,8 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
 
 		// set up new input
-		new_input.original_filename = actual_macro->def_filename;
-		new_input.line_number = actual_macro->def_line_number;
+		new_input.original_filename = actual_macro->definition.filename;
+		new_input.line_number = actual_macro->definition.line_number;
 		new_input.source = INPUTSRC_RAM;
 		new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 		new_input.src.ram_ptr = actual_macro->parameter_list;
@@ -324,7 +341,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		}
 		// and now, finally, parse the actual macro body
 		input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
-// maybe call parse_ram_block(actual_macro->def_line_number, actual_macro->body)
+// maybe call parse_ram_block(actual_macro->definition.line_number, actual_macro->body)
 		input_now->src.ram_ptr = actual_macro->body;
 		parse_until_eob_or_eof();
 		if (GotByte != CHAR_EOB)

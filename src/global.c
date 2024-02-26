@@ -513,6 +513,19 @@ void Throw_first_pass_warning(const char *message)
 }
 
 
+// process error that might vanish if symbols change:
+// if current pass is an "error output" pass, actually throw error.
+// otherwise just set a flag to let mainloop know this pass wasn't successful.
+void throw_symbol_error(const char *msg)
+{
+	// atm we just mimic the old behaviour. in future, do something like this:
+	//if (pass.is_error_pass)
+		Throw_error(msg);
+	//else
+		//pass.has_symbol_errors = TRUE;
+}
+
+
 // handle bugs
 void BUG(const char *message, int code)
 {
@@ -567,7 +580,7 @@ void output_object(struct object *object, struct iter_context *iter)
 void output_8(intval_t value)
 {
 	if ((value < -0x80) || (value > 0xff))
-		Throw_error(exception_number_out_of_8b_range);
+		throw_symbol_error(exception_number_out_of_8b_range);
 	output_byte(value);
 }
 
@@ -576,7 +589,7 @@ void output_8(intval_t value)
 void output_be16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
-		Throw_error(exception_number_out_of_16b_range);
+		throw_symbol_error(exception_number_out_of_16b_range);
 	output_byte(value >> 8);
 	output_byte(value);
 }
@@ -586,7 +599,7 @@ void output_be16(intval_t value)
 void output_le16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
-		Throw_error(exception_number_out_of_16b_range);
+		throw_symbol_error(exception_number_out_of_16b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 }
@@ -596,7 +609,7 @@ void output_le16(intval_t value)
 void output_be24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
-		Throw_error(exception_number_out_of_24b_range);
+		throw_symbol_error(exception_number_out_of_24b_range);
 	output_byte(value >> 16);
 	output_byte(value >> 8);
 	output_byte(value);
@@ -607,7 +620,7 @@ void output_be24(intval_t value)
 void output_le24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
-		Throw_error(exception_number_out_of_24b_range);
+		throw_symbol_error(exception_number_out_of_24b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 	output_byte(value >> 16);
@@ -624,7 +637,7 @@ void output_le24(intval_t value)
 void output_be32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
-//		Throw_error(exception_number_out_of_32b_range);
+//		throw_symbol_error(exception_number_out_of_32b_range);
 	output_byte(value >> 24);
 	output_byte(value >> 16);
 	output_byte(value >> 8);
@@ -636,7 +649,7 @@ void output_be32(intval_t value)
 void output_le32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
-//		Throw_error(exception_number_out_of_32b_range);
+//		throw_symbol_error(exception_number_out_of_32b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 	output_byte(value >> 16);

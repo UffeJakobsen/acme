@@ -117,7 +117,8 @@ struct pass {
 	boolean	complain_about_undefined;	// will be FALSE until error pass is needed
 };
 extern struct pass	pass;
-#define FIRST_PASS	(pass.number == 0)
+#define PASS_NUMBER_EARLY	0	// for symbol definitions on command line
+#define FIRST_PASS	(pass.number == 1)
 
 struct sanity {
 	int	macro_recursions_left;	// for macro calls
@@ -204,6 +205,11 @@ extern void Throw_first_pass_warning(const char *msg);
 // the assembler will try to go on with the assembly, so the user gets to know
 // about more than one of his typos at a time.
 #define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg)
+
+// process error that might vanish if symbols change:
+// if current pass is an "error output" pass, actually throw error.
+// otherwise just set a flag to let mainloop know this pass wasn't successful.
+extern void throw_symbol_error(const char *msg);
 
 // output a serious error (assembly stops, for example if outbuffer overruns).
 #define Throw_serious_error(msg)	throw_message(DEBUGLEVEL_SERIOUS, msg)

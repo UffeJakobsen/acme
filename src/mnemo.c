@@ -749,7 +749,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	// Value is sure, so use its own size
 	// if value is negative, size cannot be chosen. Complain!
 	if (argument->val.intval < 0) {
-		Throw_error("Negative value - cannot choose addressing mode.");
+		throw_symbol_error("Negative value - cannot choose addressing mode.");
 		return 0;
 	}
 
@@ -771,7 +771,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	}
 
 	// Value is too big for all possible addressing modes
-	Throw_error(exception_number_out_of_range);
+	throw_symbol_error(exception_number_out_of_range);
 	return 0;
 }
 
@@ -793,7 +793,7 @@ static void not_in_bank(intval_t target)
 	char	buffer[60];	// 640K should be enough for anybody
 
 	sprintf(buffer, "Target not in bank (0x%lx).", (long) target);
-	Throw_error(buffer);
+	throw_symbol_error(buffer);
 }
 
 // helper function for branches with 8-bit offset (including bbr0..7/bbs0..7)
@@ -819,7 +819,7 @@ static void near_branch(int preoffset)
 				char	buffer[60];	// 640K should be enough for anybody
 
 				sprintf(buffer, "Target out of range (%ld; %ld too far).", (long) offset, (long) (offset < -128 ? -128 - offset : offset - 127));
-				Throw_error(buffer);
+				throw_symbol_error(buffer);
 			}
 		}
 	}

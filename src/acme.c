@@ -310,6 +310,8 @@ static void perform_pass(void)
 	int	ii;
 
 	++pass.number;
+	if (config.process_verbosity > 1)
+		printf("Pass %d:\n", pass.number);
 	cputype_passinit();	// set default cpu type
 	output_passinit();	// set initial pc or start with undefined pc
 	encoding_passinit();	// set default encoding
@@ -347,10 +349,7 @@ static boolean do_actual_work(void)
 
 	report = &global_report;	// let global pointer point to something
 	report_init(report);	// we must init struct before doing passes
-	if (config.process_verbosity > 1)
-		puts("First pass.");
 	pass.complain_about_undefined = FALSE;	// disable until error pass needed
-	pass.number = -1;	// pre-init, will be incremented by perform_pass()
 	perform_pass();	// first pass
 	// pretend there has been a previous pass, with one more undefined result
 	undefs_before = pass.undefined_count + 1;
@@ -358,8 +357,6 @@ static boolean do_actual_work(void)
 	// stop on zero (FIXME - zero-check pass.needvalue_count instead!)
 	while (pass.undefined_count && (pass.undefined_count < undefs_before)) {
 		undefs_before = pass.undefined_count;
-		if (config.process_verbosity > 1)
-			puts("Further pass.");
 		perform_pass();
 		if (--sanity.passes_left < 0) {
 			// FIXME - exit with error
@@ -384,7 +381,7 @@ static boolean do_actual_work(void)
 	// There are still errors (unsolvable by doing further passes),
 	// so perform additional pass to find and show them.
 	if (config.process_verbosity > 1)
-		puts("Extra pass needed to find error.");
+		puts("Extra pass to display errors.");
 	pass.complain_about_undefined = TRUE;	// activate error output
 	perform_pass();	// perform pass, but now show "value undefined"
 	return FALSE;
@@ -708,6 +705,8 @@ int main(int argc, const char *argv[])
 	if (argc == 1)
 		show_help_and_exit();
 	cliargs_init(argc, argv);
+	// init var that may be needed for -DSYMBOL=VALUE
+	pass.number = PASS_NUMBER_EARLY;
 	// init platform-specific stuff.
 	// this may read the library path from an environment variable.
 	PLATFORM_INIT;

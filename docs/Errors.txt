@@ -303,9 +303,8 @@ Loop var must be followed by either "in" keyword or comma.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
-    will help you find the definitions by giving a warning for the
-    first definition and a serious error (stopping assembly) for the
-    second definition.
+    will help you find the definitions by giving a warning for the new
+    definition and then an error for the earlier definition.
 
 Macro not defined (or wrong signature).
     You tried to call a macro that either wasn't defined yet (always
@@ -462,12 +461,6 @@ Loop count is negative.
     (getting this error is only possible when using the now deprecated
     syntax).
 
-Macro already defined.
-    Macros can only be defined once. If you define a macro twice, ACME
-    will help you find both definitions by giving a warning for the
-    first definition and a serious error (stopping assembly) for the
-    second definition.
-
 Missing '{'.
     ACME didn't find the expected '{' character. Remember that '{'
     characters must be given on the same line as the keyword they
@@ -478,7 +471,7 @@ Out of memory.
     error. Free some memory and try again. It's highly unlikely anyone
     will ever see this error, though. ;)
 
-Produced too much code.
+Reached memory limit.
     The program counter reached address $10000, leaving the output
     buffer. At the moment, ACME can only produce a maximum of 64 KB.
 

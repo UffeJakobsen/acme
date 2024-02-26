@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2020 Marco Baye
+// Copyright (C) 1998-2024 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Configuration
@@ -20,6 +20,15 @@ typedef unsigned int	bits;
 typedef unsigned int	scope_t;
 typedef signed long	intval_t;	// at least 32 bits
 typedef unsigned long	uintval_t;	// just for logical shift right
+
+// struct to remember where macros were defined (FIXME - use for symbols as well!)
+struct location {
+	const char	*filename;
+	int		line_number;
+};
+
+// stuff for results from expression parser:
+
 enum numtype {
 	NUMTYPE_UNDEFINED,
 	NUMTYPE_INT,

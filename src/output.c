@@ -87,8 +87,11 @@ static void find_segment_max(intval_t new_pc)
 //
 static void border_crossed(int current_offset)
 {
+	// FIXME - find a way to make this a normal error instead of a serious one,
+	// so it can be suppressed until we are sure the program won't shrink any
+	// further:
 	if (current_offset >= config.outbuf_size)
-		Throw_serious_error("Produced too much code.");
+		Throw_serious_error("Reached memory limit.");
 	// TODO - get rid of FIRST_PASS condition, because user can suppress these warnings if they want
 	if (FIRST_PASS) {
 		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.");
