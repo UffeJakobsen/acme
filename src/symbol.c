@@ -9,7 +9,6 @@
 // 23 Nov 2014	Added label output in VICE format
 #include "symbol.h"
 #include <stdio.h>
-#include "acme.h"
 #include "alu.h"
 #include "dynabuf.h"
 #include "global.h"

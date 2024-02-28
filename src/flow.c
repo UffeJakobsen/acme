@@ -13,7 +13,6 @@
 // 24 Nov 2007	Added "!ifndef"
 #include "flow.h"
 #include <string.h>
-#include "acme.h"
 #include "alu.h"
 #include "config.h"
 #include "dynabuf.h"

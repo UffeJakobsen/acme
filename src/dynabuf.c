@@ -7,7 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "acme.h"
 #include "global.h"
 #include "input.h"
 

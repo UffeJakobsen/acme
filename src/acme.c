@@ -336,14 +336,16 @@ static void perform_pass(void)
 	// TODO: atm "--from-to" reads two numbers. if that is changed in the
 	// future to two general expressions, this is the point where they would
 	// need to be evaluated.
+	if (config.process_verbosity > 8)
+		printf("Found %d undefined expressions.\n", pass.undefined_count);
 	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
 }
 
 
 static struct report	global_report;
-// do passes until done (or errors occurred). Return whether output is ready.
-static boolean do_actual_work(void)
+// do passes until done (or errors occurred).
+static void do_actual_work(void)
 {
 	int	undefs_before;	// number of undefined results in previous pass
 
@@ -375,16 +377,19 @@ static boolean do_actual_work(void)
 				perform_pass();
 				report_close(report);
 			}
+			// FIXME - add some code here to do "if there were errors, call BUG()"
 		}
-		return TRUE;
+		save_output_file();
+	} else {
+		// There are still errors (unsolvable by doing further passes),
+		// so perform additional pass to find and show them.
+		if (config.process_verbosity > 1)
+			puts("Extra pass to display errors.");
+		pass.complain_about_undefined = TRUE;	// activate error output
+		perform_pass();	// perform pass, but now show "value undefined"
+		// FIXME - perform_pass() calls exit() when there were errors,
+		// so if controls returns here, call BUG()!
 	}
-	// There are still errors (unsolvable by doing further passes),
-	// so perform additional pass to find and show them.
-	if (config.process_verbosity > 1)
-		puts("Extra pass to display errors.");
-	pass.complain_about_undefined = TRUE;	// activate error output
-	perform_pass();	// perform pass, but now show "value undefined"
-	return FALSE;
 }
 
 
@@ -744,7 +749,6 @@ int main(int argc, const char *argv[])
 	// init output buffer
 	output_createbuffer();
 	// do the actual work
-	if (do_actual_work())
-		save_output_file();
+	do_actual_work();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted
 }
