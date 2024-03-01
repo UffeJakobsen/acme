@@ -573,8 +573,10 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 		if (target->ntype == NUMTYPE_UNDEFINED)
 			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
 
-		if (context == NULL)
-			BUG("PseudoPCContext", 1);
+		if (context == NULL) {
+			Throw_error("Un-pseudopc operator '&' only works on labels.");
+			return 1;	// error
+		}
 		if (context == &outermost_pseudopc_context) {
 			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error

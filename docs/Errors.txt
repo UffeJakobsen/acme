@@ -381,24 +381,29 @@ There's more than one character.
     situation where only a string with length one is allowed.
 
 Too late for postfix.
-    You can only postfix symbols at the start, before they are used for
-    the first time.
+    You can only postfix symbols at the start, before they are used
+    for the first time.
 
 Too many '('.
     A formula ends before all parentheses were closed.
 
-Un-pseudopc operator '&' can only be applied to labels.
-    You tried to apply the operator '&' to something that is not a
-    label. This operator only works on labels and on '*' (the program
-    counter), it cannot be used on other objects.
+Un-pseudopc operator '&' can only be applied to number symbols.
+    You tried to use the operator '&' on a list or a string. This
+    operator only works on labels and on '*' (the program counter), it
+    cannot be used on other objects.
+
+Un-pseudopc operator '&' only works on labels.
+    You tried to apply the operator '&' to something that is not an
+    implicitly defined label, but the result of an explicit symbol
+    assignment (like the result of a calculation). Example:
+	argument = * + 1
+label		lda #$ff
+    You can use '&' on "label", but not on "argument".
 
 Un-pseudopc operator '&' has no !pseudopc context.
-    You either tried to apply the operator '&' to something that is
-    not an implicitly defined label, but the result of an explicit
-    symbol assignment (like the result of a calculation).
-    Or you applied the operator to a label that was defined outside of
-    a !pseudopc block, or, more generally, the number of '&'
-    characters used was larger than the number of !pseudopc blocks
+    You tried to apply the operator '&' to a label that was defined
+    outside of a !pseudopc block, or, more generally, the number of
+    '&' characters used was larger than the number of !pseudopc blocks
     around the definition.
 
 Unknown encoding.

@@ -367,7 +367,7 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 		if (arg->type == &type_number) {
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
 		} else {
-			Throw_error("Un-pseudopc operator '&' can only be applied to labels.");
+			Throw_error("Un-pseudopc operator '&' can only be applied to number symbols.");
 		}
 	}
 	// if needed, output "value not defined" error
