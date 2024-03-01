@@ -39,12 +39,19 @@ struct output {
 		intval_t	max;	// highest address segment may use
 		bits		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
-	} segment;
+	} segment;	// FIXME - rename either this component or "struct segment"!
 	char		xor;		// output modifier
 };
 
 // for offset assembly:
-static struct pseudopc	*pseudopc_current_context;	// current struct (NULL when not in pseudopc block - FIXME, will change in future!)
+// struct to describe a pseudopc context (each label gets a pointer to this)
+struct pseudopc {
+	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
+	intval_t	offset;	// inner minus outer pc
+	enum numtype	ntype;	// type of outer pc (INT/UNDEFINED)
+};
+static struct pseudopc	outermost_pseudopc_context;	// dummy struct when "!pseudopc" not in use
+static struct pseudopc	*pseudopc_current_context	= &outermost_pseudopc_context;	// current struct
 
 
 // variables
@@ -120,7 +127,7 @@ static void real_output(intval_t byte)
 		out->highest_written = out->write_idx;
 	// write byte and advance ptrs
 	if (report->fd)
-		report_binary(byte & 0xff);	// file for reporting, taking also CPU_2add
+		report_binary(byte & 0xff);	// file for reporting
 	out->buffer[out->write_idx++] = (byte & 0xff) ^ out->xor;
 	++statement_size;	// count this byte
 }
@@ -142,8 +149,10 @@ static void no_output(intval_t byte)
 void output_skip(int size)
 {
 	if (size < 1) {
-		// FIXME - ok for zero, but why is there no error message
+		// ok for zero, but why is there no error message
 		// output for negative values?
+		// ...because caller should have caught those!
+		// FIXME - add BUG() for those!
 		return;
 	}
 
@@ -239,6 +248,7 @@ void output_createbuffer(void)
 		out->initvalue_set = TRUE;	// "!initmem" generates a warning
 		fill_value = 0xff & config.mem_init_value;
 	}
+// FIXME - move both of these to passinit(), needed in future:
 	// init output buffer (fill memory with initial value)
 	fill_completely(fill_value);
 	// init ring list of segments
@@ -273,7 +283,8 @@ static void link_segment(intval_t start, intval_t length)
 
 
 // check whether given PC is inside segment.
-// only call in first pass, otherwise too many warnings might be thrown	(TODO - still?)
+// only call in first pass, otherwise too many warnings might be thrown
+// FIXME - do it the other way round and only complain if there were no other errors!
 static void check_segment(intval_t new_pc)
 {
 	struct segment	*test_segment	= out->segment.list_head.next;
@@ -327,7 +338,12 @@ void output_passinit(void)
 	statement_size = 0;	// increase PC by this at end of statement
 
 	// pseudopc stuff:
-	pseudopc_current_context = NULL;	// FIXME - let it point to dummy struct!
+	// init dummy pseudopc struct
+	outermost_pseudopc_context.outer = NULL;
+	outermost_pseudopc_context.offset = 0;
+	outermost_pseudopc_context.ntype = NUMTYPE_UNDEFINED;
+	// and use it:
+	pseudopc_current_context = &outermost_pseudopc_context;
 
 // this was moved over from caller - does it make sense to merge into some if/else?
 
@@ -343,7 +359,7 @@ static void end_segment(void)
 {
 	intval_t	amount;
 
-	// in later passes, ignore completely
+	// in later passes, ignore completely (FIXME - change!)
 	if (!FIRST_PASS)
 		return;
 
@@ -524,12 +540,6 @@ void output_get_result(const char **ptr, intval_t *size, intval_t *loadaddr)
 
 // pseudopc stuff:
 
-// struct to describe a pseudopc context
-struct pseudopc {
-	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
-	intval_t	offset;	// inner minus outer pc
-	enum numtype	ntype;	// type of outer pc (INT/UNDEFINED)
-};
 // start offset assembly
 void pseudopc_start(struct number *new_pc)
 {
@@ -552,16 +562,20 @@ void pseudopc_end(void)
 	program_counter = (program_counter - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
 	pc_ntype = pseudopc_current_context->ntype;
 	pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
+	if (pseudopc_current_context == NULL)
+		BUG("PseudoPCContext", 0);
 }
 // un-pseudopc a label value by given number of levels
 // returns nonzero on error (if level too high)
 int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
 {
 	while (levels--) {
-		//if (target->ntype == NUMTYPE_UNDEFINED)
-		//	return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
+		if (target->ntype == NUMTYPE_UNDEFINED)
+			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
 
-		if (context == NULL) {
+		if (context == NULL)
+			BUG("PseudoPCContext", 1);
+		if (context == &outermost_pseudopc_context) {
 			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error
 		}
@@ -571,7 +585,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 	}
 	return 0;	// ok
 }
-// return pointer to current "pseudopc" struct (may be NULL!)	FIXME - not anymore?
+// return pointer to current "pseudopc" struct
 // this gets called when parsing label definitions
 struct pseudopc *pseudopc_get_context(void)
 {
@@ -580,5 +594,5 @@ struct pseudopc *pseudopc_get_context(void)
 // returns nonzero if "!pseudopc" is in effect, zero otherwise
 int pseudopc_isactive(void)
 {
-	return pseudopc_current_context != NULL;	// FIXME - compare to dummy struct instead!
+	return pseudopc_current_context != &outermost_pseudopc_context;
 }

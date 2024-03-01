@@ -159,8 +159,8 @@ static	STRUCT_DYNABUF_REF(mnemo_dyna_buf, MNEMO_INITIALSIZE);	// for mnemonics
 // immediate mode:
 #define IM_FORCE8	0x000	// immediate values are 8 bits (CAUTION - program relies on "no bits set" being the default!)
 #define IM_FORCE16	0x100	// immediate value is 16 bits (for 65ce02's PHW#)
-#define IM_ACCUMULATOR	0x200	// immediate value depends on accumulator length
-#define IM_INDEXREGS	0x300	// immediate value depends on index register length
+#define IM_ACCU_LENGTH	0x200	// immediate value depends on accumulator length
+#define IM_REGS_LENGTH	0x300	// immediate value depends on index register length
 #define IMMASK		0x300	// mask for immediate mode flags
 #define PREFIX_NEGNEG	0x400	// output NEG:NEG before actual opcode
 #define LI_PREFIX_NOP	0x800	// when using long indirect addressing, output NOP before actual opcode
@@ -360,20 +360,20 @@ static struct ronode	mnemo_stp_wai_tree[]	= {
 static struct ronode	mnemo_65816_tree[]	= {
 	PREDEF_START,
 	// CAUTION - these use 6502/65c02 indices, because the opcodes are the same - but I need flags for immediate mode!
-	PREDEFNODE("ldy", MERGE(GROUP_MISC, IDX_LDY | IM_INDEXREGS)),
-	PREDEFNODE("ldx", MERGE(GROUP_MISC, IDX_LDX | IM_INDEXREGS)),
-	PREDEFNODE("cpy", MERGE(GROUP_MISC, IDX_CPY | IM_INDEXREGS)),
-	PREDEFNODE("cpx", MERGE(GROUP_MISC, IDX_CPX | IM_INDEXREGS)),
-	PREDEFNODE("bit", MERGE(GROUP_MISC, IDXcBIT | IM_ACCUMULATOR)),
+	PREDEFNODE("ldy", MERGE(GROUP_MISC, IDX_LDY | IM_REGS_LENGTH)),
+	PREDEFNODE("ldx", MERGE(GROUP_MISC, IDX_LDX | IM_REGS_LENGTH)),
+	PREDEFNODE("cpy", MERGE(GROUP_MISC, IDX_CPY | IM_REGS_LENGTH)),
+	PREDEFNODE("cpx", MERGE(GROUP_MISC, IDX_CPX | IM_REGS_LENGTH)),
+	PREDEFNODE("bit", MERGE(GROUP_MISC, IDXcBIT | IM_ACCU_LENGTH)),
 	// more addressing modes for some mnemonics:
-	PREDEFNODE("ora", MERGE(GROUP_ACCU,	IDX16ORA | IM_ACCUMULATOR)),
-	PREDEFNODE("and", MERGE(GROUP_ACCU,	IDX16AND | IM_ACCUMULATOR)),
-	PREDEFNODE("eor", MERGE(GROUP_ACCU,	IDX16EOR | IM_ACCUMULATOR)),
-	PREDEFNODE("adc", MERGE(GROUP_ACCU,	IDX16ADC | IM_ACCUMULATOR)),
+	PREDEFNODE("ora", MERGE(GROUP_ACCU,	IDX16ORA | IM_ACCU_LENGTH)),
+	PREDEFNODE("and", MERGE(GROUP_ACCU,	IDX16AND | IM_ACCU_LENGTH)),
+	PREDEFNODE("eor", MERGE(GROUP_ACCU,	IDX16EOR | IM_ACCU_LENGTH)),
+	PREDEFNODE("adc", MERGE(GROUP_ACCU,	IDX16ADC | IM_ACCU_LENGTH)),
 	PREDEFNODE("sta", MERGE(GROUP_ACCU,	IDX16STA)),
-	PREDEFNODE("lda", MERGE(GROUP_ACCU,	IDX16LDA | IM_ACCUMULATOR)),
-	PREDEFNODE("cmp", MERGE(GROUP_ACCU,	IDX16CMP | IM_ACCUMULATOR)),
-	PREDEFNODE("sbc", MERGE(GROUP_ACCU,	IDX16SBC | IM_ACCUMULATOR)),
+	PREDEFNODE("lda", MERGE(GROUP_ACCU,	IDX16LDA | IM_ACCU_LENGTH)),
+	PREDEFNODE("cmp", MERGE(GROUP_ACCU,	IDX16CMP | IM_ACCU_LENGTH)),
+	PREDEFNODE("sbc", MERGE(GROUP_ACCU,	IDX16SBC | IM_ACCU_LENGTH)),
 	PREDEFNODE("jmp", MERGE(GROUP_ALLJUMPS,	IDX16JMP)),
 	PREDEFNODE("jsr", MERGE(GROUP_ALLJUMPS,	IDX16JSR)),
 	// 
@@ -894,10 +894,10 @@ static unsigned int imm_ops(bits *force_bit, unsigned char opcode, bits immediat
 	case IM_FORCE16:	// currently only for 65ce02's PHW#
 		return ((unsigned int) opcode) << 8;	// opcode in bits8.15 forces two-byte argument
 
-	case IM_ACCUMULATOR:	// for 65816
+	case IM_ACCU_LENGTH:	// for 65816
 		long_register = cpu_a_is_long;
 		break;
-	case IM_INDEXREGS:	// for 65816
+	case IM_REGS_LENGTH:	// for 65816
 		long_register = cpu_xy_are_long;
 		break;
 	default:

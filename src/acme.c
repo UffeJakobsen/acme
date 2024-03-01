@@ -333,9 +333,9 @@ static void perform_pass(void)
 		}
 	}
 	output_endofpass();	// make sure last code segment is closed
-	// TODO: atm "--from-to" reads two numbers. if that is changed in the
-	// future to two general expressions, this is the point where they would
-	// need to be evaluated.
+	// TODO: atm "--from-to" reads two number literals. if that is changed
+	// in the future to two general expressions, this is the point where
+	// they would need to be evaluated.
 	if (config.process_verbosity > 8)
 		printf("Found %d undefined expressions.\n", pass.undefined_count);
 	if (pass.error_count)
@@ -351,6 +351,11 @@ static void do_actual_work(void)
 
 	report = &global_report;	// let global pointer point to something
 	report_init(report);	// we must init struct before doing passes
+
+	sanity.macro_recursions_left = config.sanity_limit;
+	sanity.source_recursions_left = config.sanity_limit;
+	sanity.passes_left = config.sanity_limit;
+
 	pass.complain_about_undefined = FALSE;	// disable until error pass needed
 	perform_pass();	// first pass
 	// pretend there has been a previous pass, with one more undefined result
@@ -362,6 +367,7 @@ static void do_actual_work(void)
 		perform_pass();
 		if (--sanity.passes_left < 0) {
 			// FIXME - exit with error
+			// ...or maybe do one additional pass where all errors are reported, including "not defined" and "value has changed".
 			//puts("Exceeded maximum number of passes, please check your sources.");
 			//break;
 		}
@@ -389,6 +395,7 @@ static void do_actual_work(void)
 		perform_pass();	// perform pass, but now show "value undefined"
 		// FIXME - perform_pass() calls exit() when there were errors,
 		// so if controls returns here, call BUG()!
+		// (this can be triggered using ifdef/ifndef)
 	}
 }
 
@@ -741,10 +748,6 @@ int main(int argc, const char *argv[])
 		fprintf(stderr, "%sStart address of output file exceeds end+1.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
-
-	sanity.macro_recursions_left = config.sanity_limit;
-	sanity.source_recursions_left = config.sanity_limit;
-	sanity.passes_left = config.sanity_limit;
 
 	// init output buffer
 	output_createbuffer();

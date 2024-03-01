@@ -79,7 +79,7 @@ extern void pseudopc_end(void);
 // returns nonzero on error (if level too high)
 extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
 
-// return pointer to current "pseudopc" struct (may be NULL!)
+// return pointer to current "pseudopc" struct
 // this gets called when parsing label definitions
 extern struct pseudopc *pseudopc_get_context(void);
 
