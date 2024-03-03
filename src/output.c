@@ -574,7 +574,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
 
 		if (context == NULL) {
-			Throw_error("Un-pseudopc operator '&' only works on labels.");
+			Throw_error("Un-pseudopc operator '&' only works on addresses.");
 			return 1;	// error
 		}
 		if (context == &outermost_pseudopc_context) {

@@ -142,31 +142,34 @@ struct symbol *symbol_find(scope_t scope)
 //	CAUTION: actual incrementing of counter is then done directly without calls here!
 void symbol_set_object(struct symbol *symbol, struct object *new_value, bits powers)
 {
-	// if symbol has no object assigned to it yet, fine:
 	if (symbol->object.type == NULL) {
+		// symbol has no object assigned to it yet
 		symbol->object = *new_value;	// copy whole struct including type
 		// as long as the symbol has not been read, the force bits can
 		// be changed, so the caller still has a chance to do that.
-		return;
+	} else {
+		// symbol already has an object
+
+		// compare types
+		// if too different, needs power (or complains)
+		if (symbol->object.type != new_value->type) {
+			if (!(powers & POWER_CHANGE_OBJTYPE))
+				Throw_error(exception_symbol_defined);
+			// CAUTION: if above line throws error, we still go ahead and change type!
+			// this is to keep "!for" working, where the counter var is accessed.
+			symbol->object = *new_value;	// copy whole struct including type
+			// clear flag so caller can adjust force bits:
+			symbol->has_been_read = FALSE;	// it's basically a new symbol now
+		} else {
+			// symbol and new value have compatible types, so call handler:
+			symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
+		}
 	}
-
-	// now we know symbol already has a type
-
-	// compare types
-	// if too different, needs power (or complains)
-	if (symbol->object.type != new_value->type) {
-		if (!(powers & POWER_CHANGE_OBJTYPE))
-			Throw_error(exception_symbol_defined);
-		// CAUTION: if above line throws error, we still go ahead and change type!
-		// this is to keep "!for" working, where the counter var is accessed.
-		symbol->object = *new_value;	// copy whole struct including type
-		// clear flag so caller can adjust force bits:
-		symbol->has_been_read = FALSE;	// it's basically a new symbol now
-		return;
+	// if symbol is an address, give it a pseudopc context:
+	if ((symbol->object.type == &type_number)
+	&& (symbol->object.u.number.addr_refs == 1)) {
+		symbol->pseudopc = pseudopc_get_context();
 	}
-
-	// now we know symbol and new value have compatible types, so call handler:
-	symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
 }
 
 

@@ -392,19 +392,20 @@ Un-pseudopc operator '&' can only be applied to number symbols.
     operator only works on labels and on '*' (the program counter), it
     cannot be used on other objects.
 
-Un-pseudopc operator '&' only works on labels.
-    You tried to apply the operator '&' to something that is not an
-    implicitly defined label, but the result of an explicit symbol
-    assignment (like the result of a calculation). Example:
+Un-pseudopc operator '&' only works on addresses.
+    You tried to apply the operator '&' to something that is neither
+    the program counter nor an implicitly defined label nor something
+    derived from those. Example:
 	argument = * + 1
 label		lda #$ff
-    You can use '&' on "label", but not on "argument".
+	dummy = 500
+    You can use '&' on "label" and on "argument", but not on "dummy".
 
 Un-pseudopc operator '&' has no !pseudopc context.
-    You tried to apply the operator '&' to a label that was defined
-    outside of a !pseudopc block, or, more generally, the number of
-    '&' characters used was larger than the number of !pseudopc blocks
-    around the definition.
+    You tried to apply the operator '&' to an address symbol that was
+    defined outside of a !pseudopc block, or, more generally, the
+    number of '&' characters used was larger than the number of
+    !pseudopc blocks around the definition.
 
 Unknown encoding.
     You used the "!convtab" pseudo opcode with a keyword ACME does not

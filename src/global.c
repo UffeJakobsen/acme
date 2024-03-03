@@ -224,8 +224,6 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 	symbol_set_object(symbol, &result, powers);
 	if (force_bit)
 		symbol_set_force_bit(symbol, force_bit);
-// FIXME - move this to symbol_set_object() and call it for all address symbols!
-	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
 		section_new_cheap_scope(section_now);
