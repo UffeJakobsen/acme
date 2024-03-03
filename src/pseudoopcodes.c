@@ -1182,7 +1182,7 @@ does not fail. */
 		Throw_serious_error(exception_no_left_brace);
 
 	// remember line number of loop pseudo opcode
-	loop.block.start = input_now->line_number;
+	loop.block.start = input_now->location.line_number;
 	// read loop body into DynaBuf and get copy
 	loop.block.body = input_skip_or_store_block(TRUE);	// changes line number!
 
@@ -1208,7 +1208,7 @@ static enum eos po_do(void)	// now GotByte = illegal char
 		Throw_serious_error(exception_no_left_brace);
 	// remember line number of loop body,
 	// then read block and get copy
-	loop.block.start = input_now->line_number;
+	loop.block.start = input_now->location.line_number;
 	// reading block changes line number!
 	loop.block.body = input_skip_or_store_block(TRUE);	// must be freed!
 	// now GotByte = '}'
@@ -1237,7 +1237,7 @@ static enum eos po_while(void)	// now GotByte = illegal char
 		Throw_serious_error(exception_no_left_brace);
 	// remember line number of loop body,
 	// then read block and get copy
-	loop.block.start = input_now->line_number;
+	loop.block.start = input_now->location.line_number;
 	// reading block changes line number!
 	loop.block.body = input_skip_or_store_block(TRUE);	// must be freed!
 	// clear tail condition

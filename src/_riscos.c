@@ -82,6 +82,7 @@ void RISCOS_throwback(const char *message, int type)
 	// only use throwback protocol if wanted
 	if ((RISCOS_flags & RISCOSFLAG_THROWBACK) == 0)
 		return;
+
 	// if this is the first throwback, set it up and send info
 	if ((RISCOS_flags & RISCOSFLAG_THROWN) == 0) {
 		RISCOS_flags |= RISCOSFLAG_THROWN;
@@ -89,14 +90,14 @@ void RISCOS_throwback(const char *message, int type)
 		regs.r[0] = 0;
 		regs.r[1] = 0;
 	//	regs.r[2] = (int) toplevel_source;
-		regs.r[2] = (int) input_now->original_filename;
+		regs.r[2] = (int) input_now->location.filename;
 		_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);
 	}
 	// send throwback message
 	regs.r[0] = 1;
 	regs.r[1] = 0;
-	regs.r[2] = (int) input_now->original_filename;
-	regs.r[3] = input_now->line_number;
+	regs.r[2] = (int) input_now->location.filename;
+	regs.r[3] = input_now->location.line_number;
 	regs.r[4] = type;
 	regs.r[5] = (int) message;
 	_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);

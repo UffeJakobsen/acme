@@ -31,9 +31,7 @@ enum inputsrc {
 	INPUTSRC_RAM
 };
 struct input {
-	// FIXME - use struct location for first two elements:
-	const char	*original_filename;	// during RAM reads, too
-	int		line_number;	// in file (on RAM reads, too)
+	struct location	location;	// file + line (during RAM reads as well)
 	enum inputsrc	source;
 	enum inputstate	state;	// state of input
 	union {

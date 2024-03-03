@@ -224,6 +224,7 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 	symbol_set_object(symbol, &result, powers);
 	if (force_bit)
 		symbol_set_force_bit(symbol, force_bit);
+// FIXME - move this to symbol_set_object() and call it for all address symbols!
 	symbol->pseudopc = pseudopc_get_context();
 	// global labels must open new scope for cheap locals
 	if (scope == SCOPE_GLOBAL)
@@ -443,16 +444,17 @@ static void throw_msg(const char *message, const char *ansicolor, const char *ty
 		resetcolor = "";
 	}
 
-	if (config.format_msvc)
+	if (config.format_msvc) {
 		fprintf(config.msg_stream, "%s(%d) : %s%s%s (%s %s): %s\n",
-			input_now->original_filename, input_now->line_number,
+			input_now->location.filename, input_now->location.line_number,
 			ansicolor, type, resetcolor,
 			section_now->type, section_now->title, message);
-	else
+	} else {
 		fprintf(config.msg_stream, "%s%s%s - File %s, line %d (%s %s): %s\n",
 			ansicolor, type, resetcolor,
-			input_now->original_filename, input_now->line_number,
+			input_now->location.filename, input_now->location.line_number,
 			section_now->type, section_now->title, message);
+	}
 }
 
 // generate debug/info/warning/error message
@@ -527,6 +529,7 @@ void throw_symbol_error(const char *msg)
 
 
 // handle bugs
+// FIXME - use a local buffer and sprintf/snprintf to put error code into message!
 void BUG(const char *message, int code)
 {
 	Throw_warning("Bug in ACME, code follows");

@@ -26,8 +26,10 @@ const char	FILE_READBINARY[]	= "rb";
 
 // fake input structure (for error msgs before any real input is established)
 static struct input	outermost	= {
-	"<none>",	// file name
-	0,		// line number
+	{
+		"<none>",	// file name
+		0,		// line number
+	},
 	INPUTSRC_FILE,	// fake file access, so no RAM read
 	INPUTSTATE_EOF,	// state of input
 	{
@@ -45,8 +47,8 @@ struct input	*input_now	= &outermost;	// current input structure
 // let current input point to start of file
 void input_new_file(const char *filename, FILE *fd)
 {
-	input_now->original_filename	= filename;
-	input_now->line_number		= 1;
+	input_now->location.filename	= filename;
+	input_now->location.line_number	= 1;
 	input_now->source		= INPUTSRC_FILE;
 	input_now->state		= INPUTSTATE_SOF;
 	input_now->src.fd		= fd;
@@ -65,7 +67,7 @@ static void report_srcchar(char new_char)
 
 	// if input has changed, insert explanation
 	if (input_now != report->last_input) {
-		fprintf(report->fd, "\n; ******** Source: %s\n", input_now->original_filename);
+		fprintf(report->fd, "\n; ******** Source: %s\n", input_now->location.filename);
 		report->last_input = input_now;
 		report->asc_used = 0;	// clear buffer
 		prev_char = '\0';
@@ -74,7 +76,7 @@ static void report_srcchar(char new_char)
 		// line start after line break detected and EOS processed,
 		// build report line:
 		// show line number...
-		fprintf(report->fd, "%6d  ", input_now->line_number - 1);
+		fprintf(report->fd, "%6d  ", input_now->location.line_number - 1);
 		// prepare outbytes' start address
 		if (report->bin_used) {
 #if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
@@ -284,10 +286,10 @@ char GetByte(void)
 //		// if start-of-line was read, increment line counter and repeat
 //		if (GotByte != CHAR_SOL)
 //			return GotByte;
-//		input_now->line_number++;
+//		input_now->location.line_number++;
 //	}
 		if (GotByte == CHAR_SOL)
-			input_now->line_number++;
+			input_now->location.line_number++;
 		return GotByte;
 }
 

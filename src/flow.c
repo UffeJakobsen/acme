@@ -53,7 +53,7 @@ boolean check_ifdef_condition(void)
 // parse a loop body (TODO - also use for macro body?)
 static void parse_ram_block(struct block *block)
 {
-	input_now->line_number = block->start;	// set line number to loop start
+	input_now->location.line_number = block->start;	// set line number to loop start
 	input_now->src.ram_ptr = block->body;	// set RAM read pointer to loop
 	// parse block
 	parse_until_eob_or_eof();
@@ -131,7 +131,7 @@ void flow_forloop(struct for_loop *loop)
 	// (not yet useable; pointer and line number are still missing)
 	input_now = &loop_input;
 	// fix line number (not for block, but in case symbol handling throws errors)
-	input_now->line_number = loop->block.start;
+	input_now->location.line_number = loop->block.start;
 	switch (loop->algorithm) {
 	case FORALGO_OLDCOUNT:
 	case FORALGO_NEWCOUNT:
@@ -178,7 +178,7 @@ static void copy_condition(struct condition *condition, char terminator)
 void flow_store_doloop_condition(struct condition *condition, char terminator)
 {
 	// write line number
-	condition->line = input_now->line_number;
+	condition->line = input_now->location.line_number;
 	// set defaults
 	condition->invert = FALSE;
 	condition->body = NULL;
@@ -207,7 +207,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 // call with GotByte = first interesting character
 void flow_store_while_condition(struct condition *condition)
 {
-	condition->line = input_now->line_number;
+	condition->line = input_now->location.line_number;
 	condition->invert = FALSE;
 	copy_condition(condition, CHAR_SOB);
 }
@@ -223,7 +223,7 @@ static boolean check_condition(struct condition *condition)
 		return TRUE;	// non-existing conditions are always true
 
 	// set up input for expression evaluation
-	input_now->line_number = condition->line;
+	input_now->location.line_number = condition->line;
 	input_now->src.ram_ptr = condition->body;
 	GetByte();	// proceed with next char
 	ALU_defined_int(&intresult);
