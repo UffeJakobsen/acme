@@ -77,7 +77,7 @@ static scope_t get_scope_and_title(void)
 	// copy macro title to private dynabuf and add separator character
 	dynabuf_clear(user_macro_name);
 	dynabuf_add_string(user_macro_name, GLOBALDYNABUF_CURRENT);
-	dynabuf_append(user_macro_name, '\0');
+	dynabuf_append(user_macro_name, '\0');	// make sure terminator is part of buffer so get_copy() includes it!
 	dynabuf_clear(internal_name);
 	dynabuf_add_string(internal_name, GLOBALDYNABUF_CURRENT);
 	dynabuf_append(internal_name, ARG_SEPARATOR);
@@ -94,20 +94,6 @@ static int pipe_comma(void)
 	if (result)
 		DYNABUF_APPEND(GlobalDynaBuf, ',');
 	return result;
-}
-
-// Return malloc'd copy of string
-// (yes, we could also use strdup() from <string.h>, but then we still would
-// need to check for NULL etc.)
-static char *get_string_copy(const char *original)
-{
-	size_t	size;
-	char	*copy;
-
-	size = strlen(original) + 1;
-	copy = safe_malloc(size);
-	memcpy(copy, original, size);
-	return copy;
 }
 
 // This function is called from both macro definition and macro call.
@@ -135,8 +121,6 @@ static void report_redefinition(struct rwnode *macro_node)
 	const char	*buffered_section_type;
 	char		*buffered_section_title;
 
-	// show warning with location of current definition
-	Throw_warning(exception_macro_twice);	// FIXME - throw as info?
 	// CAUTION, ugly kluge: fiddle with input_now and section_now
 	// data to generate helpful error messages
 	// FIXME - move this to a function so "symbol twice" error can also use it
@@ -148,12 +132,15 @@ static void report_redefinition(struct rwnode *macro_node)
 	input_now->location = original_macro->definition;
 	section_now->type = "earlier";
 	section_now->title = "definition";
-	// show error with location of earlier definition
-	Throw_error(exception_macro_twice);
+	// show warning with location of earlier definition
+	Throw_warning(exception_macro_twice);	// FIXME - throw as info?
 	// restore old data
 	input_now->location = buffered_location;
 	section_now->type = buffered_section_type;
 	section_now->title = buffered_section_title;
+
+	// show error with location of current definition
+	Throw_error(exception_macro_twice);
 }
 
 // This function is only called during the first pass, so there's no need to
@@ -210,9 +197,8 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		report_redefinition(macro_node);
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
-	new_macro->definition.line_number = input_now->location.line_number;
-	new_macro->definition.filename = get_string_copy(input_now->location.filename);
-	new_macro->original_name = get_string_copy(user_macro_name->buffer);
+	new_macro->definition = input_now->location;
+	new_macro->original_name = dynabuf_get_copy(user_macro_name);
 	new_macro->parameter_list = formal_parameters;
 	new_macro->body = input_skip_or_store_block(TRUE);	// changes LineNumber
 	macro_node->body = new_macro;	// link macro struct to tree node

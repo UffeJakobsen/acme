@@ -368,9 +368,9 @@ static enum eos use_encoding_from_file(void)
 				*buffered_table;
 	const struct encoder	*buffered_encoder;
 
-	// read file name
+	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&uses_lib))
-		return SKIP_REMAINDER;	// missing or unterminated file name
+		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// read from file
 	stream = includepaths_open_ro(uses_lib);
@@ -547,9 +547,9 @@ static enum eos po_binary(void)
 	size.val.intval = -1;	// means "not given" => "until EOF"
 	skip.val.intval	= 0;
 
-	// if file name is missing, don't bother continuing
+	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&uses_lib))
-		return SKIP_REMAINDER;
+		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// try to open file
 	stream = includepaths_open_ro(uses_lib);
@@ -926,6 +926,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 {
 	boolean		uses_lib;
 	FILE		*stream;
+	const char	*eternal_plat_filename;
 	char		local_gotbyte;
 	struct input	new_input,
 			*outer_input;
@@ -934,30 +935,27 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	// quit program if recursion too deep
 	if (--sanity.source_recursions_left < 0)
 		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
-	// read file name. quit function on error
+
+	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&uses_lib))
-		return SKIP_REMAINDER;
+		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// if file could be opened, parse it. otherwise, complain
 	stream = includepaths_open_ro(uses_lib);
 	if (stream) {
-// FIXME - just use safe_malloc and never free! this also saves us making a copy if defining macros down the road...
-#ifdef __GNUC__
-		char	filename[GlobalDynaBuf->size];	// GCC can do this
-#else
-		char	*filename	= safe_malloc(GlobalDynaBuf->size);	// VS can not
-#endif
-
-		strcpy(filename, GLOBALDYNABUF_CURRENT);
+		// GlobalDynaBuf contains either
+		//	library_prefix + platformstyle(source_argument) + '\0'
+		// or
+		//	platformstyle(source_argument) + '\0'
+		// it does _not_ contain any search path added using "-I", even if used!
+		// if this is a problem, fix includepaths_open_ro()!
+		eternal_plat_filename = dynabuf_get_copy(GlobalDynaBuf);
 		outer_input = input_now;	// remember old input
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
 		input_now = &new_input;	// activate new input
-		flow_parse_and_close_file(stream, filename);
+		flow_parse_and_close_platform_file(eternal_plat_filename, stream);
 		input_now = outer_input;	// restore previous input
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
-#ifndef __GNUC__
-		free(filename);	// GCC auto-frees
-#endif
 	}
 	// leave nesting level
 	++sanity.source_recursions_left;

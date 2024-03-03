@@ -74,7 +74,11 @@ extern void flow_store_while_condition(struct condition *condition);
 extern void flow_do_while(struct do_while *loop);
 
 // parse a whole source code file
-extern void flow_parse_and_close_file(FILE *fd, const char *filename);
+// file name must be given in platform style, i.e.
+// "directory/basename.extension" on linux,
+// "directory.basename/extension" on RISC OS, etc.
+// and the pointer must remain valid forever!
+extern void flow_parse_and_close_platform_file(const char *plat_filename, FILE *fd);
 
 
 #endif

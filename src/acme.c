@@ -78,7 +78,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 
 
 // variables
-static const char	**toplevel_sources;
+static const char	**toplevel_sources_plat;	// source file names given on command line (platform-style)
 static int		toplevel_src_count	= 0;
 
 
@@ -323,11 +323,11 @@ static void perform_pass(void)
 	pass.warning_count = 0;
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
-		if ((fd = fopen(toplevel_sources[ii], FILE_READBINARY))) {
-			flow_parse_and_close_file(fd, toplevel_sources[ii]);
+		if ((fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY))) {
+			flow_parse_and_close_platform_file(toplevel_sources_plat[ii], fd);
 		} else {
-			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources[ii]);
-			if (toplevel_sources[ii][0] == '-')
+			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources_plat[ii]);
+			if (toplevel_sources_plat[ii][0] == '-')
 				fprintf(stderr, "Options (starting with '-') must be given _before_ source files!\n");
  			++pass.error_count;
 		}
@@ -725,7 +725,7 @@ int main(int argc, const char *argv[])
 	// handle command line arguments
 	cliargs_handle_options(short_option, long_option);
 	// generate list of files to process
-	cliargs_get_rest(&toplevel_src_count, &toplevel_sources, "No top level sources given");
+	cliargs_get_rest(&toplevel_src_count, &toplevel_sources_plat, "No top level sources given");
 
 	// now that we have processed all cli switches, check a few values for
 	// valid range:

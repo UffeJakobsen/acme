@@ -444,13 +444,13 @@ static void throw_msg(const char *message, const char *ansicolor, const char *ty
 
 	if (config.format_msvc) {
 		fprintf(config.msg_stream, "%s(%d) : %s%s%s (%s %s): %s\n",
-			input_now->location.filename, input_now->location.line_number,
+			input_now->location.plat_filename, input_now->location.line_number,
 			ansicolor, type, resetcolor,
 			section_now->type, section_now->title, message);
 	} else {
 		fprintf(config.msg_stream, "%s%s%s - File %s, line %d (%s %s): %s\n",
 			ansicolor, type, resetcolor,
-			input_now->location.filename, input_now->location.line_number,
+			input_now->location.plat_filename, input_now->location.line_number,
 			section_now->type, section_now->title, message);
 	}
 }

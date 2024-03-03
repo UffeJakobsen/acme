@@ -23,7 +23,8 @@ typedef unsigned long	uintval_t;	// just for logical shift right
 
 // struct to remember where macros were defined (FIXME - use for symbols as well!)
 struct location {
-	const char	*filename;
+	const char	*plat_filename;	// filename in platform style
+	// FIXME - add another field for filename in UNIX style? might be needed when fixing directory search order!
 	int		line_number;
 };
 

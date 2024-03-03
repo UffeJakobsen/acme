@@ -45,13 +45,18 @@ struct input	*input_now	= &outermost;	// current input structure
 // functions
 
 // let current input point to start of file
-void input_new_file(const char *filename, FILE *fd)
+// file name must be given in platform style, i.e.
+// "directory/basename.extension" on linux,
+// "directory.basename/extension" on RISC OS etc.
+// and the pointer must remain valid forever!
+// FIXME - there is only one caller, "flow_parse_and_close_platform_file()", so maybe merge?
+void input_new_platform_file(const char *plat_filename, FILE *fd)
 {
-	input_now->location.filename	= filename;
-	input_now->location.line_number	= 1;
-	input_now->source		= INPUTSRC_FILE;
-	input_now->state		= INPUTSTATE_SOF;
-	input_now->src.fd		= fd;
+	input_now->location.plat_filename	= plat_filename;
+	input_now->location.line_number		= 1;
+	input_now->source	= INPUTSRC_FILE;
+	input_now->state	= INPUTSTATE_SOF;
+	input_now->src.fd	= fd;
 }
 
 
@@ -67,7 +72,7 @@ static void report_srcchar(char new_char)
 
 	// if input has changed, insert explanation
 	if (input_now != report->last_input) {
-		fprintf(report->fd, "\n; ******** Source: %s\n", input_now->location.filename);
+		fprintf(report->fd, "\n; ******** Source: %s\n", input_now->location.plat_filename);	// actually, UNIX-style might be better than platform-style here...
 		report->last_input = input_now;
 		report->asc_used = 0;	// clear buffer
 		prev_char = '\0';
@@ -613,7 +618,7 @@ int input_read_and_lower_keyword(void)
 // shared ending when trying to read a file name.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
+// Returns nonzero on error. Filename in GlobalDynaBuf, including terminator.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
 static int read_filename_shared_end(int prefix_size)
@@ -638,8 +643,10 @@ static int read_filename_shared_end(int prefix_size)
 }
 
 // try to read a file name for an input file.
-// library access by using <...> quoting is allowed. function will store info
-// about library usage at "uses_lib" ptr.
+// library access by using <...> quoting is allowed.
+// if library access is used, the library prefix will be added to the file name
+// and TRUE will be stored via the "uses_lib" ptr.
+// if library access is not used, FALSE will be stored via the "uses_lib" ptr.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
@@ -791,7 +798,7 @@ void includepaths_add(const char *path)
 }
 // open file for reading (trying list entries as prefixes)
 // "uses_lib" tells whether to access library or to make use of include paths
-// file name is expected in GlobalDynaBuf
+// file name is expected in GlobalDynaBuf, in platform style, and if wanted, with library prefix!
 FILE *includepaths_open_ro(boolean uses_lib)
 {
 	FILE		*stream;

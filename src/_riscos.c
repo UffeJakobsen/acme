@@ -90,13 +90,13 @@ void RISCOS_throwback(const char *message, int type)
 		regs.r[0] = 0;
 		regs.r[1] = 0;
 	//	regs.r[2] = (int) toplevel_source;
-		regs.r[2] = (int) input_now->location.filename;
+		regs.r[2] = (int) input_now->location.plat_filename;
 		_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);
 	}
 	// send throwback message
 	regs.r[0] = 1;
 	regs.r[1] = 0;
-	regs.r[2] = (int) input_now->location.filename;
+	regs.r[2] = (int) input_now->location.plat_filename;
 	regs.r[3] = input_now->location.line_number;
 	regs.r[4] = type;
 	regs.r[5] = (int) message;
