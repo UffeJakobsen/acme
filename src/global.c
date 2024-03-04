@@ -513,6 +513,36 @@ void Throw_first_pass_warning(const char *message)
 }
 
 
+// throw "macro twice" error (FIXME - also use for "symbol twice"!)
+// first output a warning, then an error, this guarantees that ACME does not
+// reach the maximum error limit inbetween.
+void throw_redef_error(struct location *old_def, const char msg[])
+{
+	struct location	buffered_location;
+	const char	*buffered_section_type;
+	char		*buffered_section_title;
+
+	// CAUTION, ugly kluge: fiddle with input_now and section_now
+	// data so error message is actually helpful
+	// buffer old data
+	buffered_location = input_now->location;
+	buffered_section_type = section_now->type;
+	buffered_section_title = section_now->title;
+	// set new (fake) data
+	input_now->location = *old_def;
+	section_now->type = "earlier";
+	section_now->title = "definition";
+	// show warning with location of earlier definition
+	Throw_warning(msg);	// FIXME - throw as info?
+	// restore old data
+	input_now->location = buffered_location;
+	section_now->type = buffered_section_type;
+	section_now->title = buffered_section_title;
+	// show error with location of current definition
+	Throw_error(msg);
+}
+
+
 // process error that might vanish if symbols change:
 // if current pass is an "error output" pass, actually throw error.
 // otherwise just set a flag to let mainloop know this pass wasn't successful.

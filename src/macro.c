@@ -23,7 +23,6 @@
 #define ARGTYPE_REF	'r'
 #define REFERENCE_CHAR	'~'	// prefix for call-by-reference
 #define HALF_INITIAL_ARG_TABLE_SIZE	4
-static const char	exception_macro_twice[]	= "Macro already defined.";
 
 
 // macro struct type definition
@@ -110,39 +109,6 @@ static int search_for_macro(struct rwnode **result, scope_t scope, int create)
 	return tree_hard_scan(result, macro_forest, scope, create);
 }
 
-// This function is called when an already existing macro is re-defined.
-// It first outputs a warning and then an error.
-// Showing the first message as a warning guarantees that ACME does not reach
-// the maximum error limit inbetween.
-static void report_redefinition(struct rwnode *macro_node)
-{
-	struct macro	*original_macro	= macro_node->body;
-	struct location	buffered_location;
-	const char	*buffered_section_type;
-	char		*buffered_section_title;
-
-	// CAUTION, ugly kluge: fiddle with input_now and section_now
-	// data to generate helpful error messages
-	// FIXME - move this to a function so "symbol twice" error can also use it
-	// buffer old data
-	buffered_location = input_now->location;
-	buffered_section_type = section_now->type;
-	buffered_section_title = section_now->title;
-	// set new (fake) data
-	input_now->location = original_macro->definition;
-	section_now->type = "earlier";
-	section_now->title = "definition";
-	// show warning with location of earlier definition
-	Throw_warning(exception_macro_twice);	// FIXME - throw as info?
-	// restore old data
-	input_now->location = buffered_location;
-	section_now->type = buffered_section_type;
-	section_now->title = buffered_section_title;
-
-	// show error with location of current definition
-	Throw_error(exception_macro_twice);
-}
-
 // This function is only called during the first pass, so there's no need to
 // check whether to skip the definition or not.
 // Return with GotByte = '}'
@@ -150,6 +116,7 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 {
 	char		*formal_parameters;
 	struct rwnode	*macro_node;
+	struct macro	*original_macro;	// for "macro twice" error
 	struct macro	*new_macro;
 	scope_t		macro_scope	= get_scope_and_title();
 
@@ -193,8 +160,10 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	// error messages, we're checking for "macro twice" *now*.
 	// Search for macro. Create if not found.
 	// But if found, complain (macro twice).
-	if (search_for_macro(&macro_node, macro_scope, TRUE) == FALSE)
-		report_redefinition(macro_node);
+	if (search_for_macro(&macro_node, macro_scope, TRUE) == FALSE) {
+		original_macro = macro_node->body;
+		throw_redef_error(&(original_macro->definition), "Macro already defined.");
+	}
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
 	new_macro->definition = input_now->location;

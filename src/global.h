@@ -206,6 +206,11 @@ extern void Throw_first_pass_warning(const char *msg);
 // about more than one of his typos at a time.
 #define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg)
 
+// throw "macro twice" error (FIXME - also use for "symbol twice"!)
+// first output a warning, then an error, this guarantees that ACME does not
+// reach the maximum error limit inbetween.
+extern void throw_redef_error(struct location *old_def, const char msg[]);
+
 // process error that might vanish if symbols change:
 // if current pass is an "error output" pass, actually throw error.
 // otherwise just set a flag to let mainloop know this pass wasn't successful.
