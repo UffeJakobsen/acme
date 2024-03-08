@@ -54,8 +54,8 @@ enum dialect {
 	V0_95_2__NEW_ANC_OPCODE,	// v0.95.2 changed ANC#8 from opcode 0x2b to 0x0b
 	V0_97__BACKSLASH_ESCAPING,	// v0.97 introduced backslash escaping (and therefore strings)
 	V__CURRENT_VERSION,		// "RELEASE"
+	V0_98__PATHS_AND_SYMBOLCHANGE,	// v0.98 fixes paths and allows symbols to change
 					// possible changes in future versions:
-					//	paths should be relative to file, not start dir
 					//	ignore leading zeroes?
 	V__FUTURE_VERSION		// future (for testing new features)
 };

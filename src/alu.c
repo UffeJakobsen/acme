@@ -423,7 +423,7 @@ static void parse_quoted(char closing_quote)
 	// eat closing quote
 	GetByte();
 	// now convert to unescaped version
-	if (input_unescape_dynabuf(0))
+	if (input_unescape_dynabuf())
 		goto fail;	// escaping error
 
 	// without backslash escaping, both ' and " are used for single

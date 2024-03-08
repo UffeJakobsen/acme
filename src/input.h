@@ -31,6 +31,11 @@ enum inputsrc {
 	INPUTSRC_RAM
 };
 struct input {
+	const char	*plat_pathref_filename;	// file
+	// the filename *above* refers to the source file currently being parsed, which
+	// is needed as a reference for relative paths.
+	// the filename *below* (in "location") refers to the source file where
+	// the current code initially came from, i.e. it may change during macro execution.
 	struct location	location;	// file + line (during RAM reads as well)
 	enum inputsrc	source;
 	enum inputstate	state;	// state of input
@@ -59,12 +64,12 @@ extern struct input	*input_now;	// current input structure
 
 // Prototypes
 
-// let current input point to start of file
+// parse a whole source code file
 // file name must be given in platform style, i.e.
 // "directory/basename.extension" on linux,
 // "directory.basename/extension" on RISC OS, etc.
 // and the pointer must remain valid forever!
-extern void input_new_platform_file(const char *plat_filename, FILE *fd);
+extern void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE *fd);
 
 // get next byte from currently active byte source in shortened high-level
 // format. When inside quotes, use input_quoted_to_dynabuf() instead!
@@ -83,7 +88,7 @@ extern int input_quoted_to_dynabuf(char closing_quote);
 
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
-extern int input_unescape_dynabuf(int start_index);
+extern int input_unescape_dynabuf(void);
 
 // Skip or store block (starting with next byte, so call directly after
 // reading opening brace).
@@ -121,8 +126,7 @@ extern int input_read_and_lower_keyword(void);
 
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
-// if library access is used, the library prefix will be added to the file name
-// and TRUE will be stored via the "uses_lib" ptr.
+// if library access is used, TRUE will be stored via the "uses_lib" ptr.
 // if library access is not used, FALSE will be stored via the "uses_lib" ptr.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
@@ -151,14 +155,16 @@ extern int input_accept_comma(void);
 extern bits input_get_force_bit(void);
 
 
-// include path stuff - should be moved to its own file:
+// "include path" stuff:
 
 // add entry
 extern void includepaths_add(const char *path);
 
-// open file for reading (trying list entries as prefixes)
-// "uses_lib" tells whether to access library or to make use of include paths
-// file name is expected in GlobalDynaBuf, in platform style, and if wanted, with library prefix!
+// open file for reading
+// "uses_lib" tells whether to use library prefix or to use search paths
+// file name is expected in GlobalDynaBuf, in platform style and terminated
+// returns NULL or open stream
+// on success, GlobalDynaBuf contains full file name in platform style
 extern FILE *includepaths_open_ro(boolean uses_lib);
 
 

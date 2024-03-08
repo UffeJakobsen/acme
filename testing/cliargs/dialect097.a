@@ -1,0 +1,5 @@
+	; 0.97 interprets all file names as relative to the initial directory:
+	!src "subdir/sub1.inc"
+	!if depth_given_in_included_file != 0 {
+		!error "included wrong file."
+	}

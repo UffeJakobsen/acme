@@ -18,12 +18,13 @@
 // convert UNIX-style pathname to RISC OS-style pathname
 #define PLATFORM_CONVERTPATH(path)	RISCOS_convert_path(path)
 
-// directory separator for include paths
-#define DIRECTORY_SEPARATOR	'\0'	// actually '.', but paths ending on ':' are ok, so auto-adding '.' is bad)
+// directory separators for search paths
+#define DIRECTORY_SEPARATOR	'.'
+#define ALTERNATIVE_DIR_SEP	':'
 
 // string containing the prefix for accessing files from the library tree
 #define PLATFORM_LIBPREFIX	"ACME_Lib:"
-#define NO_NEED_FOR_ENV_VAR
+#define PLATFORM_NEEDS_ENV_VAR	0	// no "ACME" environment variable needed
 
 // setting file types of created files
 #define PLATFORM_SETFILETYPE_APPLE(a)	RISCOS_set_filetype(a, 0xffd)	// FIXME - wrong value!

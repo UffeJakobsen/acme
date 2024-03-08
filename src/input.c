@@ -26,8 +26,9 @@ const char	FILE_READBINARY[]	= "rb";
 
 // fake input structure (for error msgs before any real input is established)
 static struct input	outermost	= {
+	"<none>",	// file name for resolving paths
 	{
-		"<none>",	// file name
+		"<none>",	// file name where code initially came from (differs during macro execution)
 		0,		// line number
 	},
 	INPUTSRC_FILE,	// fake file access, so no RAM read
@@ -44,19 +45,40 @@ struct input	*input_now	= &outermost;	// current input structure
 
 // functions
 
-// let current input point to start of file
+// parse a whole source code file
 // file name must be given in platform style, i.e.
 // "directory/basename.extension" on linux,
-// "directory.basename/extension" on RISC OS etc.
+// "directory.basename/extension" on RISC OS, etc.
 // and the pointer must remain valid forever!
-// FIXME - there is only one caller, "flow_parse_and_close_platform_file()", so maybe merge?
-void input_new_platform_file(const char *plat_filename, FILE *fd)
+void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE *fd)
 {
-	input_now->location.plat_filename	= plat_filename;
-	input_now->location.line_number		= 1;
-	input_now->source	= INPUTSRC_FILE;
-	input_now->state	= INPUTSTATE_SOF;
-	input_now->src.fd	= fd;
+	struct input	new_input,
+			*outer_input;
+
+	// be verbose
+	if (config.process_verbosity > 2)
+		printf("Parsing source file '%s'\n", eternal_plat_filename);
+	// set up new input
+	new_input.plat_pathref_filename		= eternal_plat_filename;
+	new_input.location.plat_filename	= eternal_plat_filename;
+	new_input.location.line_number		= 1;
+	new_input.source		= INPUTSRC_FILE;
+	new_input.state			= INPUTSTATE_SOF;
+	new_input.src.fd		= fd;
+	// remember where outer input struct is
+	outer_input = input_now;
+	// activate new input struct
+	input_now = &new_input;
+	// parse block and check end reason
+	parse_until_eob_or_eof();
+	if (GotByte != CHAR_EOF)
+		Throw_error("Found '}' instead of end-of-file.");
+	// close sublevel src
+	// (this looks like we could just use "fd" as arg, but maybe the file
+	// has been replaced with a different one in the meantime...)
+	fclose(input_now->src.fd);
+	// restore outer input struct
+	input_now = outer_input;
 }
 
 
@@ -413,16 +435,16 @@ int input_quoted_to_dynabuf(char closing_quote)
 // process backslash escapes in GlobalDynaBuf (so size might shrink)
 // returns 1 on errors (escaping errors)
 // TODO - check: if this is only ever called directly after input_quoted_to_dynabuf, integrate that call here?
-int input_unescape_dynabuf(int read_index)
+int input_unescape_dynabuf(void)
 {
-	int	write_index;
+	int	read_index	= 0,
+		write_index	= 0;
 	char	byte;
 	boolean	escaped;
 
 	if (config.dialect < V0_97__BACKSLASH_ESCAPING)
 		return 0;	// ok
 
-	write_index = read_index;
 	escaped = FALSE;
 	// CAUTION - contents of dynabuf are not terminated:
 	while (read_index < GlobalDynaBuf->size) {
@@ -621,31 +643,30 @@ int input_read_and_lower_keyword(void)
 // Returns nonzero on error. Filename in GlobalDynaBuf, including terminator.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-static int read_filename_shared_end(int prefix_size)
+static int read_filename_shared_end(void)
 {
 	// check length
-	if (GlobalDynaBuf->size == prefix_size) {
+	if (GlobalDynaBuf->size == 0) {
 		Throw_error("No file name given.");
 		return 1;	// error
 	}
 
 	// resolve backslash escapes
-	if (input_unescape_dynabuf(prefix_size))
+	if (input_unescape_dynabuf())
 		return 1;	// escaping error
 
 	// terminate string
 	dynabuf_append(GlobalDynaBuf, '\0');
 #ifdef PLATFORM_CONVERTPATH
 	// platform-specific path name conversion
-	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT + prefix_size);
+	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT);
 #endif
 	return 0;	// ok
 }
 
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
-// if library access is used, the library prefix will be added to the file name
-// and TRUE will be stored via the "uses_lib" ptr.
+// if library access is used, TRUE will be stored via the "uses_lib" ptr.
 // if library access is not used, FALSE will be stored via the "uses_lib" ptr.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
@@ -654,27 +675,12 @@ static int read_filename_shared_end(int prefix_size)
 // input_skip_remainder() then.
 int input_read_input_filename(boolean *uses_lib)
 {
-	char	*lib_prefix;	// depends on platform
-	int	prefix_size;	// this much does not get platform-converted because it is already correct
 
 	dynabuf_clear(GlobalDynaBuf);
 	SKIPSPACE();
 	if (GotByte == '<') {
 		// library access:
 		*uses_lib = TRUE;
-		// read platform's lib prefix
-		lib_prefix = PLATFORM_LIBPREFIX;
-#ifndef NO_NEED_FOR_ENV_VAR
-		// if lib prefix not set, complain
-		if (lib_prefix == NULL) {
-			Throw_error("\"ACME\" environment variable not found.");
-			return 1;	// error
-		}
-#endif
-		// copy lib path
-		dynabuf_add_string(GlobalDynaBuf, lib_prefix);
-		// remember border between optional library prefix and string from assembler source file
-		prefix_size = GlobalDynaBuf->size;
 		// read file name string (must be a single string <literal>)
 		if (input_quoted_to_dynabuf('>'))
 			return 1;	// unterminated or escaping error
@@ -683,7 +689,6 @@ int input_read_input_filename(boolean *uses_lib)
 	} else {
 		// "normal", non-library access:
 		*uses_lib = FALSE;
-		prefix_size = 0;	// no prefix in DynaBuf
 // old algo (do not merge with similar parts from "if" block!):
 		if (GotByte != '"') {
 			Throw_error("File name quotes not found (\"\" or <>).");
@@ -701,7 +706,7 @@ int input_read_input_filename(boolean *uses_lib)
 // see lines 416 and 1317 in pseudoopcodes.c for two more possible callers!
 	}
 	// check length, unescape, terminate, do platform conversion
-	return read_filename_shared_end(prefix_size);
+	return read_filename_shared_end();
 }
 
 // try to read a file name for an output file.
@@ -732,7 +737,7 @@ int input_read_output_filename(void)
 
 	GetByte();	// eat terminator
 	// check length, unescape, terminate, do platform conversion:
-	return read_filename_shared_end(0);	// 0 -> there is no library prefix
+	return read_filename_shared_end();
 }
 
 
@@ -773,16 +778,63 @@ bits input_get_force_bit(void)
 }
 
 
-// include path stuff - should be moved to its own file:
+// "include path" stuff:
 
-// ring list struct
+static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
+
+// copy "default search path" from current file's file name into pathbuf:
+static void default_path_to_pathbuf(void)
+{
+	const char	*start	= input_now->plat_pathref_filename,
+			*readptr,
+			*found;
+
+	dynabuf_clear(pathbuf);
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
+		// scan filename for last directory separator
+		readptr = start;
+		found = NULL;
+		while (*readptr) {
+			if ((*readptr == DIRECTORY_SEPARATOR)
+			|| (*readptr == ALTERNATIVE_DIR_SEP)) {
+				found = readptr;
+			}
+			++readptr;
+		}
+		if (found) {
+			// +1 because we want the separator as well:
+			dynabuf_add_bytes(pathbuf, start, found - start + 1);
+		}
+	} else {
+		// do nothing -
+		// pathbuf is empty, which means "default search path" is "",
+		// which is exactly like it was in older versions.
+	}
+}
+
+// copy platform-specific library search path into pathbuf:
+static void library_path_to_pathbuf(void)
+{
+	char	*lib_prefix;	// depends on platform
+
+	dynabuf_clear(pathbuf);
+	lib_prefix = PLATFORM_LIBPREFIX;
+	if ((PLATFORM_NEEDS_ENV_VAR) && (lib_prefix == NULL)) {
+		Throw_error("\"ACME\" environment variable not found.");
+	} else {
+		dynabuf_add_string(pathbuf, lib_prefix);
+	}
+}
+
+// ring list struct for "include path items"
 struct ipi {
 	struct ipi	*next,
 			*prev;
 	const char	*path;
 };
-static struct ipi	ipi_head	= {&ipi_head, &ipi_head, NULL};	// head element
-static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
+
+// head element
+static struct ipi	ipi_head	= {&ipi_head, &ipi_head, NULL};
 
 // add entry
 void includepaths_add(const char *path)
@@ -796,43 +848,64 @@ void includepaths_add(const char *path)
 	ipi->next->prev = ipi;
 	ipi->prev->next = ipi;
 }
-// open file for reading (trying list entries as prefixes)
-// "uses_lib" tells whether to access library or to make use of include paths
-// file name is expected in GlobalDynaBuf, in platform style, and if wanted, with library prefix!
+
+// add filename (from GlobalDynaBuf) to pathbuf and try to open file:
+static FILE *combine_and_open_ro(void)
+{
+	// if path does not end with directory separator, add one:
+	if (pathbuf->size
+	&& (pathbuf->buffer[pathbuf->size - 1] != DIRECTORY_SEPARATOR)
+	&& (pathbuf->buffer[pathbuf->size - 1] != ALTERNATIVE_DIR_SEP)) {
+		dynabuf_append(pathbuf, DIRECTORY_SEPARATOR);
+	}
+	// add file name
+	dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
+	// terminate
+	dynabuf_append(pathbuf, '\0');
+	// try to open for reading
+	return fopen(pathbuf->buffer, FILE_READBINARY);
+}
+
+// open file for reading
+// "uses_lib" tells whether to use library prefix or to use search paths
+// file name is expected in GlobalDynaBuf, in platform style and terminated
+// returns NULL or open stream
+// on success, GlobalDynaBuf contains full file name in platform style
 FILE *includepaths_open_ro(boolean uses_lib)
 {
 	FILE		*stream;
 	struct ipi	*ipi;
 
-	// first try directly, regardless of whether lib or not:
-	stream = fopen(GLOBALDYNABUF_CURRENT, FILE_READBINARY);
-	// if failed and not lib, try include paths:
-	if ((stream == NULL) && !uses_lib) {
-		for (ipi = ipi_head.next; ipi != &ipi_head; ipi = ipi->next) {
-			dynabuf_clear(pathbuf);
-			// add first part
-			dynabuf_add_string(pathbuf, ipi->path);
-			// if wanted and possible, ensure last char is directory separator
-			if (DIRECTORY_SEPARATOR
-			&& pathbuf->size
-			&& (pathbuf->buffer[pathbuf->size - 1] != DIRECTORY_SEPARATOR))
-				dynabuf_append(pathbuf, DIRECTORY_SEPARATOR);
-			// add second part
-			dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
-			// terminate
-			dynabuf_append(pathbuf, '\0');
-			// try
-			stream = fopen(pathbuf->buffer, FILE_READBINARY);
-			//printf("trying <<%s>> - ", pathbuf->buffer);
-			if (stream) {
-				//printf("ok\n");
-				break;
-			} else {
-				//printf("failed\n");
+	if (uses_lib) {
+		// use library prefix
+		library_path_to_pathbuf();
+		stream = combine_and_open_ro();
+	} else {
+		// first try current default prefix
+		default_path_to_pathbuf();
+		stream = combine_and_open_ro();
+		if (stream == NULL) {
+			// default prefix failed, so try list entries:
+			for (ipi = ipi_head.next; ipi != &ipi_head; ipi = ipi->next) {
+				dynabuf_clear(pathbuf);
+				dynabuf_add_string(pathbuf, ipi->path);
+				stream = combine_and_open_ro();
+				//printf("trying <<%s>> - ", pathbuf->buffer);
+				if (stream) {
+					//printf("ok\n");
+					break;
+				} else {
+					//printf("failed\n");
+				}
 			}
 		}
 	}
-	if (stream == NULL) {
+	if (stream) {
+		// copy successful file name back to GlobalDynaBuf
+		dynabuf_clear(GlobalDynaBuf);
+		dynabuf_add_string(GlobalDynaBuf, pathbuf->buffer);
+		dynabuf_append(GlobalDynaBuf, '\0');
+	} else {
 		// CAUTION, I'm re-using the path dynabuf to assemble the error message:
 		dynabuf_clear(pathbuf);
 		dynabuf_add_string(pathbuf, "Cannot open input file \"");

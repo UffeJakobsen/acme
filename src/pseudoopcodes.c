@@ -484,7 +484,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			// now convert to unescaped version
 			// FIXME - next call does nothing because wanted<escaping!
 			// FIXME - there is another block like this, scan for ROOSTA!
-			if (input_unescape_dynabuf(0))
+			if (input_unescape_dynabuf())
 				return SKIP_REMAINDER;	// escaping error
 
 			// send characters
@@ -928,8 +928,6 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	FILE		*stream;
 	const char	*eternal_plat_filename;
 	char		local_gotbyte;
-	struct input	new_input,
-			*outer_input;
 
 	// enter new nesting level
 	// quit program if recursion too deep
@@ -943,18 +941,9 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	// if file could be opened, parse it. otherwise, complain
 	stream = includepaths_open_ro(uses_lib);
 	if (stream) {
-		// GlobalDynaBuf contains either
-		//	library_prefix + platformstyle(source_argument) + '\0'
-		// or
-		//	platformstyle(source_argument) + '\0'
-		// it does _not_ contain any search path added using "-I", even if used!
-		// if this is a problem, fix includepaths_open_ro()!
 		eternal_plat_filename = dynabuf_get_copy(GlobalDynaBuf);
-		outer_input = input_now;	// remember old input
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
-		input_now = &new_input;	// activate new input
-		flow_parse_and_close_platform_file(eternal_plat_filename, stream);
-		input_now = outer_input;	// restore previous input
+		input_parse_and_close_platform_file(eternal_plat_filename, stream);
 		GotByte = local_gotbyte;	// CAUTION - ugly kluge
 	}
 	// leave nesting level
@@ -1388,7 +1377,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 			// now convert to unescaped version
 			// FIXME - next call does nothing because wanted<escaping!
 			// FIXME - there is another block like this, scan for ROOSTA!
-			if (input_unescape_dynabuf(0))
+			if (input_unescape_dynabuf())
 				return SKIP_REMAINDER;	// escaping error
 
 			dynabuf_append(GlobalDynaBuf, '\0');	// terminate string

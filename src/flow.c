@@ -264,26 +264,3 @@ void flow_do_while(struct do_while *loop)
 	// then the main loop could choke on unexpected bytes. So we pretend
 	// that we got the outer input's GotByte value magically back.
 }
-
-
-// parse a whole source code file
-// file name must be given in platform style, i.e.
-// "directory/basename.extension" on linux,
-// "directory.basename/extension" on RISC OS, etc.
-// and the pointer must remain valid forever!
-void flow_parse_and_close_platform_file(const char *plat_filename, FILE *fd)
-{
-	// be verbose
-	if (config.process_verbosity > 2)
-		printf("Parsing source file '%s'\n", plat_filename);
-	// set up new input
-	input_new_platform_file(plat_filename, fd);
-	// parse block and check end reason
-	parse_until_eob_or_eof();
-	if (GotByte != CHAR_EOF)
-		Throw_error("Found '}' instead of end-of-file.");
-	// close sublevel src
-	// (this looks like we could just use "fd" as arg, but maybe the file
-	// has been replaced with a different one in the meantime...)
-	fclose(input_now->src.fd);
-}

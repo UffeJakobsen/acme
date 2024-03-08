@@ -324,7 +324,7 @@ static void perform_pass(void)
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		if ((fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY))) {
-			flow_parse_and_close_platform_file(toplevel_sources_plat[ii], fd);
+			input_parse_and_close_platform_file(toplevel_sources_plat[ii], fd);
 		} else {
 			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources_plat[ii]);
 			if (toplevel_sources_plat[ii][0] == '-')
@@ -545,6 +545,7 @@ struct dialect_info	dialects[]	= {
 	{V0_94_12__NEW_FOR_SYNTAX,	"0.94.12",	"new \"!for\" syntax"},
 	{V0_95_2__NEW_ANC_OPCODE,	"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
 	{V0_97__BACKSLASH_ESCAPING,	"0.97",		"backslash escaping and strings"},
+//	{V0_98__PATHS_AND_SYMBOLCHANGE,	"0.98",		"paths are relative to current file"},
 //	{V__CURRENT_VERSION,		"default",	"default"},
 	{V__FUTURE_VERSION,		"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
