@@ -379,7 +379,7 @@ static void end_segment(void)
 	// link to segment list
 	link_segment(out->segment.start, amount);
 	// announce
-	if (config.process_verbosity > 1)
+	if (config.process_verbosity >= 2)
 		// TODO - change output to start, limit, size, name:
 		// TODO - output hex numbers as %04x? What about limit 0x10000?
 		printf("Segment size is %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",

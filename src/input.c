@@ -56,8 +56,8 @@ void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE
 			*outer_input;
 
 	// be verbose
-	if (config.process_verbosity > 2)
-		printf("Parsing source file '%s'\n", eternal_plat_filename);
+	if (config.process_verbosity >= 3)
+		printf("Parsing source file '%s'.\n", eternal_plat_filename);
 	// set up new input
 	new_input.plat_pathref_filename		= eternal_plat_filename;
 	new_input.location.plat_filename	= eternal_plat_filename;

@@ -602,7 +602,7 @@ static enum eos po_binary(void)
 	}
 	fclose(stream);
 	// if verbose, produce some output
-	if (FIRST_PASS && (config.process_verbosity > 1)) {
+	if (FIRST_PASS && (config.process_verbosity >= 2)) {
 		int	amount	= output_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",

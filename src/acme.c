@@ -164,9 +164,11 @@ static void report_init(struct report *report)
 // open report file
 static int report_open(struct report *report, const char *filename)
 {
+	// show filename _now_ because I do not want to massage it into perror()
+	printf("Opening report file \"%s\".\n", filename);
 	report->fd = fopen(filename, FILE_WRITETEXT);
 	if (report->fd == NULL) {
-		fprintf(stderr, "Error: Cannot open report file \"%s\".\n", filename);
+		perror("Error: Cannot open report file");
 		return 1;
 	}
 	return 0;	// success
@@ -190,24 +192,28 @@ int ACME_finalize(int exit_code)
 
 	report_close(report);
 	if (config.symbollist_filename) {
+		// show filename _now_ because I do not want to massage it into perror()
+		printf("Writing symbol list file \"%s\".\n", config.symbollist_filename);
 		fd = fopen(config.symbollist_filename, FILE_WRITETEXT);	// FIXME - what if filename is given via !sl in sub-dir? fix path!
 		if (fd) {
 			symbols_list(fd);
 			fclose(fd);
 			PLATFORM_SETFILETYPE_TEXT(config.symbollist_filename);
 		} else {
-			fprintf(stderr, "Error: Cannot open symbol list file \"%s\".\n", config.symbollist_filename);
+			perror("Error: Cannot open symbol list file");
 			exit_code = EXIT_FAILURE;
 		}
 	}
 	if (config.vicelabels_filename) {
+		// show filename _now_ because I do not want to massage it into perror()
+		printf("Writing VICE label dump file \"%s\".\n", config.vicelabels_filename);
 		fd = fopen(config.vicelabels_filename, FILE_WRITETEXT);
 		if (fd) {
 			symbols_vicelabels(fd);
 			fclose(fd);
 			PLATFORM_SETFILETYPE_TEXT(config.vicelabels_filename);
 		} else {
-			fprintf(stderr, "Error: Cannot open VICE label dump file \"%s\".\n", config.vicelabels_filename);
+			perror("Error: Cannot open VICE label dump file");
 			exit_code = EXIT_FAILURE;
 		}
 	}
@@ -230,6 +236,9 @@ static void save_output_file(void)
 		fputs("No output file specified (use the \"-o\" option or the \"!to\" pseudo opcode).\n", stderr);
 		return;
 	}
+	// show output filename _now_ because I do not want to massage it into
+	// every possible perror() call.
+	printf("Writing output file \"%s\".\n", config.output_filename);
 
 	// get memory pointer, block size and load address
 	output_get_result(&body, &amount, &loadaddr);
@@ -243,7 +252,7 @@ static void save_output_file(void)
 	case OUTFILE_FORMAT_CBM:
 		if (loadaddr > 0xffff) {
 			fprintf(stderr, "Error: Load address 0x%04lx too large for cbm file format.\n", loadaddr);
-			exit(EXIT_FAILURE);
+			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		header[0] = loadaddr & 255;
 		header[1] = loadaddr >> 8;
@@ -252,11 +261,11 @@ static void save_output_file(void)
 	case OUTFILE_FORMAT_APPLE:
 		if (loadaddr > 0xffff) {
 			fprintf(stderr, "Error: Load address 0x%04lx too large for apple file format.\n", loadaddr);
-			exit(EXIT_FAILURE);
+			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		if (amount > 0xffff) {
 			fprintf(stderr, "Error: File size 0x%04lx too large for apple file format.\n", loadaddr);
-			exit(EXIT_FAILURE);
+			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		header[0] = loadaddr & 255;
 		header[1] = loadaddr >> 8;
@@ -271,19 +280,35 @@ static void save_output_file(void)
 	// open file
 	fd = fopen(config.output_filename, FILE_WRITEBINARY);	// FIXME - what if filename is given via !to in sub-dir? fix path!
 	if (fd == NULL) {
-		fprintf(stderr, "Error: Cannot open output file \"%s\".\n", config.output_filename);
-		exit(EXIT_FAILURE);
+		perror("Error: Cannot open output file");
+		exit(ACME_finalize(EXIT_FAILURE));
 	}
 
-	if (config.process_verbosity) {
+	if (config.process_verbosity >= 1) {
 		printf("Saving %ld (0x%04lx) bytes (0x%04lx - 0x%04lx exclusive).\n",
 			amount, amount, loadaddr, loadaddr + amount);
 	}
 
-	// write header and body
-	fwrite(header, headersize, 1, fd);
-	fwrite(body, amount, 1, fd);
-	fclose(fd);
+	// write header and body:
+	// checking header size and body size explicitly for non-zero values
+	// facilitates checking the return value of fwrite(), because writing
+	// one object of size zero returns 0, not 1:
+	if (headersize) {
+		if (fwrite(header, headersize, 1, fd) != 1) {
+			perror("Error: Cannot write header to output file");
+			exit(ACME_finalize(EXIT_FAILURE));
+		}
+	}
+	if (amount) {
+		if (fwrite(body, amount, 1, fd) != 1) {
+			perror("Error: Cannot write to output file");
+			exit(ACME_finalize(EXIT_FAILURE));
+		}
+	}
+	if (fclose(fd)) {
+		perror("Error: Cannot flush output file");
+		exit(ACME_finalize(EXIT_FAILURE));
+	}
 
 	// set file type
 	switch (config.outfile_format) {
@@ -310,7 +335,7 @@ static void perform_pass(void)
 	int	ii;
 
 	++pass.number;
-	if (config.process_verbosity > 1)
+	if (config.process_verbosity >= 2)
 		printf("Pass %d:\n", pass.number);
 	cputype_passinit();	// set default cpu type
 	output_passinit();	// set initial pc or start with undefined pc
@@ -336,7 +361,7 @@ static void perform_pass(void)
 	// TODO: atm "--from-to" reads two number literals. if that is changed
 	// in the future to two general expressions, this is the point where
 	// they would need to be evaluated.
-	if (config.process_verbosity > 8)
+	if (config.process_verbosity >= 8)
 		printf("Found %d undefined expressions.\n", pass.undefined_count);
 	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
@@ -377,7 +402,7 @@ static void do_actual_work(void)
 		// if listing report is wanted and there were no errors,
 		// do another pass to generate listing report
 		if (config.report_filename) {
-			if (config.process_verbosity > 1)
+			if (config.process_verbosity >= 2)
 				puts("Extra pass to generate listing report.");
 			if (report_open(report, config.report_filename) == 0) {
 				perform_pass();
@@ -389,7 +414,7 @@ static void do_actual_work(void)
 	} else {
 		// There are still errors (unsolvable by doing further passes),
 		// so perform additional pass to find and show them.
-		if (config.process_verbosity > 1)
+		if (config.process_verbosity >= 2)
 			puts("Extra pass to display errors.");
 		pass.complain_about_undefined = TRUE;	// activate error output
 		perform_pass();	// perform pass, but now show "value undefined"
