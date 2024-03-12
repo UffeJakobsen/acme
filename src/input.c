@@ -643,13 +643,16 @@ int input_read_and_lower_keyword(void)
 // Returns nonzero on error. Filename in GlobalDynaBuf, including terminator.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-static int read_filename_shared_end(void)
+static int read_filename_shared_end(boolean *absolute)
 {
 	// check length
 	if (GlobalDynaBuf->size == 0) {
 		Throw_error("No file name given.");
 		return 1;	// error
 	}
+
+	// check if absolute and remember
+	*absolute = GlobalDynaBuf->buffer[0] == '/';
 
 	// resolve backslash escapes
 	if (input_unescape_dynabuf())
@@ -704,48 +707,9 @@ int input_read_input_filename(struct filespecflags *flags)
 // see lines 416 and 1317 in pseudoopcodes.c for two more possible callers!
 	}
 
-	// check if absolute
-	if ((GlobalDynaBuf->size)
-	&& (GlobalDynaBuf->buffer[0] == '/'))
-		flags->absolute = TRUE;
-	else
-		flags->absolute = FALSE;
-
-	// check length, unescape, terminate, do platform conversion
-	return read_filename_shared_end();
+	// check length, remember abs/rel, unescape, terminate, do platform conversion
+	return read_filename_shared_end(&flags->absolute);
 }
-
-// try to read a file name for an output file.
-// library access by using <...> quoting is forbidden.
-// The file name given in the assembler source code is converted from
-// UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
-// Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
-//
-// this is only used for "!to" and "!sl", i.e. output file names. these
-// must be given as a literal string, and it should be kept this way.
-int input_read_output_filename(void)
-{
-	SKIPSPACE();
-	if (GotByte == '<') {
-		Throw_error("Writing to library not supported.");
-		return 1;	// error
-	}
-	if (GotByte != '"') {
-		Throw_error("File name quotes not found (\"\").");
-		return 1;	// error
-	}
-	dynabuf_clear(GlobalDynaBuf);
-	// read file name string (must be a single string literal! do not change this!)
-	if (input_quoted_to_dynabuf('"'))
-		return 1;	// unterminated or escaping error
-
-	GetByte();	// eat terminator
-	// check length, unescape, terminate, do platform conversion:
-	return read_filename_shared_end();
-}
-
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.
@@ -784,9 +748,21 @@ bits input_get_force_bit(void)
 }
 
 
-// "include path" stuff:
-
 static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
+
+// copy platform-specific library search path into pathbuf:
+static void library_path_to_pathbuf(void)
+{
+	char	*lib_prefix;	// depends on platform
+
+	dynabuf_clear(pathbuf);
+	lib_prefix = PLATFORM_LIBPREFIX;
+	if ((PLATFORM_NEEDS_ENV_VAR) && (lib_prefix == NULL)) {
+		Throw_error("\"ACME\" environment variable not found.");
+	} else {
+		dynabuf_add_string(pathbuf, lib_prefix);
+	}
+}
 
 // copy "default search path" from current file's file name into pathbuf:
 static void default_path_to_pathbuf(void)
@@ -818,19 +794,59 @@ static void default_path_to_pathbuf(void)
 	}
 }
 
-// copy platform-specific library search path into pathbuf:
-static void library_path_to_pathbuf(void)
+// try to read a file name for an output file.
+// library access by using <...> quoting is forbidden.
+// The file name given in the assembler source code is converted from
+// UNIX style to platform style.
+// Returns nonzero on error. Filename in GlobalDynaBuf.
+// Errors are handled and reported, but caller should call
+// input_skip_remainder() then.
+//
+// this is only used for "!to" and "!sl", i.e. output file names. these
+// must be given as a literal string, and it should be kept this way.
+int input_read_output_filename(void)
 {
-	char	*lib_prefix;	// depends on platform
+	boolean	absolute;
 
-	dynabuf_clear(pathbuf);
-	lib_prefix = PLATFORM_LIBPREFIX;
-	if ((PLATFORM_NEEDS_ENV_VAR) && (lib_prefix == NULL)) {
-		Throw_error("\"ACME\" environment variable not found.");
-	} else {
-		dynabuf_add_string(pathbuf, lib_prefix);
+	SKIPSPACE();
+	if (GotByte == '<') {
+		Throw_error("Writing to library not supported.");
+		return 1;	// error
 	}
+	if (GotByte != '"') {
+		Throw_error("File name quotes not found (\"\").");
+		return 1;	// error
+	}
+	dynabuf_clear(GlobalDynaBuf);
+	// read file name string (must be a single string literal! do not change this!)
+	if (input_quoted_to_dynabuf('"'))
+		return 1;	// unterminated or escaping error
+
+	GetByte();	// eat terminator
+	// check length, remember abs/rel, unescape, terminate, do platform conversion:
+	if (read_filename_shared_end(&absolute))
+		return 1;	// empty string or escaping error
+
+	if (absolute) {
+		// keep file name as it is
+	} else {
+		// get current file's path
+		default_path_to_pathbuf();
+		// add output file name
+		dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
+		// terminate
+		dynabuf_append(pathbuf, '\0');
+		// copy full file name back to GlobalDynaBuf
+		dynabuf_clear(GlobalDynaBuf);
+		dynabuf_add_string(GlobalDynaBuf, pathbuf->buffer);
+		dynabuf_append(GlobalDynaBuf, '\0');
+	}
+
+	return 0;	// ok
 }
+
+
+// "include path" stuff:
 
 // ring list struct for "include path items"
 struct ipi {
