@@ -1168,13 +1168,13 @@ static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 	if (!tree_easy_scan(tree, &node_body, dyna_buf))
 		return FALSE;
 
-	code = ((int) node_body) & CODEMASK;	// get opcode or table index
-	flags = ((int) node_body) & FLAGSMASK;	// get immediate mode flags and prefix flags
+	code = ((intval_t) node_body) & CODEMASK;	// get opcode or table index
+	flags = ((intval_t) node_body) & FLAGSMASK;	// get immediate mode flags and prefix flags
 	if (flags & PREFIX_NEGNEG) {
 		output_byte(0x42);
 		output_byte(0x42);
 	}
-	switch (GROUP((long) node_body)) {
+	switch (GROUP((intval_t) node_body)) {
 	case GROUP_ACCU:	// main accumulator stuff
 		group_main(code, flags);
 		break;

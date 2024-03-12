@@ -44,6 +44,10 @@ struct input {
 		char	*ram_ptr;	// RAM read ptr (loop or macro block)
 	} src;
 };
+struct filespecflags {
+	boolean	uses_lib;	// file name was given in <...> instead of "..."
+	boolean	absolute;	// file name started with '/'
+};
 
 
 // Constants
@@ -126,14 +130,13 @@ extern int input_read_and_lower_keyword(void);
 
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
-// if library access is used, TRUE will be stored via the "uses_lib" ptr.
-// if library access is not used, FALSE will be stored via the "uses_lib" ptr.
+// flags for "library access" and "absolute path" will be set accordingly.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-extern int input_read_input_filename(boolean *uses_lib);
+extern int input_read_input_filename(struct filespecflags *flags);
 
 // try to read a file name for an output file ("!to" and "!sl" only).
 // library access by using <...> quoting is forbidden.
@@ -161,11 +164,11 @@ extern bits input_get_force_bit(void);
 extern void includepaths_add(const char *path);
 
 // open file for reading
-// "uses_lib" tells whether to use library prefix or to use search paths
-// file name is expected in GlobalDynaBuf, in platform style and terminated
+// "flags" decide whether library access, search paths or absolute path is wanted.
+// file name is expected in GlobalDynaBuf, in platform style and terminated.
 // returns NULL or open stream
 // on success, GlobalDynaBuf contains full file name in platform style
-extern FILE *includepaths_open_ro(boolean uses_lib);
+extern FILE *includepaths_open_ro(struct filespecflags *flags);
 
 
 #endif

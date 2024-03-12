@@ -57,7 +57,7 @@ void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE
 
 	// be verbose
 	if (config.process_verbosity >= 3)
-		printf("Parsing source file '%s'.\n", eternal_plat_filename);
+		printf("Parsing source file \"%s\".\n", eternal_plat_filename);
 	// set up new input
 	new_input.plat_pathref_filename		= eternal_plat_filename;
 	new_input.location.plat_filename	= eternal_plat_filename;
@@ -666,21 +666,19 @@ static int read_filename_shared_end(void)
 
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
-// if library access is used, TRUE will be stored via the "uses_lib" ptr.
-// if library access is not used, FALSE will be stored via the "uses_lib" ptr.
+// flags for "library access" and "absolute path" will be set accordingly.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
 // input_skip_remainder() then.
-int input_read_input_filename(boolean *uses_lib)
+int input_read_input_filename(struct filespecflags *flags)
 {
-
 	dynabuf_clear(GlobalDynaBuf);
 	SKIPSPACE();
 	if (GotByte == '<') {
 		// library access:
-		*uses_lib = TRUE;
+		flags->uses_lib = TRUE;
 		// read file name string (must be a single string <literal>)
 		if (input_quoted_to_dynabuf('>'))
 			return 1;	// unterminated or escaping error
@@ -688,7 +686,7 @@ int input_read_input_filename(boolean *uses_lib)
 		GetByte();	// eat '>' terminator
 	} else {
 		// "normal", non-library access:
-		*uses_lib = FALSE;
+		flags->uses_lib = FALSE;
 // old algo (do not merge with similar parts from "if" block!):
 		if (GotByte != '"') {
 			Throw_error("File name quotes not found (\"\" or <>).");
@@ -705,6 +703,14 @@ int input_read_input_filename(boolean *uses_lib)
 // FIXME - use expression parser to read filename string!
 // see lines 416 and 1317 in pseudoopcodes.c for two more possible callers!
 	}
+
+	// check if absolute
+	if ((GlobalDynaBuf->size)
+	&& (GlobalDynaBuf->buffer[0] == '/'))
+		flags->absolute = TRUE;
+	else
+		flags->absolute = FALSE;
+
 	// check length, unescape, terminate, do platform conversion
 	return read_filename_shared_end();
 }
@@ -852,6 +858,8 @@ void includepaths_add(const char *path)
 // add filename (from GlobalDynaBuf) to pathbuf and try to open file:
 static FILE *combine_and_open_ro(void)
 {
+	FILE	*stream;
+
 	// if path does not end with directory separator, add one:
 	if (pathbuf->size
 	&& (pathbuf->buffer[pathbuf->size - 1] != DIRECTORY_SEPARATOR)
@@ -863,26 +871,32 @@ static FILE *combine_and_open_ro(void)
 	// terminate
 	dynabuf_append(pathbuf, '\0');
 	// try to open for reading
-	return fopen(pathbuf->buffer, FILE_READBINARY);
+	stream = fopen(pathbuf->buffer, FILE_READBINARY);
+	if (config.process_verbosity >= 9)
+		printf("Trying \"%s\"...%s\n", pathbuf->buffer, stream ? " OK!" : "");
+	return stream;
 }
 
 // open file for reading
-// "uses_lib" tells whether to use library prefix or to use search paths
-// file name is expected in GlobalDynaBuf, in platform style and terminated
+// "flags" decide whether library access, search paths or absolute path is wanted.
+// file name is expected in GlobalDynaBuf, in platform style and terminated.
 // returns NULL or open stream
 // on success, GlobalDynaBuf contains full file name in platform style
-FILE *includepaths_open_ro(boolean uses_lib)
+FILE *includepaths_open_ro(struct filespecflags *flags)
 {
 	FILE		*stream;
 	struct ipi	*ipi;
 
-	if (uses_lib) {
+	if (flags->uses_lib) {
 		// use library prefix
 		library_path_to_pathbuf();
 		stream = combine_and_open_ro();
 	} else {
 		// first try current default prefix
-		default_path_to_pathbuf();
+		if (flags->absolute)
+			dynabuf_clear(pathbuf);	// which is "" if absolute
+		else
+			default_path_to_pathbuf();	// or current path if relative
 		stream = combine_and_open_ro();
 		if (stream == NULL) {
 			// default prefix failed, so try list entries:
@@ -890,12 +904,8 @@ FILE *includepaths_open_ro(boolean uses_lib)
 				dynabuf_clear(pathbuf);
 				dynabuf_add_string(pathbuf, ipi->path);
 				stream = combine_and_open_ro();
-				//printf("trying <<%s>> - ", pathbuf->buffer);
 				if (stream) {
-					//printf("ok\n");
 					break;
-				} else {
-					//printf("failed\n");
 				}
 			}
 		}
@@ -908,9 +918,11 @@ FILE *includepaths_open_ro(boolean uses_lib)
 	} else {
 		// CAUTION, I'm re-using the path dynabuf to assemble the error message:
 		dynabuf_clear(pathbuf);
-		dynabuf_add_string(pathbuf, "Cannot open input file \"");
+		dynabuf_add_string(pathbuf, "Cannot open input file ");
+		dynabuf_append(pathbuf, flags->uses_lib ? '<' : '\"');
 		dynabuf_add_string(pathbuf, GLOBALDYNABUF_CURRENT);
-		dynabuf_add_string(pathbuf, "\".");
+		dynabuf_append(pathbuf, flags->uses_lib ? '>' : '\"');
+		dynabuf_append(pathbuf, '.');
 		dynabuf_append(pathbuf, '\0');
 		Throw_error(pathbuf->buffer);
 	}

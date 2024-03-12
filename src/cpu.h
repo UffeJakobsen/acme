@@ -18,6 +18,7 @@ struct cpu_type {
 	boolean		(*keyword_is_mnemonic)(int);
 	bits		flags;	// see below for bit meanings
 	unsigned char	default_align_value;
+	// TODO - add "reserved_keywords_maxlen"
 };
 #define	CPUFLAG_INDIRECTJMPBUGGY	(1u << 0)	// warn if "jmp ($xxff)" is assembled
 #define CPUFLAG_SUPPORTSLONGREGS	(1u << 1)	// allow "!al" and "!rl" pseudo opcodes

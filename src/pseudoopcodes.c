@@ -362,18 +362,18 @@ static enum eos po_cbm(void)
 // (allows for block, so must be reentrant)
 static enum eos use_encoding_from_file(void)
 {
-	boolean			uses_lib;
+	struct filespecflags	flags;
 	FILE			*stream;
 	unsigned char		local_table[256],
 				*buffered_table;
 	const struct encoder	*buffered_encoder;
 
 	// read file name and convert from UNIX style to platform style
-	if (input_read_input_filename(&uses_lib))
+	if (input_read_input_filename(&flags))
 		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// read from file
-	stream = includepaths_open_ro(uses_lib);
+	stream = includepaths_open_ro(&flags);
 	if (stream) {
 		// try to load encoding table from given file
 		if (fread(local_table, sizeof(char), 256, stream) != 256)
@@ -538,7 +538,7 @@ static enum eos po_scrxor(void)
 // FIXME - split this into "parser" and "worker" fn and move worker fn somewhere else.
 static enum eos po_binary(void)
 {
-	boolean		uses_lib;
+	struct filespecflags	flags;
 	FILE		*stream;
 	int		byte;
 	struct number	size,
@@ -548,11 +548,11 @@ static enum eos po_binary(void)
 	skip.val.intval	= 0;
 
 	// read file name and convert from UNIX style to platform style
-	if (input_read_input_filename(&uses_lib))
+	if (input_read_input_filename(&flags))
 		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// try to open file
-	stream = includepaths_open_ro(uses_lib);
+	stream = includepaths_open_ro(&flags);
 	if (stream == NULL)
 		return SKIP_REMAINDER;
 
@@ -924,7 +924,7 @@ static enum eos po_subzone(void)
 // include source file ("!source" or "!src"). has to be re-entrant.
 static enum eos po_source(void)	// now GotByte = illegal char
 {
-	boolean		uses_lib;
+	struct filespecflags	flags;
 	FILE		*stream;
 	const char	*eternal_plat_filename;
 	char		local_gotbyte;
@@ -935,11 +935,11 @@ static enum eos po_source(void)	// now GotByte = illegal char
 		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 
 	// read file name and convert from UNIX style to platform style
-	if (input_read_input_filename(&uses_lib))
+	if (input_read_input_filename(&flags))
 		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
 	// if file could be opened, parse it. otherwise, complain
-	stream = includepaths_open_ro(uses_lib);
+	stream = includepaths_open_ro(&flags);
 	if (stream) {
 		eternal_plat_filename = dynabuf_get_copy(GlobalDynaBuf);
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
