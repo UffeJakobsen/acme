@@ -1,5 +1,5 @@
 ASSEMBLER6502	= acme
-AS_FLAGS	= -v8 -Wtype-mismatch
+AS_FLAGS	= -v8 -Wtype-mismatch --strict
 RM		= rm
 
 PROGS		= c64doubledabble.prg c64misc.prg ddrv128.prg ddrv64.prg macedit.prg reu-detect.prg trigono.o
