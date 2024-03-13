@@ -344,6 +344,7 @@ static void perform_pass(void)
 	// init variables
 	pass.undefined_count = 0;
 	//pass.needvalue_count = 0;	FIXME - use
+	pass.changed_count = 0;
 	pass.error_count = 0;
 	pass.warning_count = 0;
 	// Process toplevel files
@@ -362,7 +363,7 @@ static void perform_pass(void)
 	// in the future to two general expressions, this is the point where
 	// they would need to be evaluated.
 	if (config.process_verbosity >= 8)
-		printf("Found %d undefined expressions.\n", pass.undefined_count);
+		printf("Undefined expressions: %d. Symbol updates: %d.\n", pass.undefined_count, pass.changed_count);
 	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
 }
@@ -387,7 +388,7 @@ static void do_actual_work(void)
 	undefs_before = pass.undefined_count + 1;
 	// keep doing passes as long as the number of undefined results keeps decreasing.
 	// stop on zero (FIXME - zero-check pass.needvalue_count instead!)
-	while (pass.undefined_count && (pass.undefined_count < undefs_before)) {
+	while ((pass.undefined_count && (pass.undefined_count < undefs_before)) || pass.changed_count) {
 		undefs_before = pass.undefined_count;
 		perform_pass();
 		if (--sanity.passes_left < 0) {
