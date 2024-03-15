@@ -5,6 +5,9 @@
 // Platform specific stuff
 
 
+#include "config.h"	// for "boolean"
+
+
 // Amiga
 #ifdef _AMIGA
 #define PLATFORM_VERSION	"Ported to AmigaOS by Christoph Mammitzsch."
@@ -31,6 +34,9 @@
 #include "_std.h"
 #endif
 
+
+// convert UNIX-style path name to local platform style path name
+extern void platform_convert_path(boolean *is_absolute, char *p);
 
 // stuff shared by some, but not all platforms:
 #if PLATFORM_NEEDS_ENV_VAR

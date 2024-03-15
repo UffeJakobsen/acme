@@ -7,4 +7,12 @@
 #define platform_C
 
 
+// convert UNIX-style path name to local platform-style path name:
+void platform_convert_path(boolean *is_absolute, char *p)
+{
+	*is_absolute = (*p == '/');
+	// ...no need to really "convert" anything...
+}
+
+
 #endif

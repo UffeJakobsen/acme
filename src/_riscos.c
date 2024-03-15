@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 #include <kernel.h>
-#include "input.h"
+#include "input.h"	// for input_now->location.plat_filename
 
 
 // constants
@@ -44,21 +44,61 @@ void RISCOS_entry(void)
 }
 
 
-// convert UNIX-style pathname to RISC OS-style pathname
-void RISCOS_convert_path(char *p)
+// convert UNIX-style path name to RISC OS-style path name:
+// "path/to/file.ext" -> "path.to.file/ext"
+// "../../twolevelsup" -> "^.^.twolevelsup"
+void platform_convert_path(boolean *is_absolute, char *readptr)
 {
-	while (*p) {
-		if (*p == '.') {
-			*p = '/';
-		} else if (*p == '/') {
-			*p = '.';
-		} else if (*p == '?') {
-			*p = '#';
-		} else if (*p == '#') {
-			*p = '?';
-		}
-		++p;
+	char	*writeptr,
+		previous;
+
+	// init
+	*is_absolute = FALSE;	// there are two ways for this to become true
+	writeptr = readptr;	// good thing the string can only shrink, but not grow
+	previous = '/';	// make sure ".." substitution also works for the first component
+	// check for leading '/'
+/* FIXME - this cannot work because "$." is longer than "/"
+(there is a bogus workaround further down)
+	if (*readptr == '/') {
+		*is_absolute = TRUE;
+		++readptr;
+		*(writeptr++) = '$';
+		*(writeptr++) = '.';
 	}
+*/
+	// now scan remaining characters and convert all "../" components to "^."
+	while (*readptr) {
+		if ((previous == '/')
+		&& (*readptr == '.')
+		&& (readptr[1] == '.')
+		&& (readptr[2] == '/')) {
+			readptr += 2;
+			*(writeptr++) = '^';
+		}
+		previous = *readptr;	// remember for next ".." check
+		if (*readptr == ':') {
+			// prefixes like "myproject:" mean the path is absolute
+			*is_absolute = TRUE;
+		} else if (*readptr == '$') {
+			// bogus workaround: user needs to use "$/whatever" for root dir
+			*is_absolute = TRUE;
+		}
+		// convert characters
+		if (*readptr == '.') {
+			*writeptr = '/';
+		} else if (*readptr == '/') {
+			*writeptr = '.';
+		} else if (*readptr == '?') {
+			*writeptr = '#';
+		} else if (*readptr == '#') {
+			*writeptr = '?';
+		} else {
+			*writeptr = *readptr;	// copy character
+		}
+		++readptr;
+		++writeptr;
+	}
+	*writeptr = *readptr;	// copy terminator
 }
 
 

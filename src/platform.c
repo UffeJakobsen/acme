@@ -4,15 +4,11 @@
 //
 // Platform specific stuff
 #include "platform.h"
-#include "config.h"
 
 
 // Amiga
 #ifdef _AMIGA
-#ifndef platform_C
-#define platform_C
-// Nothing here - Amigas don't need no stinkin' platform-specific stuff!
-#endif
+#include "_amiga.c"
 #endif
 
 // DOS, OS/2 and Windows

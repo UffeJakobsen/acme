@@ -7,9 +7,16 @@
 #define platform_C
 
 
-// convert UNIX-style pathname to DOS-style pathname
-void DOS_convert_path(char *p)
+// convert UNIX-style path name to DOS-style path name:
+// "path/file" -> "path\file"
+void platform_convert_path(boolean *is_absolute, char *p)
 {
+	// leading '/' means absolute path
+	*is_absolute = (*p == '/');
+	// stuff like "C:" also means absolute
+	if ((*p) && (p[1] == ':'))
+		*is_absolute = TRUE;
+	// exchange forward and backward slashes
 	while (*p) {
 		if (*p == '/') {
 			*p = '\\';

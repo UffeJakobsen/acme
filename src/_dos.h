@@ -7,16 +7,10 @@
 #define platform_H
 
 
-#include "config.h"
-
-
 // symbolic constants and macros
 
 // called once on program startup (could register exit handler, if needed)
 #define PLATFORM_INIT		platform_read_env_var()
-
-// convert UNIX-style pathname to DOS-style pathname
-#define PLATFORM_CONVERTPATH(p)	DOS_convert_path(p)
 
 // directory separators for search paths
 #define DIRECTORY_SEPARATOR	'\\'
@@ -51,10 +45,6 @@ do {				\
 // processing of platform-specific command line switches
 #define PLATFORM_SHORTOPTION_CODE
 #define PLATFORM_LONGOPTION_CODE
-
-
-// Convert UNIX-style pathname to DOS-style pathname
-extern void DOS_convert_path(char *p);
 
 
 #endif

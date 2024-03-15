@@ -7,16 +7,13 @@
 #define platform_H
 
 
-#include "config.h"
+#include "config.h"	// for "bits"
 
 
 // symbolic constants and macros
 
 // called once on program startup (could register exit handler, if needed)
 #define PLATFORM_INIT			RISCOS_entry()
-
-// convert UNIX-style pathname to RISC OS-style pathname
-#define PLATFORM_CONVERTPATH(path)	RISCOS_convert_path(path)
 
 // directory separators for search paths
 #define DIRECTORY_SEPARATOR	'.'
@@ -67,9 +64,6 @@ extern bits	RISCOS_flags;	// Holds platform-specific flags
 
 // used as PLATFORM_INIT: registers exit handler
 extern void RISCOS_entry(void);
-
-// convert UNIX-style pathname to RISC OS-style pathname
-extern void RISCOS_convert_path(char *path);
 
 // setting the created files' types
 extern void RISCOS_set_filetype(const char *filename, int type);

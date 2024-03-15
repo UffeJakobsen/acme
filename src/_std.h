@@ -12,9 +12,6 @@
 // called once on program startup (could register exit handler, if needed)
 #define PLATFORM_INIT		platform_read_env_var()
 
-// convert UNIX-style pathname to platform-style pathname (no change)
-//#define PLATFORM_CONVERTPATH(p)
-
 // directory separator for search paths
 #define DIRECTORY_SEPARATOR	'/'
 #define ALTERNATIVE_DIR_SEP	'/'	// dummy

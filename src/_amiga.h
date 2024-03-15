@@ -12,9 +12,6 @@
 // called once on program startup (could register exit handler, if needed)
 #define PLATFORM_INIT
 
-// convert UNIX-style pathname to Amiga-style pathname (no change)
-//#define PLATFORM_CONVERTPATH(p)
-
 // directory separators for search paths
 #define DIRECTORY_SEPARATOR	'/'
 #define ALTERNATIVE_DIR_SEP	':'

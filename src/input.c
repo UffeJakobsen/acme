@@ -651,19 +651,17 @@ static int read_filename_shared_end(boolean *absolute)
 		return 1;	// error
 	}
 
-	// check if absolute and remember
-	*absolute = GlobalDynaBuf->buffer[0] == '/';
-
 	// resolve backslash escapes
 	if (input_unescape_dynabuf())
 		return 1;	// escaping error
 
 	// terminate string
 	dynabuf_append(GlobalDynaBuf, '\0');
-#ifdef PLATFORM_CONVERTPATH
+
 	// platform-specific path name conversion
-	PLATFORM_CONVERTPATH(GLOBALDYNABUF_CURRENT);
-#endif
+	// (and tell absolute/relative paths apart)
+	platform_convert_path(absolute, GLOBALDYNABUF_CURRENT);
+
 	return 0;	// ok
 }
 
