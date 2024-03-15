@@ -99,8 +99,7 @@ static void border_crossed(int current_offset)
 	// further:
 	if (current_offset >= config.outbuf_size)
 		Throw_serious_error("Reached memory limit.");
-	// TODO - get rid of FIRST_PASS condition, because user can suppress these warnings if they want
-	if (FIRST_PASS) {
+	if (pass.flags.do_segment_checks) {
 		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.");
 		find_segment_max(current_offset + 1);	// find new (next) limit
 	}
@@ -359,8 +358,8 @@ static void end_segment(void)
 {
 	intval_t	amount;
 
-	// in later passes, ignore completely (FIXME - change!)
-	if (!FIRST_PASS)
+	// only do in first or last pass
+	if (!pass.flags.do_segment_checks)
 		return;
 
 	// if there is no segment, there is nothing to do
@@ -408,9 +407,8 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	out->segment.flags = segment_flags;
 	// allow writing to output buffer
 	output_byte = real_output;
-	// in first pass, check for other segments and maybe issue warning
-	// TODO - remove FIRST_PASS condition
-	if (FIRST_PASS) {
+	// in first/last pass, check for other segments and maybe issue warning
+	if (pass.flags.do_segment_checks) {
 		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
 			check_segment(out->segment.start);
 		find_segment_max(out->segment.start);

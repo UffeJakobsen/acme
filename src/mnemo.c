@@ -584,7 +584,8 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 	ALU_addrmode_int(&expression, 0);	// accept 0 parentheses still open (-> complain!)
 	if (expression.is_parenthesized && complain_about_indirect) {
 		// TODO - raise error and be done with it?
-		Throw_first_pass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase? add to docs!
+		if (pass.number == 1)
+			Throw_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase? add to docs!
 	}
 	*result = expression.result.u.number;
 }
@@ -781,8 +782,10 @@ static void group_only_implied_addressing(int opcode)
 	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
-	if ((opcode == 0xf8) && (cpu_current_type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY))
-		Throw_first_pass_warning("Found SED instruction for CPU with known decimal SBC bug.");
+	if ((opcode == 0xf8) && (cpu_current_type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY)) {
+		if (pass.number == 1)
+			Throw_warning("Found SED instruction for CPU with known decimal SBC bug.");
+	}
 	output_byte(opcode);
 	input_ensure_EOS();
 }

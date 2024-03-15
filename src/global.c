@@ -216,11 +216,13 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 	struct symbol	*symbol;
 	struct object	result;
 
-	if ((statement_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels)
-		Throw_first_pass_warning("Label name not in leftmost column.");
+	if ((statement_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels) {
+		if (pass.number == 1)
+			Throw_warning("Label name not in leftmost column.");
+	}
 	symbol = symbol_find(scope);
 	result.type = &type_number;
-	vcpu_read_pc(&result.u.number);	// FIXME - if undefined, check pass.complain_about_undefined and maybe throw "value not defined"!
+	vcpu_read_pc(&result.u.number);	// FIXME - if undefined, check pass.flags.complain_about_undefined and maybe throw "value not defined"!
 	symbol_set_object(symbol, &result, powers);
 	if (force_bit)
 		symbol_set_force_bit(symbol, force_bit);
@@ -289,8 +291,10 @@ static void parse_mnemo_or_global_symbol_def(void)
 	// 04 Jun 2005: this fix should help to explain "strange" error messages.
 	// 17 May 2014: now it works for UTF-8 as well.
 	if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
-	|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0)))
-		Throw_first_pass_warning("Symbol name starts with a shift-space character.");
+	|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0))) {
+		if (pass.number == 1)
+			Throw_warning("Symbol name starts with a shift-space character.");
+	}
 	parse_symbol_definition(SCOPE_GLOBAL);
 }
 
@@ -503,13 +507,6 @@ void throw_message(enum debuglevel level, const char msg[])
 		throw_msg(msg, "\033[36m", "Debug");	// cyan
 		break;
 	}
-}
-
-// output a warning if in first pass. See above.
-void Throw_first_pass_warning(const char *message)
-{
-	if (FIRST_PASS)
-		Throw_warning(message);
 }
 
 

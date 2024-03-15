@@ -132,7 +132,7 @@ static enum eos po_initmem(void)
 	struct number	intresult;
 
 	// ignore in all passes but in first
-	if (!FIRST_PASS)
+	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
 	// get value
@@ -172,7 +172,7 @@ static enum eos po_to(void)
 	enum outfile_format	format;
 
 	// only process this pseudo opcode in first pass
-	if (!FIRST_PASS)
+	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
 	// the "--outfile" cli arg and earlier calls have priority
@@ -353,7 +353,8 @@ static enum eos po_cbm(void)
 		Throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
 	} else {
 		encoder_current = &encoder_pet;
-		Throw_first_pass_warning("\"!cbm\" is deprecated; use \"!ct pet\" instead.");
+		if (pass.number == 1)
+			Throw_warning("\"!cbm\" is deprecated; use \"!ct pet\" instead.");
 	}
 	return ENSURE_EOS;
 }
@@ -602,7 +603,8 @@ static enum eos po_binary(void)
 	}
 	fclose(stream);
 	// if verbose, produce some output
-	if (FIRST_PASS && (config.process_verbosity >= 2)) {
+	// FIXME - do in _last_ pass instead of first!
+	if ((pass.number == 1) && (config.process_verbosity >= 2)) {
 		int	amount	= output_get_statement_size();
 
 		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
@@ -685,7 +687,8 @@ static void old_offset_assembly(void)
 		Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
 	} else if (config.dialect >= V0_86__DEPRECATE_REALPC) {
 		// earlier it was deprecated
-		Throw_first_pass_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
+		if (pass.number == 1)
+			Throw_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
 	} else {
 		// really old versions allowed it
 	}
@@ -851,7 +854,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 static enum eos po_symbollist(void)
 {
 	// only process this pseudo opcode in first pass
-	if (!FIRST_PASS)
+	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
 	// cli arg and earlier calls supersede this call
@@ -913,10 +916,12 @@ static enum eos po_zone(void)
 // "!subzone" or "!sz" pseudo opcode (now obsolete)
 static enum eos po_subzone(void)
 {
-	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE)
+	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
 		Throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
-	else
-		Throw_first_pass_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
+	} else {
+		if (pass.number == 1)
+			Throw_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
+	}
 	// call "!zone" instead
 	return po_zone();
 }
@@ -1101,14 +1106,17 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		if (input_accept_comma()) {
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
-			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX)
-				Throw_first_pass_warning("Found new \"!for\" syntax.");
+			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX) {
+				if (pass.number == 1)
+					Throw_warning("Found new \"!for\" syntax.");
+			}
 			loop.u.counter.first = intresult.val.intval;	// use first argument
 			ALU_defined_int(&intresult);	// read second argument
 			// compare addr_ref counts and complain if not equal!
 			if (config.warn_on_type_mismatch
 			&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
-				Throw_first_pass_warning("Wrong type for loop's END value - must match type of START value.");
+				if (pass.number == 1)
+					Throw_warning("Wrong type for loop's END value - must match type of START value.");
 			}
 			// setup direction and total
 			if (loop.u.counter.first <= intresult.val.intval) {
@@ -1123,10 +1131,13 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		} else {
 			// old counter syntax
 			loop.algorithm = FORALGO_OLDCOUNT;
-			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX)
-				Throw_first_pass_warning("Found old \"!for\" syntax.");
-			if (intresult.val.intval < 0)
+			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX) {
+				if (pass.number == 1)
+					Throw_warning("Found old \"!for\" syntax.");
+			}
+			if (intresult.val.intval < 0) {
 				Throw_serious_error("Loop count is negative.");
+			}
 			// count up
 			loop.u.counter.first = 1;
 			loop.iterations_left = intresult.val.intval;	// use given argument
@@ -1243,7 +1254,7 @@ static enum eos po_while(void)	// now GotByte = illegal char
 static enum eos po_macro(void)	// now GotByte = illegal char
 {
 	// in first pass, parse. In all other passes, skip.
-	if (FIRST_PASS) {
+	if (pass.number == 1) {
 		macro_parse_definition();	// now GotByte = '}'
 	} else {
 		// skip until CHAR_SOB ('{') is found.
@@ -1441,7 +1452,8 @@ static enum eos po_outfilestart(void)
 
 	if ((config.outfile_start != NO_VALUE_GIVEN)
 	|| (last_pass_number == pass.number)) {
-		Throw_first_pass_warning("Start of output file already chosen.");
+		if (pass.number == 1)
+			Throw_warning("Start of output file already chosen.");
 	} else {
 		last_pass_number = pass.number;
 		outbuf_set_outfile_start();
@@ -1455,7 +1467,8 @@ static enum eos po_outfilelimit(void)
 
 	if ((config.outfile_limit != NO_VALUE_GIVEN)
 	|| (last_pass_number == pass.number)) {
-		Throw_first_pass_warning("End of output file already chosen.");
+		if (pass.number == 1)
+			Throw_warning("End of output file already chosen.");
 	} else {
 		last_pass_number = pass.number;
 		outbuf_set_outfile_limit();

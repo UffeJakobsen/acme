@@ -309,7 +309,7 @@ static intval_t my_asr(intval_t left, intval_t right)
 // might be stored there!
 static void is_not_defined(struct symbol *optional_symbol, char *name, size_t length)
 {
-	if (!pass.complain_about_undefined)
+	if (!pass.flags.complain_about_undefined)
 		return;
 
 	// only complain once per symbol
@@ -481,10 +481,13 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		}
 		break;	// found illegal character
 	}
-	if (!digits)
+	if (!digits) {
 		Throw_error("Binary literal without any digits.");
-	if (digits & config.warn_bin_mask)
-		Throw_first_pass_warning("Binary literal with strange number of digits.");
+	}
+	if (digits & config.warn_bin_mask) {
+		if (pass.number == 1)
+			Throw_warning("Binary literal with strange number of digits.");
+	}
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 8) {
@@ -1139,10 +1142,10 @@ static void expect_dyadic_operator(struct expression *expression)
 		op = &ops_equals;
 		// atm, accept both "=" and "==". in future, prefer "=="!
 		if (GetByte() == '=') {
-			//Throw_first_pass_warning("C-style \"==\" comparison detected.");	REMOVE!
 			GetByte();	// eat second '=' character
 		} else {
-			//Throw_first_pass_warning("old-style \"=\" comparison detected, please use \"==\" instead.");	ACTIVATE!
+			//if (pass.number == 1)
+			//	Throw_warning("old-style \"=\" comparison detected, please use \"==\" instead.");	ACTIVATE!
 		}
 		goto push_dyadic_op;
 
@@ -1806,7 +1809,8 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 		goto shared;
 
 	case OPID_EOR:
-		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		if (pass.number == 1)
+			Throw_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 	case OPID_AND:
@@ -1867,7 +1871,8 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		case OPID_EOR:
 		case OPID_XOR:
 			// convert other to int, warning user
-			Throw_first_pass_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
+			if (pass.number == 1)
+				Throw_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
 			/*FALLTHROUGH*/
 		case OPID_MODULO:
 		case OPID_SHIFTLEFT:
@@ -1973,7 +1978,8 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
 	case OPID_EOR:
-		Throw_first_pass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		if (pass.number == 1)
+			Throw_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 		self->u.number.val.intval ^= other->u.number.val.intval;
@@ -2074,7 +2080,8 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 	case OPID_OR:
 	case OPID_EOR:
 	case OPID_XOR:
-		Throw_first_pass_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
+		if (pass.number == 1)
+			Throw_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
 		/*FALLTHROUGH*/
 	case OPID_MODULO:
 		float_to_int(self);
@@ -2596,11 +2603,11 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 void ALU_defined_int(struct number *intresult)	// no ACCEPT constants?
 {
 	struct expression	expression;
-	boolean			buf	= pass.complain_about_undefined;
+	boolean			buf	= pass.flags.complain_about_undefined;
 
-	pass.complain_about_undefined = TRUE;
+	pass.flags.complain_about_undefined = TRUE;
 	parse_expression(&expression);	// FIXME - check return value and pass to caller!
-	pass.complain_about_undefined = buf;
+	pass.flags.complain_about_undefined = buf;
 /*
 FIXME - that "buffer COMPLAIN status" thing no longer works: now that we have
 lists, stuff like

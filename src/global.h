@@ -115,11 +115,13 @@ struct pass {
 	int	changed_count;	// count symbol changes (if nonzero, another pass is needed)
 	int	error_count;
 	int	warning_count;
-	boolean	complain_about_undefined;	// will be FALSE until error pass is needed
+	struct {
+		char	complain_about_undefined;	// will be FALSE until error pass is needed
+		char	do_segment_checks;	// atm only used in pass 1, should be used in _last_ pass!
+	} flags;
 };
 extern struct pass	pass;
-#define PASS_NUMBER_EARLY	0	// for symbol definitions on command line
-#define FIRST_PASS	(pass.number == 1)
+#define PASS_NUMBER_EARLY	0	// for symbol definitions on command line (real passes start with number 1)
 
 struct sanity {
 	int	macro_recursions_left;	// for macro calls
@@ -198,9 +200,6 @@ void throw_message(enum debuglevel level, const char msg[]);
 
 // output a warning (something looks wrong, like "label name starts with shift-space character")
 #define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg)
-
-// output a warning if in first pass. See above.
-extern void Throw_first_pass_warning(const char *msg);
 
 // output an error (something is wrong, no output file will be generated).
 // the assembler will try to go on with the assembly, so the user gets to know

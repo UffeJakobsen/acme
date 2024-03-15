@@ -273,9 +273,11 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 					GetByte();	// eat '~'
 					input_read_scope_and_symbol_name(&symbol_scope);
 					// create new tree node and link existing symbol struct from arg list to it
-					if ((tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE)
-					&& (FIRST_PASS))
-						Throw_error("Macro parameter twice.");
+					if (tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE) {
+						// we expect it to exist in later passes, but in pass 1 it's an error:
+						if (pass.number == 1)
+							Throw_error("Macro parameter twice.");
+					}
 					symbol_node->body = arg_table[arg_count].symbol;	// CAUTION, object type may be NULL
 				} else {
 					// assign call-by-value arg

@@ -382,8 +382,10 @@ static void do_actual_work(void)
 	sanity.source_recursions_left = config.sanity_limit;
 	sanity.passes_left = config.sanity_limit;
 
-	pass.complain_about_undefined = FALSE;	// disable until error pass needed
+	pass.flags.complain_about_undefined = FALSE;	// disable until error pass needed
+	pass.flags.do_segment_checks = TRUE;	// FIXME - do in _last_ pass instead!
 	perform_pass();	// first pass
+	pass.flags.do_segment_checks = FALSE;	// FIXME - do in _last_ pass instead!
 	// pretend there has been a previous pass, with one more undefined result
 	undefs_before = pass.undefined_count + 1;
 	// keep doing passes as long as the number of undefined results keeps decreasing.
@@ -417,7 +419,7 @@ static void do_actual_work(void)
 		// so perform additional pass to find and show them.
 		if (config.process_verbosity >= 2)
 			puts("Extra pass to display errors.");
-		pass.complain_about_undefined = TRUE;	// activate error output
+		pass.flags.complain_about_undefined = TRUE;	// activate error output
 		perform_pass();	// perform pass, but now show "value undefined"
 		// FIXME - perform_pass() calls exit() when there were errors,
 		// so if controls returns here, call BUG()!
