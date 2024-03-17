@@ -328,13 +328,12 @@ static void save_output_file(void)
 }
 
 
-// increment pass number and perform a single pass
+// perform a single pass
 static void perform_pass(void)
 {
 	FILE	*fd;
 	int	ii;
 
-	++pass.number;
 	if (config.process_verbosity >= 2)
 		printf("Pass %d:\n", pass.number);
 	cputype_passinit();	// set default cpu type
@@ -366,6 +365,12 @@ static void perform_pass(void)
 		printf("Undefined expressions: %d. Symbol updates: %d.\n", pass.undefined_count, pass.changed_count);
 	if (pass.error_count)
 		exit(ACME_finalize(EXIT_FAILURE));
+	// now increment pass number
+	// this must be done _after_ the pass because assignments done via
+	// "-DSYMBOL=VALUE" cli args must be handled as if they were done at the
+	// start of pass 1, so we cannot change that variable at the start of
+	// the pass.
+	++pass.number;
 }
 
 
@@ -746,8 +751,9 @@ int main(int argc, const char *argv[])
 	if (argc == 1)
 		show_help_and_exit();
 	cliargs_init(argc, argv);
-	// init var that may be needed for -DSYMBOL=VALUE
-	pass.number = PASS_NUMBER_EARLY;
+	// init pass number because any assignments done via "-DSYMBOL=VALUE"
+	// cli args must be handled as if they happened at the start of pass 1:
+	pass.number = 1;
 	// init platform-specific stuff.
 	// this may read the library path from an environment variable.
 	PLATFORM_INIT;

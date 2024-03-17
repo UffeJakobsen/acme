@@ -109,7 +109,7 @@ struct config {
 extern struct config	config;
 
 struct pass {
-	int	number;	// counts up from zero
+	int	number;	// counts up from one
 	int	undefined_count;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
 	//int	needvalue_count;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
 	int	changed_count;	// count symbol changes (if nonzero, another pass is needed)
@@ -121,7 +121,6 @@ struct pass {
 	} flags;
 };
 extern struct pass	pass;
-#define PASS_NUMBER_EARLY	0	// for symbol definitions on command line (real passes start with number 1)
 
 struct sanity {
 	int	macro_recursions_left;	// for macro calls
