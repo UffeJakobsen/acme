@@ -657,6 +657,12 @@ static int read_filename_shared_end(boolean *absolute)
 
 	// terminate string
 	dynabuf_append(GlobalDynaBuf, '\0');
+	// add another zero byte to make sure the buffer is large enough so the
+	// string could grow another byte:
+	dynabuf_append(GlobalDynaBuf, '\0');
+	// (this is an extremely ugly kluge for an extremely unlikely situation,
+	// but still less ugly than all other workarounds I could think of. see
+	// _riscos.c for the extremely unlikely situation where this is needed)
 
 	// platform-specific path name conversion
 	// (and tell absolute/relative paths apart)
@@ -914,6 +920,9 @@ FILE *includepaths_open_ro(struct filespecflags *flags)
 		stream = combine_and_open_ro();
 		if (stream == NULL) {
 			// default prefix failed, so try list entries:
+			// (does not seem to make much sense for absolute paths,
+			// but maybe some windows user used search paths like
+			// "D:" or "E:" - oh well...)
 			for (ipi = ipi_head.next; ipi != &ipi_head; ipi = ipi->next) {
 				dynabuf_clear(pathbuf);
 				dynabuf_add_string(pathbuf, ipi->path);

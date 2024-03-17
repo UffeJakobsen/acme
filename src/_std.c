@@ -7,7 +7,11 @@
 #define platform_C
 
 
-// convert UNIX-style path name to local platform-style path name:
+// convert UNIX-style path name to local platform style path name and decide
+// whether path is absolute or relative. p points to the terminated input
+// string, to be overwritten with the terminated output string.
+// conversions done:
+// (none, really)
 void platform_convert_path(boolean *is_absolute, char *p)
 {
 	*is_absolute = (*p == '/');

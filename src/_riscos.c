@@ -8,6 +8,7 @@
 
 
 #include <stdlib.h>
+#include <string.h>	// for strlen and memmove
 #include <kernel.h>
 #include "input.h"	// for input_now->location.plat_filename
 
@@ -44,28 +45,35 @@ void RISCOS_entry(void)
 }
 
 
-// convert UNIX-style path name to RISC OS-style path name:
+// convert UNIX-style path name to local platform style path name and decide
+// whether path is absolute or relative. p points to the terminated input
+// string, to be overwritten with the terminated output string.
+// there is enough space allocated for the output string to be _one_(1!) byte
+// longer than the input string!
+// conversions done for RISC OS:
 // "path/to/file.ext" -> "path.to.file/ext"
+// "/absolute/path" -> "$.absolute.path"	(this needs the one extra byte!)
 // "../../twolevelsup" -> "^.^.twolevelsup"
 void platform_convert_path(boolean *is_absolute, char *readptr)
 {
 	char	*writeptr,
 		previous;
+	size_t	bytes;
 
 	// init
-	*is_absolute = FALSE;	// there are two ways for this to become true
-	writeptr = readptr;	// good thing the string can only shrink, but not grow
-	previous = '/';	// make sure ".." substitution also works for the first component
-	// check for leading '/'
-/* FIXME - this cannot work because "$." is longer than "/"
-(there is a bogus workaround further down)
+	*is_absolute = FALSE;	// there are several ways for this to become true
+	// check for leading '/' and add '$' prefix:
 	if (*readptr == '/') {
+		// this is the extremely unlikely situation where an extra byte
+		// is needed, so let's get it done:
 		*is_absolute = TRUE;
-		++readptr;
-		*(writeptr++) = '$';
-		*(writeptr++) = '.';
+		bytes = strlen(readptr) + 1;	// count terminator as well
+		memmove(readptr + 1, readptr, bytes);	// "/path\0\0" -> "//path\0"
+		*(readptr++) = '$';	// "//path\0" -> "$/path\0"
 	}
-*/
+
+	writeptr = readptr;
+	previous = '/';	// make sure ".." substitution also works for the first component
 	// now scan remaining characters and convert all "../" components to "^."
 	while (*readptr) {
 		if ((previous == '/')
@@ -76,12 +84,11 @@ void platform_convert_path(boolean *is_absolute, char *readptr)
 			*(writeptr++) = '^';
 		}
 		previous = *readptr;	// remember for next ".." check
-		if (*readptr == ':') {
-			// prefixes like "myproject:" mean the path is absolute
-			*is_absolute = TRUE;
-		} else if (*readptr == '$') {
-			// bogus workaround: user needs to use "$/whatever" for root dir
-			*is_absolute = TRUE;
+		if ((*readptr == ':')	// path prefixes like "myproject:"...
+		|| (*readptr == '$')	// ... or root directory indicator '$'...
+		|| (*readptr == '&')	// ... or "user root directory" indicator '&'...
+		|| (*readptr == '%')) {	// ... or "user library directory" indicator '%'...
+			*is_absolute = TRUE;	// ...mean path is absolute
 		}
 		// convert characters
 		if (*readptr == '.') {

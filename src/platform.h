@@ -35,7 +35,11 @@
 #endif
 
 
-// convert UNIX-style path name to local platform style path name
+// convert UNIX-style path name to local platform style path name and decide
+// whether path is absolute or relative. p points to the terminated input
+// string, to be overwritten with the terminated output string.
+// there is enough space allocated for the output string to be _one_(1!) byte
+// longer than the input string!
 extern void platform_convert_path(boolean *is_absolute, char *p);
 
 // stuff shared by some, but not all platforms:
