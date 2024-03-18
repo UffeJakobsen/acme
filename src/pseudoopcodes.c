@@ -1006,7 +1006,7 @@ static enum eos ifelse(enum ifmode mode)
 			}
 		} else {
 			if (GotByte == CHAR_SOB) {
-				input_skip_or_store_block(FALSE);	// skip block
+				input_block_skip();	// skip block
 			} else {
 				return SKIP_REMAINDER;	// skip line (only for ifdef/ifndef)
 			}
@@ -1182,8 +1182,8 @@ does not fail. */
 	// remember line number of loop pseudo opcode
 	loop.block.start = input_now->location.line_number;
 	// read loop body into DynaBuf and get copy
-	loop.block.body = input_skip_or_store_block(TRUE);	// changes line number!
-
+	// reading block changes line number!
+	loop.block.body = input_block_getcopy();	// must be freed!
 	flow_forloop(&loop);
 	// free memory
 	free(loop.block.body);
@@ -1208,7 +1208,7 @@ static enum eos po_do(void)	// now GotByte = illegal char
 	// then read block and get copy
 	loop.block.start = input_now->location.line_number;
 	// reading block changes line number!
-	loop.block.body = input_skip_or_store_block(TRUE);	// must be freed!
+	loop.block.body = input_block_getcopy();	// must be freed!
 	// now GotByte = '}'
 	NEXTANDSKIPSPACE();	// now GotByte = first non-blank char after block
 	// read tail condition to buffer
@@ -1237,7 +1237,7 @@ static enum eos po_while(void)	// now GotByte = illegal char
 	// then read block and get copy
 	loop.block.start = input_now->location.line_number;
 	// reading block changes line number!
-	loop.block.body = input_skip_or_store_block(TRUE);	// must be freed!
+	loop.block.body = input_block_getcopy();	// must be freed!
 	// clear tail condition
 	loop.tail_cond.body = NULL;
 	flow_do_while(&loop);
@@ -1263,7 +1263,7 @@ static enum eos po_macro(void)	// now GotByte = illegal char
 		// for the same reason, there is no need to check for quotes.
 		while (GotByte != CHAR_SOB)
 			GetByte();
-		input_skip_or_store_block(FALSE);	// now GotByte = '}'
+		input_block_skip();	// now GotByte = '}'
 	}
 	GetByte();	// Proceed with next character
 	return ENSURE_EOS;

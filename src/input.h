@@ -94,14 +94,15 @@ extern int input_quoted_to_dynabuf(char closing_quote);
 // returns 1 on errors (escaping errors)
 extern int input_unescape_dynabuf(void);
 
-// Skip or store block (starting with next byte, so call directly after
-// reading opening brace).
-// the block is read into GlobalDynaBuf.
-// If "Store" is TRUE, then a copy is made and a pointer to that is returned.
-// If "Store" is FALSE, NULL is returned.
+// Skip block (starting with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-extern char *input_skip_or_store_block(boolean store);
+extern void input_block_skip(void);
+// Read block into GlobalDynabuf, make a copy and return a pointer to that
+// (reading starts with next byte, so call directly after reading opening brace).
+// After calling this function, GotByte holds '}'. Unless EOF was found first,
+// but then a serious error would have been thrown.
+extern char *input_block_getcopy(void);
 
 // append optional '.'/'@' prefix to GlobalDynaBuf, then keep
 // appending while characters are legal for keywords.

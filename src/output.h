@@ -84,7 +84,7 @@ extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, un
 extern struct pseudopc *pseudopc_get_context(void);
 
 // returns nonzero if "!pseudopc" is in effect, zero otherwise
-int pseudopc_isactive(void);
+extern int pseudopc_isactive(void);
 
 
 #endif

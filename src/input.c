@@ -487,15 +487,11 @@ int input_unescape_dynabuf(void)
 	return 0;	// ok
 }
 
-// Skip or store block (starting with next byte, so call directly after
-// reading opening brace).
-// the block is read into GlobalDynaBuf.
-// If "Store" is TRUE, then a copy is made and a pointer to that is returned.
-// If "Store" is FALSE, NULL is returned.
+// Read block into GlobalDynabuf
+// (reading starts with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-// FIXME - use a struct block *ptr argument!
-char *input_skip_or_store_block(boolean store)
+static void block_to_dynabuf(void)
 {
 	char	byte;
 	int	depth	= 1;	// to find matching block end
@@ -524,11 +520,22 @@ char *input_skip_or_store_block(boolean store)
 			break;
 		}
 	} while (depth);
-	// in case of skip, return now
-	if (!store)
-		return NULL;
-
-	// otherwise, prepare to return copy of block
+}
+// Skip block (starting with next byte, so call directly after reading opening brace).
+// After calling this function, GotByte holds '}'. Unless EOF was found first,
+// but then a serious error would have been thrown.
+void input_block_skip(void)
+{
+	block_to_dynabuf();
+}
+// Read block into GlobalDynabuf, make a copy and return a pointer to that
+// (reading starts with next byte, so call directly after reading opening brace).
+// After calling this function, GotByte holds '}'. Unless EOF was found first,
+// but then a serious error would have been thrown.
+char *input_block_getcopy(void)
+{
+	block_to_dynabuf();
+	// prepare to return copy of block
 	// add EOF, just to make sure block is never read too far
 	dynabuf_append(GlobalDynaBuf, CHAR_EOS);
 	dynabuf_append(GlobalDynaBuf, CHAR_EOF);

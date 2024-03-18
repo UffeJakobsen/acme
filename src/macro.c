@@ -169,7 +169,7 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	new_macro->definition = input_now->location;
 	new_macro->original_name = dynabuf_get_copy(user_macro_name);
 	new_macro->parameter_list = formal_parameters;
-	new_macro->body = input_skip_or_store_block(TRUE);	// changes LineNumber
+	new_macro->body = input_block_getcopy();	// changes line number!
 	macro_node->body = new_macro;	// link macro struct to tree node
 	// and that about sums it up
 }
