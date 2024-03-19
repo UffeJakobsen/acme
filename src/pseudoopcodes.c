@@ -607,7 +607,7 @@ static enum eos po_binary(void)
 	if ((pass.number == 1) && (config.process_verbosity >= 2)) {
 		int	amount	= output_get_statement_size();
 
-		printf("Loaded %d (0x%04x) bytes from file offset %ld (0x%04lx).\n",
+		printf("Loaded %d (0x%04x) bytes from file offset %d (0x%04x).\n",
 			amount, amount, skip.val.intval, skip.val.intval);
 	}
 	return ENSURE_EOS;

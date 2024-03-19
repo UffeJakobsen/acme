@@ -251,7 +251,7 @@ static void save_output_file(void)
 		break;
 	case OUTFILE_FORMAT_CBM:
 		if (loadaddr > 0xffff) {
-			fprintf(stderr, "Error: Load address 0x%04lx too large for cbm file format.\n", loadaddr);
+			fprintf(stderr, "Error: Load address 0x%04x too large for cbm file format.\n", loadaddr);
 			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		header[0] = loadaddr & 255;
@@ -260,11 +260,11 @@ static void save_output_file(void)
 		break;
 	case OUTFILE_FORMAT_APPLE:
 		if (loadaddr > 0xffff) {
-			fprintf(stderr, "Error: Load address 0x%04lx too large for apple file format.\n", loadaddr);
+			fprintf(stderr, "Error: Load address 0x%04x too large for apple file format.\n", loadaddr);
 			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		if (amount > 0xffff) {
-			fprintf(stderr, "Error: File size 0x%04lx too large for apple file format.\n", loadaddr);
+			fprintf(stderr, "Error: File size 0x%04x too large for apple file format.\n", loadaddr);
 			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		header[0] = loadaddr & 255;
@@ -285,7 +285,7 @@ static void save_output_file(void)
 	}
 
 	if (config.process_verbosity >= 1) {
-		printf("Saving %ld (0x%04lx) bytes (0x%04lx - 0x%04lx exclusive).\n",
+		printf("Saving %d (0x%04x) bytes (0x%04x - 0x%04x exclusive).\n",
 			amount, amount, loadaddr, loadaddr + amount);
 	}
 
@@ -746,6 +746,13 @@ done:
 // guess what
 int main(int argc, const char *argv[])
 {
+	// make sure that if someone compiles this for ancient platforms
+	// they edit config.h accordingly:
+	// (on modern compilers this block will be optimized away anyway)
+	if ((sizeof(intval_t) < 4) || (sizeof(uintval_t) < 4)) {
+		fprintf(stderr, "Error: typedefs for intval_t and uintval_t must use types with at least 32 bits.\nPlease edit config.h and recompile.\n");
+		exit(EXIT_FAILURE);
+	}
 	config_default(&config);
 	// if called without any arguments, show usage info (not full help)
 	if (argc == 1)

@@ -91,20 +91,19 @@ struct config {
 	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum dialect	dialect;	// set by --dialect (and --test --test)
-	signed long	debuglevel;	// set by --debuglevel, used by "!debug"
-	signed long	outbuf_size;	// 64K, "--test" changes to 16M
+	int		debuglevel;	// set by --debuglevel, used by "!debug"
+	intval_t	outbuf_size;	// 64K, "--test" changes to 16M
 	const struct cpu_type	*initial_cpu_type;
 	const char	*symbollist_filename;
 	const char	*vicelabels_filename;
 	const char	*output_filename;	// TODO - put in "part" struct
 	enum outfile_format	outfile_format;
 	const char	*report_filename;	// TODO - put in "part" struct
-#define MEMINIT_USE_DEFAULT	256	// default value for next field if cli switch not used:
-	signed long	mem_init_value;	// set by --initmem
 #define NO_VALUE_GIVEN	(-1)	// default value for these fields if cli switch not used:
-	signed long	initial_pc;	// set by --setpc
-	signed long	outfile_start;	// set by --from-to
-	signed long	outfile_limit;	// end+1, set by --from-to
+	int		mem_init_value;	// set by --initmem
+	intval_t	initial_pc;	// set by --setpc
+	intval_t	outfile_start;	// set by --from-to
+	intval_t	outfile_limit;	// end+1, set by --from-to
 };
 extern struct config	config;
 

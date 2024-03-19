@@ -84,7 +84,7 @@ enum mnemogroup {
 // save some space
 #define SCB	static const unsigned char
 #define SCS	static const unsigned short
-#define SCL	static const unsigned long
+#define SCL	static const intval_t	// if we ever need 32 bits instead of 24, change to uintval_t!
 
 // Code tables for group GROUP_ACCU:
 // These tables are used for the main accumulator-related mnemonics. By reading

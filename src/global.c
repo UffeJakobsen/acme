@@ -131,7 +131,7 @@ void config_default(struct config *conf)
 	conf->output_filename		= NULL;
 	conf->outfile_format		= OUTFILE_FORMAT_UNSPECIFIED;
 	conf->report_filename		= NULL;
-	conf->mem_init_value		= MEMINIT_USE_DEFAULT;	// set by --initmem
+	conf->mem_init_value		= NO_VALUE_GIVEN;	// set by --initmem
 	conf->initial_pc		= NO_VALUE_GIVEN;	// set by --setpc
 	conf->outfile_start		= NO_VALUE_GIVEN;	// set by --from-to
 	conf->outfile_limit		= NO_VALUE_GIVEN;	// end+1, set by --from-to

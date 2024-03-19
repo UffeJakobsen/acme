@@ -18,13 +18,12 @@
 typedef enum { FALSE = 0, TRUE }	boolean;	// yes, I could include <stdbool.h>, but this source should work with ancient compilers as well...
 typedef unsigned int	bits;
 typedef unsigned int	scope_t;
-typedef signed long	intval_t;	// at least 32 bits
-typedef unsigned long	uintval_t;	// just for logical shift right
+typedef signed int	intval_t;	// at least 32 bits
+typedef unsigned int	uintval_t;	// at least 32 bits (only used for logical shift right)
 
 // struct to remember where macros were defined (FIXME - use for symbols as well!)
 struct location {
 	const char	*plat_filename;	// filename in platform style
-	// FIXME - add another field for filename in UNIX style? might be needed when fixing directory search order!
 	int		line_number;
 };
 

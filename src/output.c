@@ -241,7 +241,7 @@ void output_createbuffer(void)
 	char	fill_value	= 0;	// default value for output buffer
 
 	out->buffer = safe_malloc(config.outbuf_size);
-	if (config.mem_init_value == MEMINIT_USE_DEFAULT) {
+	if (config.mem_init_value == NO_VALUE_GIVEN) {
 		out->initvalue_set = FALSE;	// "!initmem" can be used
 	} else {
 		out->initvalue_set = TRUE;	// "!initmem" generates a warning
@@ -381,7 +381,7 @@ static void end_segment(void)
 	if (config.process_verbosity >= 2)
 		// TODO - change output to start, limit, size, name:
 		// TODO - output hex numbers as %04x? What about limit 0x10000?
-		printf("Segment size is %ld (0x%lx) bytes (0x%lx - 0x%lx exclusive).\n",
+		printf("Segment size is %d (0x%x) bytes (0x%x - 0x%x exclusive).\n",
 			amount, amount, out->segment.start, out->write_idx);
 }
 
