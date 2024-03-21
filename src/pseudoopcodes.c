@@ -32,8 +32,7 @@ enum eos {
 };
 
 // constants
-static const char	exception_unknown_pseudo_opcode[]	= "Unknown pseudo opcode.";
-static const char	exception_missing_equals[]		= "Missing '=' character.";
+static const char	exception_missing_equals[]	= "Missing '=' character.";
 
 
 // helper function, just for old, deprecated, obsolete, stupid "realpc":
@@ -44,86 +43,7 @@ static void end_all_pseudopc(void)
 }
 
 
-// local prototype because "*=" might fake a "!outfilestart":
-static enum eos po_outfilestart(void);
-
-// this is not really a pseudo opcode, but similar enough to be put here:
-// called when "*= EXPRESSION" is parsed, to set the program counter
-void notreallypo_setpc(void)	// GotByte is '*'
-{
-	bits		segment_flags	= 0;
-	boolean		do_outfilestart	= FALSE;
-	struct number	intresult;
-
-	// next non-space must be '='
-	NEXTANDSKIPSPACE();
-	if (GotByte != '=') {
-		Throw_error(exception_missing_equals);
-		goto fail;
-	}
-
-	GetByte();
-	ALU_defined_int(&intresult);	// read new address
-	// check for modifiers
-	while (input_accept_comma()) {
-		// parse modifier. if no keyword given, give up
-		if (input_read_and_lower_keyword() == 0)
-			goto fail;
-
-		if (strcmp(GlobalDynaBuf->buffer, "overlay") == 0) {
-			segment_flags |= SEGMENT_FLAG_OVERLAY;
-		} else if (strcmp(GlobalDynaBuf->buffer, "invisible") == 0) {
-			segment_flags |= SEGMENT_FLAG_INVISIBLE;
-		} else if (strcmp(GlobalDynaBuf->buffer, "outfilestart") == 0) {
-			do_outfilestart	= TRUE;
-/*TODO		} else if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
-			skip '='
-			read memory limit
-		} else if (strcmp(GlobalDynaBuf->buffer, "stay" or "same" or something like that) == 0) {
-			mutually exclusive with all other arguments!
-			this would mean to keep all previous segment data,
-			so it could be used with "*=*-5" or "*=*+3"
-		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
-			skip '='
-			read segment name (quoted string!)	*/
-		} else {
-			Throw_error("Unknown \"*=\" segment modifier.");
-			goto fail;
-		}
-	}
-
-	// before actually setting pc,
-	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
-	if (pseudopc_isactive()) {
-		if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
-			// current behaviour:
-			// setting pc does not disable pseudopc
-		} else if (config.dialect >= V0_93__SHORTER_SETPC_WARNING) {
-			Throw_warning("Offset assembly still active at end of segment.");
-			end_all_pseudopc();	// warning did not say it would
-			// disable pseudopc, but still did. nevertheless, there
-			// is something different to older versions: when the
-			// closing '}' or !realpc is encountered, _really_ weird
-			// stuff happens! i see no reason to try to mimic that.
-		} else {
-			// prior to 0.93, setting pc disabled pseudopc with a warning:
-			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
-			end_all_pseudopc();
-		}
-	}
-
-	vcpu_set_pc(intresult.val.intval, segment_flags);
-
-	// if wanted, perform "!outfilestart":
-	if (do_outfilestart)
-		po_outfilestart();
-
-	input_ensure_EOS();
-	return;
-
-fail:
-	input_skip_remainder();
-}
+// "configuration" pseudo opcodes (can be overridden by cli arguments):
 
 
 // define default value for empty memory ("!initmem" pseudo opcode)
@@ -131,7 +51,7 @@ static enum eos po_initmem(void)
 {
 	struct number	intresult;
 
-	// ignore in all passes but in first
+	// ignore in later passes
 	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
@@ -139,39 +59,21 @@ static enum eos po_initmem(void)
 	ALU_defined_int(&intresult);
 	if ((intresult.val.intval > 255) || (intresult.val.intval < -128))
 		Throw_error(exception_number_out_of_8b_range);
+	// TODO - move "Memory already initialised." logic from output.c
+	// to this place.
+	// TODO -  increment pass.changed_count to enforce another pass.
 	if (output_setdefault(intresult.val.intval & 0xff))
 		return SKIP_REMAINDER;
+
 	return ENSURE_EOS;
 }
-
-
-// change output "encryption" ("!xor" pseudo opcode)
-// (allows for block, so must be reentrant)
-static enum eos po_xor(void)
-{
-	char		old_value;
-	intval_t	change;
-
-	old_value = output_get_xor();
-	ALU_any_int(&change);
-	if ((change > 255) || (change < -128)) {
-		Throw_error(exception_number_out_of_8b_range);
-		change = 0;
-	}
-	output_set_xor(old_value ^ change);
-	// if there's a block, parse that and then restore old value!
-	if (parse_optional_block())
-		output_set_xor(old_value);
-	return ENSURE_EOS;
-}
-
 
 // select output file name and format ("!to" pseudo opcode)
 static enum eos po_to(void)
 {
 	enum outfile_format	format;
 
-	// only process this pseudo opcode in first pass
+	// ignore in later passes
 	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
@@ -216,6 +118,90 @@ static enum eos po_to(void)
 		config.outfile_format = format;
 	}
 
+	return ENSURE_EOS;
+}
+
+// set file name for symbol list
+static enum eos po_symbollist(void)
+{
+	// ignore in later passes
+	if (pass.number != 1)
+		return SKIP_REMAINDER;
+
+	// cli arg and earlier calls have priority
+	if (config.symbollist_filename) {
+		Throw_warning("Symbol list file name already chosen.");
+		return SKIP_REMAINDER;
+	}
+
+	// read filename to global dynamic buffer
+	// if no file name given, exit (complaining will have been done)
+	if (input_read_output_filename())
+		return SKIP_REMAINDER;
+
+	// get malloc'd copy of filename
+	config.symbollist_filename = dynabuf_get_copy(GlobalDynaBuf);
+
+	return ENSURE_EOS;
+}
+
+
+// set start and end (can also be overwritten by cli args):
+
+
+// use current outbuf index as "first byte of output file"
+static enum eos po_outfilestart(void)
+{
+	static int	last_pass_number	= -1;
+
+	if ((config.outfile_start != NO_VALUE_GIVEN)
+	|| (last_pass_number == pass.number)) {
+		if (pass.number == 1)
+			Throw_warning("Start of output file already chosen.");
+	} else {
+		last_pass_number = pass.number;
+		outbuf_set_outfile_start();
+	}
+	return ENSURE_EOS;
+}
+
+// use current outbuf index as "end+1 of output file"
+static enum eos po_outfilelimit(void)
+{
+	static int	last_pass_number	= -1;
+
+	if ((config.outfile_limit != NO_VALUE_GIVEN)
+	|| (last_pass_number == pass.number)) {
+		if (pass.number == 1)
+			Throw_warning("End of output file already chosen.");
+	} else {
+		last_pass_number = pass.number;
+		outbuf_set_outfile_limit();
+	}
+	return ENSURE_EOS;
+}
+
+
+// "real" pseudo opcodes:
+
+
+// change output "encryption" ("!xor" pseudo opcode)
+// (allows for block, so must be reentrant)
+static enum eos po_xor(void)
+{
+	char		old_value;
+	intval_t	change;
+
+	old_value = output_get_xor();
+	ALU_any_int(&change);
+	if ((change > 255) || (change < -128)) {
+		Throw_error(exception_number_out_of_8b_range);
+		change = 0;
+	}
+	output_set_xor(old_value ^ change);
+	// if there's a block, parse that and then restore old value!
+	if (parse_optional_block())
+		output_set_xor(old_value);
 	return ENSURE_EOS;
 }
 
@@ -850,32 +836,6 @@ static enum eos po_set(void)	// now GotByte = illegal char
 }
 
 
-// set file name for symbol list
-static enum eos po_symbollist(void)
-{
-	// only process this pseudo opcode in first pass
-	if (pass.number != 1)
-		return SKIP_REMAINDER;
-
-	// cli arg and earlier calls supersede this call
-	if (config.symbollist_filename) {
-		Throw_warning("Symbol list file name already chosen.");
-		return SKIP_REMAINDER;
-	}
-
-	// read filename to global dynamic buffer
-	// if no file name given, exit (complaining will have been done)
-	if (input_read_output_filename())
-		return SKIP_REMAINDER;
-
-	// get malloc'd copy of filename
-	config.symbollist_filename = dynabuf_get_copy(GlobalDynaBuf);
-
-	// ensure there's no garbage at end of line
-	return ENSURE_EOS;
-}
-
-
 // switch to new zone ("!zone" or "!zn"). has to be re-entrant.
 // (allows for block, so must be reentrant)
 static enum eos po_zone(void)
@@ -1445,36 +1405,6 @@ static enum eos po_serious(void)
 	return throw_src_string(DEBUGLEVEL_SERIOUS, "!serious: ");
 }
 
-// use current outbuf index as "first byte of output file"
-static enum eos po_outfilestart(void)
-{
-	static int	last_pass_number	= -1;
-
-	if ((config.outfile_start != NO_VALUE_GIVEN)
-	|| (last_pass_number == pass.number)) {
-		if (pass.number == 1)
-			Throw_warning("Start of output file already chosen.");
-	} else {
-		last_pass_number = pass.number;
-		outbuf_set_outfile_start();
-	}
-	return ENSURE_EOS;
-}
-// use current outbuf index as "end+1 of output file"
-static enum eos po_outfilelimit(void)
-{
-	static int	last_pass_number	= -1;
-
-	if ((config.outfile_limit != NO_VALUE_GIVEN)
-	|| (last_pass_number == pass.number)) {
-		if (pass.number == 1)
-			Throw_warning("End of output file already chosen.");
-	} else {
-		last_pass_number = pass.number;
-		outbuf_set_outfile_limit();
-	}
-	return ENSURE_EOS;
-}
 
 
 // end of source file ("!endoffile" or "!eof")
@@ -1490,8 +1420,12 @@ static enum eos po_endoffile(void)
 static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEF_START,
 	PREDEFNODE("initmem",		po_initmem),
-	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("to",		po_to),
+	PREDEFNODE("sl",		po_symbollist),
+	PREDEFNODE("symbollist",	po_symbollist),
+	PREDEFNODE("outfilestart",	po_outfilestart),
+	PREDEFNODE("outfilelimit",	po_outfilelimit),
+	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("by",		po_byte),
 	PREDEFNODE("byte",		po_byte),
 	PREDEFNODE("8",			po_byte),
@@ -1534,8 +1468,6 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("rs",		po_rs),
 //	PREDEFNODE("enum",		po_enum),
 	PREDEFNODE("set",		po_set),
-	PREDEFNODE("sl",		po_symbollist),
-	PREDEFNODE("symbollist",	po_symbollist),
 	PREDEFNODE("zn",		po_zone),
 	PREDEFNODE("zone",		po_zone),
 	PREDEFNODE("sz",		po_subzone),	// obsolete
@@ -1559,8 +1491,6 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("warn",		po_warn),
 	PREDEFNODE("error",		po_error),
 	PREDEFNODE("serious",		po_serious),
-	PREDEFNODE("outfilestart",	po_outfilestart),
-	PREDEFNODE("outfilelimit",	po_outfilelimit),
 	PREDEFNODE("eof",		po_endoffile),
 	PREDEF_END("endoffile",		po_endoffile),
 	//    ^^^^ this marks the last element
@@ -1585,7 +1515,7 @@ void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop
 			// call function
 			then = fn();
 		} else {
-			Throw_error(exception_unknown_pseudo_opcode);
+			Throw_error("Unknown pseudo opcode.");
 		}
 	}
 	if (then == SKIP_REMAINDER)
@@ -1594,4 +1524,83 @@ void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop
 		input_ensure_EOS();
 	// the other two possibilities (PARSE_REMAINDER and AT_EOS_ANYWAY)
 	// will lead to the remainder of the line being parsed by the mainloop.
+}
+
+
+// this is not really a pseudo opcode, but similar enough to be put here:
+// called when "*= EXPRESSION" is parsed, to set the program counter
+void notreallypo_setpc(void)	// GotByte is '*'
+{
+	bits		segment_flags	= 0;
+	boolean		do_outfilestart	= FALSE;
+	struct number	intresult;
+
+	// next non-space must be '='
+	NEXTANDSKIPSPACE();
+	if (GotByte != '=') {
+		Throw_error(exception_missing_equals);
+		goto fail;
+	}
+
+	GetByte();
+	ALU_defined_int(&intresult);	// read new address
+	// check for modifiers
+	while (input_accept_comma()) {
+		// parse modifier. if no keyword given, give up
+		if (input_read_and_lower_keyword() == 0)
+			goto fail;
+
+		if (strcmp(GlobalDynaBuf->buffer, "overlay") == 0) {
+			segment_flags |= SEGMENT_FLAG_OVERLAY;
+		} else if (strcmp(GlobalDynaBuf->buffer, "invisible") == 0) {
+			segment_flags |= SEGMENT_FLAG_INVISIBLE;
+		} else if (strcmp(GlobalDynaBuf->buffer, "outfilestart") == 0) {
+			do_outfilestart	= TRUE;
+/*TODO		} else if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
+			skip '='
+			read memory limit
+		} else if (strcmp(GlobalDynaBuf->buffer, "stay" or "same" or something like that) == 0) {
+			mutually exclusive with all other arguments!
+			this would mean to keep all previous segment data,
+			so it could be used with "*=*-5" or "*=*+3"
+		} else if (strcmp(GlobalDynaBuf->buffer, "name") == 0) {
+			skip '='
+			read segment name (quoted string!)	*/
+		} else {
+			Throw_error("Unknown \"*=\" segment modifier.");
+			goto fail;
+		}
+	}
+
+	// before actually setting pc,
+	// support stupidly bad, old, ancient, deprecated, obsolete behaviour:
+	if (pseudopc_isactive()) {
+		if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
+			// current behaviour:
+			// setting pc does not disable pseudopc
+		} else if (config.dialect >= V0_93__SHORTER_SETPC_WARNING) {
+			Throw_warning("Offset assembly still active at end of segment.");
+			end_all_pseudopc();	// warning did not say it would
+			// disable pseudopc, but still did. nevertheless, there
+			// is something different to older versions: when the
+			// closing '}' or !realpc is encountered, _really_ weird
+			// stuff happens! i see no reason to try to mimic that.
+		} else {
+			// prior to 0.93, setting pc disabled pseudopc with a warning:
+			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+			end_all_pseudopc();
+		}
+	}
+
+	vcpu_set_pc(intresult.val.intval, segment_flags);
+
+	// if wanted, perform "!outfilestart":
+	if (do_outfilestart)
+		po_outfilestart();
+
+	input_ensure_EOS();
+	return;
+
+fail:
+	input_skip_remainder();
 }

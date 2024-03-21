@@ -7,11 +7,12 @@
 #define pseudoopcodes_H
 
 
-// call when "*= EXPRESSION" is parsed
-extern void notreallypo_setpc(void);
-
 // parse pseudo opcode. has to be re-entrant.
 extern void pseudoopcode_parse(void);
+
+// this is not really a pseudo opcode, but similar enough to be put here:
+// call when "*= EXPRESSION" is parsed
+extern void notreallypo_setpc(void);
 
 
 #endif
