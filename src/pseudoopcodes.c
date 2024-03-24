@@ -55,15 +55,25 @@ static enum eos po_initmem(void)
 	if (pass.number != 1)
 		return SKIP_REMAINDER;
 
-	// get value
+	// the "--initmem" cli arg and earlier calls have priority
+	if (config.mem_init_value != NO_VALUE_GIVEN) {
+		Throw_warning("Memory already initialised.");
+		return SKIP_REMAINDER;
+	}
+
+	// read value
+	// (allowing undefined values in future versions does not make sense,
+	// because all "configuration pseudo opcodes" should be skipped after
+	// first pass)
 	ALU_defined_int(&intresult);
 	if ((intresult.val.intval > 255) || (intresult.val.intval < -128))
 		Throw_error(exception_number_out_of_8b_range);
-	// TODO - move "Memory already initialised." logic from output.c
-	// to this place.
-	// TODO -  increment pass.changed_count to enforce another pass.
-	if (output_setdefault(intresult.val.intval & 0xff))
-		return SKIP_REMAINDER;
+
+	// remember value
+	config.mem_init_value = intresult.val.intval & 0xff;
+
+	// fill outbuffer and enforce another pass
+	output_newdefault();	// FIXME - remove when outbuffer gets initialized only right before "last" pass!
 
 	return ENSURE_EOS;
 }

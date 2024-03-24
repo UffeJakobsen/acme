@@ -650,23 +650,20 @@ static bits get_addr_mode(struct number *result)
 
 // Helper function for calc_arg_size()
 // Only call with "size_bit = NUMBER_FORCES_16" or "size_bit = NUMBER_FORCES_24"
-static bits check_oversize(bits size_bit, struct number *argument)
+static void check_oversize(bits size_bit, struct number *argument)
 {
-	// only check if value is *defined*
-	if (argument->ntype == NUMTYPE_UNDEFINED)
-		return size_bit;	// pass on result
-
-	// value is defined, so check
-	if (size_bit == NUMBER_FORCES_16) {
-		// check 16-bit argument for high byte zero
-		if ((argument->val.intval <= 255) && (argument->val.intval >= -128))
-			Throw_warning(exception_oversized_addrmode);
-	} else {
-		// check 24-bit argument for bank byte zero
-		if ((argument->val.intval <= 65535) && (argument->val.intval >= -32768))
-			Throw_warning(exception_oversized_addrmode);
+	if (argument->ntype != NUMTYPE_UNDEFINED) {
+		// value is defined, so check
+		if (size_bit == NUMBER_FORCES_16) {
+			// check 16-bit argument for high byte zero
+			if ((argument->val.intval <= 255) && (argument->val.intval >= -128))
+				Throw_warning(exception_oversized_addrmode);
+		} else {
+			// check 24-bit argument for bank byte zero
+			if ((argument->val.intval <= 65535) && (argument->val.intval >= -32768))
+				Throw_warning(exception_oversized_addrmode);
+		}
 	}
-	return size_bit;	// pass on result
 }
 
 // Utility function for comparing force bits, argument value, argument size,
@@ -733,13 +730,15 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 		// if there is a 16-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
 		if (NUMBER_FORCES_16 & addressing_modes) {
-			return check_oversize(NUMBER_FORCES_16, argument);
+			check_oversize(NUMBER_FORCES_16, argument);
+			return NUMBER_FORCES_16;
 		}
 
 		// if there is a 24-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
 		if (NUMBER_FORCES_24 & addressing_modes) {
-			return check_oversize(NUMBER_FORCES_24, argument);
+			check_oversize(NUMBER_FORCES_24, argument);
+			return NUMBER_FORCES_24;
 		}
 
 		// otherwise, use 8-bit-addressing, which will raise an

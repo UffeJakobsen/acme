@@ -211,7 +211,7 @@ extern void throw_redef_error(struct location *old_def, const char msg[]);
 
 // process error that might vanish if symbols change:
 // if current pass is an "error output" pass, actually throw error.
-// otherwise just set a flag to let mainloop know this pass wasn't successful.
+// otherwise just increment counter to let mainloop know this pass wasn't successful.
 extern void throw_symbol_error(const char *msg);
 
 // output a serious error (assembly stops, for example if outbuffer overruns).

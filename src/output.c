@@ -33,7 +33,6 @@ struct output {
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
 	intval_t	highest_written;	// largest address used
-	boolean		initvalue_set;	// default byte value for buffer has been set
 	struct {
 		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
 		intval_t	max;	// highest address segment may use
@@ -184,28 +183,20 @@ static void fill_completely(char value)
 }
 
 
-// define default value for empty memory ("!initmem" pseudo opcode)
-// returns zero if ok, nonzero if already set
-int output_setdefault(char content)
+// default value for empty memory has changed (called by "!initmem" pseudo opcode)
+void output_newdefault(void)
 {
-	// if MemInit flag is already set, complain
-	if (out->initvalue_set) {
-		Throw_warning("Memory already initialised.");
-		return 1;	// failed
-	}
-	// set MemInit flag
-	out->initvalue_set = TRUE;
 	// init memory
-	fill_completely(content);
+	fill_completely(config.mem_init_value);
 	// enforce another pass
 	if (pass.undefined_count == 0)
 		pass.undefined_count = 1;
 	//if (pass.needvalue_count == 0)	FIXME - use? instead or additionally?
 	//	pass.needvalue_count = 1;
-// FIXME - enforcing another pass is not needed if there hasn't been any
+// enforcing another pass is not needed if there hasn't been any
 // output yet. But that's tricky to detect without too much overhead.
 // The old solution was to add &&(out->lowest_written < out->highest_written+1) to "if" above
-	return 0;	// ok
+// in future, just allocate and init outbuf at the start of the "last" pass!
 }
 
 // remember current outbuf index as start/limit of output file
@@ -238,18 +229,14 @@ void outbuf_set_outfile_limit(void)
 // init output struct
 void output_createbuffer(void)
 {
-	char	fill_value	= 0;	// default value for output buffer
-
 	out->buffer = safe_malloc(config.outbuf_size);
+// FIXME - in future, do both of these only at start of "last" pass:
+	// fill memory with initial value
 	if (config.mem_init_value == NO_VALUE_GIVEN) {
-		out->initvalue_set = FALSE;	// "!initmem" can be used
+		fill_completely(0);	// default value
 	} else {
-		out->initvalue_set = TRUE;	// "!initmem" generates a warning
-		fill_value = 0xff & config.mem_init_value;
+		fill_completely(config.mem_init_value & 0xff);
 	}
-// FIXME - move both of these to passinit(), needed in future:
-	// init output buffer (fill memory with initial value)
-	fill_completely(fill_value);
 	// init ring list of segments
 	out->segment.list_head.next = &out->segment.list_head;
 	out->segment.list_head.prev = &out->segment.list_head;

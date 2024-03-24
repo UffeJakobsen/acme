@@ -542,14 +542,14 @@ void throw_redef_error(struct location *old_def, const char msg[])
 
 // process error that might vanish if symbols change:
 // if current pass is an "error output" pass, actually throw error.
-// otherwise just set a flag to let mainloop know this pass wasn't successful.
+// otherwise just increment counter to let mainloop know this pass wasn't successful.
 void throw_symbol_error(const char *msg)
 {
 	// atm we just mimic the old behaviour. in future, do something like this:
 	//if (pass.is_error_pass)
 		Throw_error(msg);
 	//else
-		//pass.has_symbol_errors = TRUE;
+		//++pass.symbol_errors;
 }
 
 
