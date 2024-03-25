@@ -35,9 +35,9 @@ char		s_untitled[]	= "<untitled>";	// FIXME - this is actually const
 // Exception messages during assembly
 const char	exception_missing_string[]	= "No string given.";
 const char	exception_negative_size[]	= "Negative size argument.";
-const char	exception_no_left_brace[]	= "Missing '{' character.";
+const char	exception_no_left_brace []	= "Expected '{' character.";
 const char	exception_no_memory_left[]	= "Out of memory.";
-const char	exception_no_right_brace[]	= "Found end-of-file instead of '}'.";
+const char	exception_no_right_brace []	= "Expected '}', found EOF instead.";
 //const char	exception_not_yet[]	= "Sorry, feature not yet implemented.";
 // TODO - show actual value in error message
 const char	exception_number_out_of_range[]	= "Number out of range.";
@@ -198,7 +198,7 @@ extern void parser_set_nowarn_prefix(void)
 static int first_symbol_of_statement(void)
 {
 	if (statement_flags & SF_FOUND_SYMBOL) {
-		Throw_error(exception_syntax);
+		Throw_error("Unknown mnemonic");
 		input_skip_remainder();
 		return FALSE;
 	}
@@ -232,7 +232,7 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 }
 
 
-// call with symbol name in GlobalDynaBuf and GotByte == '='
+// call with symbol name in GlobalDynaBuf and '=' already eaten.
 // fn is exported so "!set" pseudo opcode can call it.
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
 void parse_assignment(scope_t scope, bits force_bit, bits powers)
@@ -240,7 +240,6 @@ void parse_assignment(scope_t scope, bits force_bit, bits powers)
 	struct symbol	*symbol;
 	struct object	result;
 
-	GetByte();	// eat '='
 	symbol = symbol_find(scope);
 	ALU_any_result(&result);
 	// if wanted, mark as address reference
@@ -267,6 +266,7 @@ static void parse_symbol_definition(scope_t scope)
 	force_bit = input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
+		GetByte();	// eat '='
 		parse_assignment(scope, force_bit, POWER_NONE);
 		input_ensure_EOS();
 	} else {
@@ -403,7 +403,7 @@ void parse_until_eob_or_eof(void)
 					if (BYTE_STARTS_KEYWORD(GotByte)) {
 						parse_mnemo_or_global_symbol_def();
 					} else {
-						Throw_error(exception_syntax);
+						Throw_error(exception_syntax);	// FIXME - include char in error message!
 						input_skip_remainder();
 					}
 				}

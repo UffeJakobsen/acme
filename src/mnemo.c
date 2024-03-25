@@ -571,7 +571,7 @@ static int get_index(void)
 		NEXTANDSKIPSPACE();
 		return INDEX_Z;
 	}
-	Throw_error(exception_syntax);
+	Throw_error("Expected index register after comma.");
 	return INDEX_NONE;
 }
 
@@ -605,20 +605,17 @@ static bits get_addr_mode(struct number *result)
 		address_mode_bits = AMB_IMPLIED;
 		break;
 	case '#':
-		GetByte();	// proceed with next char
+		GetByte();	// eat '#'
 		address_mode_bits = AMB_IMMEDIATE;
 		get_int_arg(result, FALSE);
 		typesystem_want_nonaddr(result);	// FIXME - this is wrong for 65ce02's PHW#
 		break;
 	case '[':
-		GetByte();	// proceed with next char
+		GetByte();	// eat '['
 		get_int_arg(result, FALSE);
 		typesystem_want_addr(result);
-		if (GotByte == ']') {
-			GetByte();
+		if (input_expect(']')) {
 			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index());
-		} else {
-			Throw_error(exception_syntax);
 		}
 		break;
 	default:
@@ -633,10 +630,8 @@ static bits get_addr_mode(struct number *result)
 			// in case there are still open parentheses,
 			// read internal index
 			address_mode_bits |= AMB_PREINDEX(get_index());
-			if (GotByte == ')') {
-				GetByte();	// go on with next char
-			} else {
-				Throw_error(exception_syntax);
+			if (input_expect(')')) {
+				// fn already does everything for us!
 			}
 		}
 		// check for external index (after closing parenthesis)
@@ -1049,12 +1044,10 @@ static void group_bbr_bbs(int opcode)
 
 	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
-	if (input_accept_comma()) {
+	if (input_expect(',')) {
 		output_byte(opcode);
 		output_byte(zpmem.val.intval);
 		near_branch(3);
-	} else {
-		Throw_error(exception_syntax);
 	}
 }
 
@@ -1086,10 +1079,10 @@ static void group_mvn_mvp(int opcode)
 	get_int_arg(&source, TRUE);
 	typesystem_want_nonaddr(&source);
 	// get comma
-	if (!input_accept_comma()) {
-		Throw_error(exception_syntax);
+	if (!input_expect(',')) {
 		return;
 	}
+	SKIPSPACE();
 	// get second arg
 	if (GotByte == '#') {
 		GetByte();	// eat char
@@ -1103,7 +1096,7 @@ static void group_mvn_mvp(int opcode)
 	output_8(source.val.intval);
 	// sanity check
 	if (unmatched_hash)
-		Throw_error(exception_syntax);
+		Throw_error(exception_syntax);	// FIXME - maybe "Use ARG,ARG or #ARG,#ARG but do not mix and match"?
 	input_ensure_EOS();
 }
 

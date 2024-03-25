@@ -72,7 +72,7 @@ void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE
 	// parse block and check end reason
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
-		Throw_error("Found '}' instead of end-of-file.");
+		Throw_error("Expected EOF, found '}' instead." );
 	// close sublevel src
 	// (this looks like we could just use "fd" as arg, but maybe the file
 	// has been replaced with a different one in the meantime...)
@@ -232,7 +232,7 @@ static char get_processed_from_file(void)
 
 			default:
 				// complain if byte is 0
-				Throw_error("Source file contains illegal character.");
+				Throw_error("Source file contains illegal character.");	// FIXME - throw some dynamic "did not expect XYZ character" error instead!
 				return (char) from_file;
 			}
 		case INPUTSTATE_SKIPBLANKS:
@@ -390,12 +390,13 @@ void input_ensure_EOS(void)	// Now GotByte = first char to test
 {
 	SKIPSPACE();
 	if (GotByte) {
+		// FIXME - move this to its own function!
 		char	buf[80];	// actually needed are 51
 		char	quote;		// character before and after
 
 		// FIXME - change quoting: do not assume char is printable!
 		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
-		sprintf(buf, "Garbage data at end of statement (unexpected %c%c%c).", quote, GotByte, quote);
+		sprintf(buf, "Expected end-of-statement, found %c%c%c instead.", quote, GotByte, quote);
 		Throw_error(buf);
 		input_skip_remainder();
 	}
@@ -732,6 +733,21 @@ int input_accept_comma(void)
 
 	NEXTANDSKIPSPACE();
 	return TRUE;
+}
+
+// Try to read given character.
+// If found, eat character and return TRUE.
+// If not found, throw syntax error and return FALSE.
+int input_expect(int chr)
+{
+	// one caller uses this to read the '=' part of "!=", so
+	// do not call SKIPSPACE() here!
+	if (GotByte == chr) {
+		GetByte();	// eat expected char
+		return TRUE;
+	}
+	Throw_error(exception_syntax);	// FIXME - build "expected X, found Y" error msg!
+	return FALSE;
 }
 
 // read optional info about parameter length

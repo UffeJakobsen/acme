@@ -193,7 +193,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 		} else if (strcmp(GlobalDynaBuf->buffer, "until") == 0) {
 			condition->invert = TRUE;
 		} else {
-			Throw_error(exception_syntax);
+			Throw_error("Expected WHILE or UNTIL keyword, or an empty loop condition.");
 			return;
 		}
 		// write given condition into buffer
@@ -228,7 +228,7 @@ static boolean check_condition(struct condition *condition)
 	GetByte();	// proceed with next char
 	ALU_defined_int(&intresult);
 	if (GotByte)
-		Throw_serious_error(exception_syntax);
+		Throw_serious_error("Unexpected char when evaluating loop condition.");	// FIXME - include that char in the error message!
 	return condition->invert ? !intresult.val.intval : !!intresult.val.intval;
 }
 

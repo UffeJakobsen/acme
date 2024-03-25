@@ -179,7 +179,7 @@ extern void parser_set_addr_prefix(void);
 // called by "!nowarn" pseudo op if used without block
 extern void parser_set_nowarn_prefix(void);
 
-// call with symbol name in GlobalDynaBuf and GotByte == '='
+// call with symbol name in GlobalDynaBuf and '=' already eaten.
 // "powers" is for "!set" pseudo opcode so changes are allowed (see symbol.h for powers)
 extern void parse_assignment(scope_t scope, bits force_bit, bits powers);
 

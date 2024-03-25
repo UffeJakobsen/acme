@@ -32,7 +32,7 @@ enum eos {
 };
 
 // constants
-static const char	exception_missing_equals[]	= "Missing '=' character.";
+static const char	exception_want_IN_or_comma[]	= "Expected ',' or IN keyword after loop variable.";
 
 
 // helper function, just for old, deprecated, obsolete, stupid "realpc":
@@ -335,7 +335,7 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 		case CHAR_EOS:
 			return AT_EOS_ANYWAY;	// normal exit
 		default:
-			Throw_error(exception_syntax);	// all other characters are errors
+			Throw_error(exception_syntax);	// FIXME - include character in error message!
 			return SKIP_REMAINDER;	// error exit
 		}
 	}
@@ -442,11 +442,9 @@ static enum eos po_convtab(void)
 
 	if (strcmp(GlobalDynaBuf->buffer, "file") == 0) {
 		SKIPSPACE();
-		if (GotByte != '=') {
-			Throw_error(exception_missing_equals);
+		if (!input_expect('=')) {
 			return SKIP_REMAINDER;
 		}
-		GetByte();	// eat '='
 		return use_encoding_from_file();
 	}
 
@@ -524,11 +522,10 @@ static enum eos po_scrxor(void)
 	intval_t	xor;
 
 	ALU_any_int(&xor);
-	if (input_accept_comma() == FALSE) {
-		Throw_error(exception_syntax);
-		return SKIP_REMAINDER;
+	if (input_expect(',')) {
+		return encode_string(&encoder_scr, xor);
 	}
-	return encode_string(&encoder_scr, xor);
+	return SKIP_REMAINDER;
 }
 
 // include binary file ("!binary" pseudo opcode)
@@ -650,12 +647,12 @@ static enum eos po_align(void)
 	struct number	pc;
 
 	// TODO:
-	// now: !align ANDVALUE, EQUALVALUE [,FILLVALUE]
-	// new: !align BLOCKSIZE
-	// ...where block size must be a power of two
+	// now: "!align ANDVALUE, EQUALVALUE [,FILLVALUE]"
+	// in future: "!align BLOCKSIZE" where block size must be a power of two
 	ALU_defined_int(&andresult);	// FIXME - forbid addresses!
-	if (!input_accept_comma())
-		Throw_error(exception_syntax);
+	if (input_expect(',')) {
+		// fn already does everything for us
+	}
 	ALU_defined_int(&equalresult);	// ...allow addresses (unlikely, but possible)
 	if (input_accept_comma())
 		ALU_any_int(&fill);
@@ -680,11 +677,11 @@ static void old_offset_assembly(void)
 {
 	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
 		// now it's obsolete
-		Throw_error("\"!pseudopc/!realpc\" is obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
+		Throw_error("\"!pseudopc/!realpc\" are obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
 	} else if (config.dialect >= V0_86__DEPRECATE_REALPC) {
 		// earlier it was deprecated
 		if (pass.number == 1)
-			Throw_warning("\"!pseudopc/!realpc\" is deprecated; use \"!pseudopc {}\" instead.");
+			Throw_warning("\"!pseudopc/!realpc\" are deprecated; use \"!pseudopc {}\" instead.");
 	} else {
 		// really old versions allowed it
 	}
@@ -830,10 +827,8 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;	// zero length
 
 	force_bit = input_get_force_bit();	// skips spaces after
-	if (GotByte != '=') {
-		Throw_error(exception_missing_equals);
+	if (!input_expect('='))
 		return SKIP_REMAINDER;
-	}
 
 	// TODO: in versions before 0.97, force bit handling was broken in both
 	// "!set" and "!for":
@@ -1001,7 +996,7 @@ static enum eos ifelse(enum ifmode mode)
 
 		// make sure it's "else"
 		if (strcmp(GlobalDynaBuf->buffer, "else")) {
-			Throw_error("Expected ELSE or end-of-statement.");
+			Throw_error("Expected end-of-statement or ELSE keyword after '}'.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 		// anything more?
@@ -1024,7 +1019,7 @@ static enum eos ifelse(enum ifmode mode)
 		} else if (strcmp(GlobalDynaBuf->buffer, "ifndef") == 0) {
 			mode = IFMODE_IFNDEF;
 		} else {
-			Throw_error("After ELSE, expected block or IF/IFDEF/IFNDEF.");
+			Throw_error("Expected '{' or IF/IFDEF/IFNDEF keyword after ELSE keyword.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 	}
@@ -1118,7 +1113,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		loop.algorithm = FORALGO_ITERATE;
 		// check for "in" keyword
 		if ((GotByte != 'i') && (GotByte != 'I')) {
-			Throw_error(exception_syntax);
+			Throw_error(exception_want_IN_or_comma);
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 /* checking for the first character explicitly here looks dumb, but actually
@@ -1131,7 +1126,7 @@ knowing there is an "i" also makes sure that input_read_and_lower_keyword()
 does not fail. */
 		input_read_and_lower_keyword();
 		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
-			Throw_error("Loop var must be followed by either \"in\" keyword or comma.");
+			Throw_error(exception_want_IN_or_comma);
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 		if (force_bit) {
@@ -1380,10 +1375,9 @@ static enum eos po_debug(void)
 	struct number	debuglevel;
 
 	ALU_defined_int(&debuglevel);
-	if (!input_accept_comma()) {
-		Throw_error("Expected comma after debug level.");
+	if (!input_expect(','))
 		return SKIP_REMAINDER;
-	}
+
 	// drop this one?
 	if (debuglevel.val.intval > config.debuglevel)
 		return SKIP_REMAINDER;
@@ -1547,12 +1541,9 @@ void notreallypo_setpc(void)	// GotByte is '*'
 
 	// next non-space must be '='
 	NEXTANDSKIPSPACE();
-	if (GotByte != '=') {
-		Throw_error(exception_missing_equals);
+	if (!input_expect('='))
 		goto fail;
-	}
 
-	GetByte();
 	ALU_defined_int(&intresult);	// read new address
 	// check for modifiers
 	while (input_accept_comma()) {

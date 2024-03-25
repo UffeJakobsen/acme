@@ -1160,12 +1160,12 @@ static void expect_dyadic_operator(struct expression *expression)
 
 // Multi-character dyadic operators
 	case '!':	// "!="
-		if (GetByte() == '=') {
+		GetByte();	// eat '!'
+		if (input_expect('=')) {
 			op = &ops_not_equal;
-			goto get_byte_and_push_dyadic;
+			goto push_dyadic_op;
 		}
 
-		Throw_error(exception_syntax);
 		alu_state = STATE_ERROR;
 		break;//goto end;
 	case '<':	// "<", "<=", "<<" and "<>"

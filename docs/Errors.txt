@@ -192,7 +192,7 @@ Section:   Errors during assembly
     it, you can use the "--dialect" CLI switch to make ACME mimic an
     older version.
 
-"!pseudopc/!realpc" is obsolete; use "!pseudopc {}" instead.
+"!pseudopc/!realpc" are obsolete; use "!pseudopc {}" instead.
     This is given when one of the now obsolete !pseudopc/!realpc
     pseudo opcodes is encountered.
     If you want to assemble an old source code without first updating
@@ -209,10 +209,6 @@ Section:   Errors during assembly
 !error: ...
     This is given when the pseudo opcode "!error" is executed. The
     actual message varies according to the pseudo opcode's arguments.
-
-After ELSE, expected block or IF/IFDEF/IFNDEF.
-    There is something strange after ELSE: It must be "if", "ifdef",
-    "ifndef" or an opening brace.
 
 Argument out of range.
     You called arcsin/arccos with something not in the [-1, 1] range.
@@ -241,12 +237,39 @@ CPU does not support this postfix for this mnemonic.
 Division by zero.
     Guess what - you attempted to divide by zero.
 
-Expected ELSE or end-of-statement.
-    There is something after the closing brace of an IF block that is
-    not an ELSE.
+Expected '{' or IF/IFDEF/IFNDEF keyword after ELSE keyword.
+    There is something strange after ELSE: It must be "if", "ifdef",
+    "ifndef" or an opening brace.
+
+Expected ',' or IN keyword after loop variable.
+    You made a syntax error when using "!for": After the loop variable
+    there can either be a comma (for a simple counting loop) or the
+    "in" keyword (when iterating over string or list contents).
+    Anything else will give this error.
 
 Expected end-of-statement after ELSE block.
     There is something after the closing brace of an ELSE block.
+
+Expected end-of-statement or ELSE keyword after '}'.
+    There is something after the closing brace of an IF block that is
+    not an ELSE.
+
+Expected end-of-statement, found 'CHAR' instead.
+    There are still arguments when there should not be any more. The
+    given character is the one where end-of-line was expected.
+
+Expected EOF, found '}' instead.
+    ACME encountered a '}' character when it expected the file to end
+    instead (because no blocks were open).
+
+Expected WHILE or UNTIL keyword, or an empty loop condition.
+    When using "!do", loop conditions are optional before and after
+    the block, but if one is given, it has to start with "while" or
+    "until".
+
+Expected index register after comma.
+    You used an addressing mode with a comma but did not supply a
+    valid index register (like 'x') after it.
 
 Exponent is negative.
     Using negative exponents only give sensible results when using
@@ -270,14 +293,6 @@ Force bits can only be given to numbers.
     You tried to give a force bit to a symbol and then assign a string
     or list to it.
 
-Found '}' instead of end-of-file.
-    ACME encountered a '}' character when it expected the file to end
-    instead (because no blocks were open).
-
-Garbage data at end of statement (unexpected 'CHAR').
-    There are still arguments when there should not be any more. The
-    given character is the one where end-of-line was expected.
-
 Given object is not iterable.
     You used "!for VAR in ITERABLE", but the iterable was neither a
     string nor a list (likely a number).
@@ -294,12 +309,6 @@ Index is undefined.
 
 Index out of range.
     The value for an indexing operation wasn't in the allowed range.
-
-Loop var must be followed by either "in" keyword or comma.
-    You made a syntax error when using "!for": After the loop counter
-    symbol there can either be a comma (for a simple counting loop) or
-    the "in" keyword (when iterating over string or list contents).
-    Anything else will give this error.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
@@ -328,6 +337,7 @@ Negative value - cannot choose addressing mode.
 
 No string given.
     ACME expects a string but doesn't find it, or the string is empty.
+    This can also mean keywords or symbol names.
 
 Number does not fit in N bits.
 Number out of range.
@@ -414,6 +424,9 @@ Unknown encoding.
 Unknown function.
     You used a mathematical function ACME does not know.
 
+Unknown mnemonic.
+    You mistyped a mnemonic, or you forgot to select the correct cpu.
+
 Unknown operator.
     You used an arithmetic/logical operator ACME does not know.
 
@@ -458,7 +471,12 @@ Section:   Serious errors (stopping assembly)
     This is given when the pseudo opcode "!serious" is executed. The
     actual message varies according to the pseudo opcode's arguments.
 
-Found end-of-file instead of '}'.
+Expected '{' character.
+    ACME didn't find the expected '{' character. Remember that '{'
+    characters must be given on the same line as the keyword they
+    belong to.
+
+Expected '}', found EOF instead.
     The file ended when ACME expected the block to be closed instead
     (because there was at least one block left open).
 
@@ -466,11 +484,6 @@ Loop count is negative.
     You used the "!for" pseudo opcode with a negative loop count
     (getting this error is only possible when using the now deprecated
     syntax).
-
-Missing '{'.
-    ACME didn't find the expected '{' character. Remember that '{'
-    characters must be given on the same line as the keyword they
-    belong to.
 
 Out of memory.
     When ACME runs out of memory, it stops assembly, giving this
@@ -496,6 +509,9 @@ Too deeply nested. Recursive "!source"?
     nesting at all is to find infinite recursions.
     The default limit is 64, this can be changed using the
     "--maxdepth" CLI switch.
+
+Unexpected char when evaluating loop condition.
+    There was a syntax error while evaluating the loop condition.
 
 Value not defined.
     A value could not be worked out. Maybe you mistyped a symbol name.

@@ -154,6 +154,11 @@ extern int input_read_output_filename(void);
 // found, otherwise FALSE.
 extern int input_accept_comma(void);
 
+// Try to read given character.
+// If found, eat character and return TRUE.
+// If not found, throw syntax error and return FALSE.
+extern int input_expect(int chr);
+
 // read optional info about parameter length
 // FIXME - move to different file!
 extern bits input_get_force_bit(void);
