@@ -60,7 +60,7 @@ struct object {
 };
 struct string {
 	int 	length;
-	int 	refs;
+	int 	refs;	// FIXME - either use correctly or remove altogether!
 	char	payload[1];	// real structs are malloc'd to correct size
 };
 struct listitem {
@@ -69,7 +69,7 @@ struct listitem {
 	union {
 		struct {
 			int	length;	// this does not include the head element
-			int	refs;
+			int	refs;	// FIXME - either use correctly or remove altogether!
 		} listinfo;			// if item is list head
 		struct object	payload;	// if item is not list head
 	} u;
