@@ -40,9 +40,6 @@ extern const char	global_byte_flags[];
 #define BYTE_FOLLOWS_ANON(b)		(global_byte_flags[(unsigned char) b] & (1u << 3))	// preceding '-' are backward label
 // bits 2, 1 and 0 are currently unused
 
-// TODO - put in runtime struct:
-extern char	GotByte;	// Last byte read (processed)
-
 enum dialect {
 	V0_85__OLDEST_SUPPORTED,	// v0.85 looks like the oldest version it makes sense to actually support
 	V0_86__DEPRECATE_REALPC,	// v0.86 made !pseudopc/!realpc give a warning to use !pseudopc{} instead, and !to wants a file format

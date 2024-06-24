@@ -41,6 +41,7 @@ static struct input	outermost	= {
 
 // variables
 struct input	*input_now	= &outermost;	// current input structure
+char		GotByte;			// last byte read (processed)
 
 
 // functions

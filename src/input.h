@@ -64,6 +64,9 @@ extern const char	FILE_READBINARY[];
 
 // Variables
 extern struct input	*input_now;	// current input structure
+// TODO - put in input struct?
+extern char		GotByte;	// last byte read (processed)
+
 
 
 // Prototypes

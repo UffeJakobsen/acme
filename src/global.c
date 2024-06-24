@@ -99,7 +99,6 @@ const char	global_byte_flags[256]	= {
 
 
 // variables
-char		GotByte;			// Last byte read (processed)
 struct report 	*report			= NULL;
 struct config	config;
 struct pass	pass;
