@@ -131,7 +131,7 @@ static void show_help_and_exit(void)
 "      --" OPTION_STRICT_SEGMENTS "     turn segment overlap warnings into errors\n"
 "      --" OPTION_STRICT "              treat all warnings like errors\n"
 "  -vDIGIT                   set verbosity level\n"
-"  -DSYMBOL=VALUE            define global symbol\n"
+"  -D SYMBOL=VALUE           define global symbol\n"
 "  -I PATH/TO/DIR            add search path for input files\n"
 // TODO: replace these:
 "  -W" OPTIONWNO_LABEL_INDENT "         suppress warnings about indented labels\n"
@@ -682,7 +682,10 @@ static char short_option(const char *argument)
 	while (*argument) {
 		switch (*argument) {
 		case 'D':	// "-D" define constants
-			define_symbol(argument + 1);
+			if (argument[1])
+				define_symbol(argument + 1);
+			else
+				define_symbol(cliargs_safe_get_next("symbol definition"));
 			goto done;
 		case 'f':	// "-f" selects output format
 			set_output_format(cliargs_get_next());	// NULL is ok (handled like unknown)
