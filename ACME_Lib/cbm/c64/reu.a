@@ -65,3 +65,54 @@ rec_ADDRCTRL_FIX_EXT	= %.#......
 	; $df0b..$df1f always read as $ff,
 	; at $df20 the registers repeat.
 	; these "32 registers" are visible 8 times in the $df00 page.
+
+; The REC is labeled "MOS 8726R1" and was available as a giant (64-pin) DIP
+; version and as a 68-pin quad-pack version. Both packages seem to contain the
+; same die, but because of the different number of pins, they are bonded
+; slightly differently.
+
+; Pinouts:
+;
+;        DIP version
+;         ____ ____                            /reset 1
+;        |    V    |                   /irq 2         |         68 n.c.
+; /reset |  1   64 | vcc            dotclk 3 \        |        / 67 vcc
+;   /irq |  2   63 | bs               r/w 4 \ \       |       / / 66 bs
+; dotclk |  3   62 | /cas1         1 MHz 5 \ \ \      |      / / / 65 /cas1
+;    r/w |  4   61 | /cas0          /cs 6 \ \ \ \     |     / / / / 64 /cas0
+;  1 MHz |  5   60 | /ras1         /ba 7 \ \ \ \ \    |    / / / / / 63 /ras1
+;    /cs |  6   59 | /ras0       /dma 8 \ \ \ \ \ \   |   / / / / / / 62 /ras0
+;    /ba |  7   58 | /dwe         d7 9 \ \ \ \ \ \ \  |  / / / / / / / 61 /dwe
+;   /dma |  8   57 | dd0              \_\_\_\_\_\_\_\_|_/_/_/_/_/_/_/_/
+;     d7 |  9   56 | dd1        d6 10|                o                |60 dd0
+;     d6 | 10   55 | dd2        d5 11|                                 |59 dd1
+;     d5 | 11   54 | dd3        d4 12|                                 |58 dd2
+;     d4 | 12   53 | dd4        d3 13|                                 |57 dd3
+;     d3 | 13   52 | dd5        d2 14|                                 |56 dd4
+;     d2 | 14   51 | dd6        d1 15|                                 |55 dd5
+;     d1 | 15   50 | dd7        d0 16|                                 |54 dd6
+;     d0 | 16   49 | vss      n.c. 17|            quad pack            |53 dd7
+;    vss | 17   48 | ma8       vss 18|                                 |52 vss
+;    a15 | 18   47 | ma7       a15 19|             version             |51 n.c.
+;    a14 | 19   46 | ma6       a14 20|                                 |50 ma8
+;    a13 | 20   45 | ma5       a13 21|                                 |49 ma7
+;    a12 | 21   44 | ma4       a12 22|                                 |48 ma6
+;    a11 | 22   43 | ma3       a11 23|                                 |47 ma5
+;    a10 | 23   42 | ma2       a10 24|                                 |46 ma4
+;     a9 | 24   41 | ma1        a9 25|                                 |45 ma3
+;     a8 | 25   40 | ma0        a8 26|_________________________________|44 ma2
+;     a7 | 26   39 | test             / / / / / / / / | \ \ \ \ \ \ \ \
+;     a6 | 27   38 | vss         a7 27 / / / / / / /  |  \ \ \ \ \ \ \ 43 ma1
+;     a5 | 28   37 | vcc          a6 28 / / / / / /   |   \ \ \ \ \ \ 42 ma0
+;     a4 | 29   36 | /romsel       a5 29 / / / / /    |    \ \ \ \ \ 41 n.c.
+;     a3 | 30   35 | /roml          a4 30 / / / /     |     \ \ \ \ 40 test
+;     a2 | 31   34 | /romh           a3 31 / / /      |      \ \ \ 39 vss
+;     a1 | 32   33 | a0               a2 32 / /       |       \ \ 38 vcc
+;        |_________|                   a1 33 /        |        \ 37 /romsel
+;                                       a0 34         |         36 /roml
+;                                                     35 /romh
+;
+; Basically, half of the pins (the low numbers) are for talking to the c64/c128
+; and the other half (the high numbers) are for talking to the REU's own RAM.
+; "/romh", "/roml" and "/romsel" are just the inputs and the output of a simple
+; AND gate, the result is used to select the EPROM socket.
