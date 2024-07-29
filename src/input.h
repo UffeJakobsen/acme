@@ -64,7 +64,6 @@ extern const char	FILE_READBINARY[];
 
 // Variables
 extern struct input	*input_now;	// current input structure
-// TODO - put in input struct?
 extern char		GotByte;	// last byte read (processed)
 
 
@@ -168,10 +167,12 @@ struct inputchange_buf {
 			*outer_input;
 	char		gb;	// buffer for GotByte
 };
-
 // save current input struct in buffer, then switch input to new source code file
 extern void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *eternal_plat_filename);
-
+// save current input struct in buffer, then switch input to macro parameters
+extern void inputchange_macro1_params(struct inputchange_buf *icb, struct location *def, char *params);
+// switch from macro parameters to macro body
+extern void inputchange_macro2_body(char *macro_body);
 // restore input struct from buffer
 extern void inputchange_back(struct inputchange_buf *icb);
 

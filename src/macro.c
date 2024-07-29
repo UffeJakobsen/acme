@@ -175,14 +175,13 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 }
 
 // Parse macro call ("+MACROTITLE"). Has to be re-entrant.
+// TODO: split this into smaller functions, some of the inner blocks are much too long
 void macro_parse_call(void)	// Now GotByte = first char of macro name
 {
-	char		local_gotbyte;
 	struct symbol	*symbol;
 	struct section	new_section,
 			*outer_section;
-	struct input	new_input,
-			*outer_input;
+	struct inputchange_buf	icb;
 	struct macro	*actual_macro;
 	struct rwnode	*macro_node,
 			*symbol_node;
@@ -240,18 +239,9 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 	} else {
 		// make macro_node point to the macro struct
 		actual_macro = macro_node->body;
-		local_gotbyte = GotByte;	// CAUTION - ugly kluge
 
 		// set up new input
-		new_input = *input_now;	// copy current input structure into new
-		new_input.location = actual_macro->definition;
-		new_input.source = INPUTSRC_RAM;
-		new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
-		new_input.src.ram_ptr = actual_macro->parameter_list;
-		// remember old input
-		outer_input = input_now;
-		// activate new input
-		input_now = &new_input;
+		inputchange_macro1_params(&icb, &actual_macro->definition, actual_macro->parameter_list);
 
 		outer_msg_sum = pass.warning_count + pass.error_count;	// remember for call stack decision
 
@@ -261,8 +251,9 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		// FALSE = title mustn't be freed
 		section_new(&new_section, "Macro", actual_macro->original_name, FALSE);
 		section_new_cheap_scope(&new_section);
-		GetByte();	// fetch first byte of parameter list
+
 		// assign arguments
+		GetByte();	// fetch first byte of parameter list
 		if (GotByte != CHAR_EOS) {	// any at all?
 			arg_count = 0;
 			do {
@@ -292,10 +283,10 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 				++arg_count;
 			} while (input_accept_comma());
 		}
+
 		// and now, finally, parse the actual macro body
-		input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 // maybe call parse_ram_block(actual_macro->definition.line_number, actual_macro->body)
-		input_now->src.ram_ptr = actual_macro->body;
+		inputchange_macro2_body(actual_macro->body);
 		parse_until_eob_or_eof();
 		if (GotByte != CHAR_EOB)
 			BUG("IllegalBlockTerminator", GotByte);
@@ -303,10 +294,9 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		section_finalize(&new_section);
 		// restore previous section
 		section_now = outer_section;
-		// restore previous input:
-		input_now = outer_input;
-		// restore old Gotbyte context
-		GotByte = local_gotbyte;	// CAUTION - ugly kluge
+
+		// restore previous input
+		inputchange_back(&icb);
 
 		// if needed, dump call stack
 		if (outer_msg_sum != pass.warning_count + pass.error_count)

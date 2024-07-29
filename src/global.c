@@ -423,6 +423,7 @@ int parse_optional_block(void)
 	SKIPSPACE();
 	if (GotByte != CHAR_SOB)
 		return FALSE;
+
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
 		Throw_serious_error(exception_no_right_brace);

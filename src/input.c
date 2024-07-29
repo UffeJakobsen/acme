@@ -42,6 +42,7 @@ static struct input	outermost	= {
 // variables
 struct input	*input_now	= &outermost;	// current input structure
 char		GotByte;			// last byte read (processed)
+// TODO: move GotByte into input struct!
 
 
 // functions
@@ -857,7 +858,26 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 	icb->gb = GotByte;
 	input_now = &icb->new_input;
 }
-
+// save current input struct in buffer, then switch input to macro parameters
+void inputchange_macro1_params(struct inputchange_buf *icb, struct location *def, char *params)
+{
+	icb->new_input = *input_now;	// copy current input structure into new
+	icb->new_input.location = *def;
+	icb->new_input.source = INPUTSRC_RAM;
+	icb->new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+	icb->new_input.src.ram_ptr = params;
+	// remember where outer input struct is
+	icb->outer_input = input_now;
+	// activate new input
+	icb->gb = GotByte;
+	input_now = &icb->new_input;
+}
+// switch from macro parameters to macro body
+void inputchange_macro2_body(char *macro_body)
+{
+	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+	input_now->src.ram_ptr = macro_body;
+}
 // restore input struct from buffer
 void inputchange_back(struct inputchange_buf *icb)
 {
