@@ -243,6 +243,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		local_gotbyte = GotByte;	// CAUTION - ugly kluge
 
 		// set up new input
+		new_input = *input_now;	// copy current input structure into new
 		new_input.location = actual_macro->definition;
 		new_input.source = INPUTSRC_RAM;
 		new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!

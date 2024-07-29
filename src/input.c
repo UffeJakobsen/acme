@@ -844,6 +844,7 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 {
 	// TODO: in future, really buffer old data here! (instead of storing new data and changing pointer)
 	// setup new input
+	icb->new_input = *input_now;	// copy current input structure into new
 	icb->new_input.plat_pathref_filename	= eternal_plat_filename;
 	icb->new_input.location.plat_filename	= eternal_plat_filename;
 	icb->new_input.location.line_number	= 1;
