@@ -190,8 +190,15 @@ extern void parse_until_eob_or_eof(void);
 // Don't forget to call EnsureEOL() afterwards.
 extern int parse_optional_block(void);
 
+// parse a whole source code file
+// file name must be given in platform style, i.e.
+// "directory/basename.extension" on linux,
+// "directory.basename/extension" on RISC OS, etc.
+// and the pointer must remain valid forever!
+extern void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename);
+
 // generate a debug/info/warning/error message
-void throw_message(enum debuglevel level, const char msg[]);
+extern void throw_message(enum debuglevel level, const char msg[]);
 
 // output a warning (something looks wrong, like "label name starts with shift-space character")
 #define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg)

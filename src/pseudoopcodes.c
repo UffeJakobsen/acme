@@ -897,7 +897,6 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	struct filespecflags	flags;
 	FILE		*stream;
 	const char	*eternal_plat_filename;
-	char		local_gotbyte;
 
 	// enter new nesting level
 	// quit program if recursion too deep
@@ -912,9 +911,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	stream = includepaths_open_ro(&flags);
 	if (stream) {
 		eternal_plat_filename = dynabuf_get_copy(GlobalDynaBuf);
-		local_gotbyte = GotByte;	// CAUTION - ugly kluge
-		input_parse_and_close_platform_file(eternal_plat_filename, stream);
-		GotByte = local_gotbyte;	// CAUTION - ugly kluge
+		parse_and_close_platform_file(stream, eternal_plat_filename);
 	}
 	// leave nesting level
 	++sanity.source_recursions_left;

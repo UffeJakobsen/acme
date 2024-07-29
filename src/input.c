@@ -46,43 +46,6 @@ char		GotByte;			// last byte read (processed)
 
 // functions
 
-// parse a whole source code file
-// file name must be given in platform style, i.e.
-// "directory/basename.extension" on linux,
-// "directory.basename/extension" on RISC OS, etc.
-// and the pointer must remain valid forever!
-void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE *fd)
-{
-	struct input	new_input,
-			*outer_input;
-
-	// be verbose
-	if (config.process_verbosity >= 3)
-		printf("Parsing source file \"%s\".\n", eternal_plat_filename);
-	// set up new input
-	new_input.plat_pathref_filename		= eternal_plat_filename;
-	new_input.location.plat_filename	= eternal_plat_filename;
-	new_input.location.line_number		= 1;
-	new_input.source		= INPUTSRC_FILE;
-	new_input.state			= INPUTSTATE_SOF;
-	new_input.src.fd		= fd;
-	// remember where outer input struct is
-	outer_input = input_now;
-	// activate new input struct
-	input_now = &new_input;
-	// parse block and check end reason
-	parse_until_eob_or_eof();
-	if (GotByte != CHAR_EOF)
-		Throw_error("Expected EOF, found '}' instead." );
-	// close sublevel src
-	// (this looks like we could just use "fd" as arg, but maybe the file
-	// has been replaced with a different one in the meantime...)
-	fclose(input_now->src.fd);
-	// restore outer input struct
-	input_now = outer_input;
-}
-
-
 // remember source code character for report generator
 #define HEXBUFSIZE	9	// actually, 4+1 is enough, but for systems without snprintf(), let's be extra-safe.
 #define IF_WANTED_REPORT_SRCCHAR(c)	do { if (report->fd) report_srcchar(c); } while(0)
@@ -871,6 +834,34 @@ int input_read_output_filename(void)
 	}
 
 	return 0;	// ok
+}
+
+
+// "input change" stuff:
+
+// save current input struct in buffer, then switch input to new source code file
+void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *eternal_plat_filename)
+{
+	// TODO: in future, really buffer old data here! (instead of storing new data and changing pointer)
+	// setup new input
+	icb->new_input.plat_pathref_filename	= eternal_plat_filename;
+	icb->new_input.location.plat_filename	= eternal_plat_filename;
+	icb->new_input.location.line_number	= 1;
+	icb->new_input.source		= INPUTSRC_FILE;
+	icb->new_input.state		= INPUTSTATE_SOF;
+	icb->new_input.src.fd		= fd;
+	// remember where outer input struct is
+	icb->outer_input = input_now;
+	// activate new input
+	icb->gb = GotByte;
+	input_now = &icb->new_input;
+}
+
+// restore input struct from buffer
+void inputchange_back(struct inputchange_buf *icb)
+{
+	input_now = icb->outer_input;
+	GotByte = icb->gb;
 }
 
 

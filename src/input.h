@@ -13,7 +13,7 @@
 
 // type definitions
 
-// values for input component "src.state"
+// values for input component "src.state" (FIXME - try to move this into .c file!)
 enum inputstate {
 	INPUTSTATE_SOF,		// start of file (check for hashbang)
 	INPUTSTATE_NORMAL,	// everything's fine
@@ -70,13 +70,6 @@ extern char		GotByte;	// last byte read (processed)
 
 
 // Prototypes
-
-// parse a whole source code file
-// file name must be given in platform style, i.e.
-// "directory/basename.extension" on linux,
-// "directory.basename/extension" on RISC OS, etc.
-// and the pointer must remain valid forever!
-extern void input_parse_and_close_platform_file(const char *eternal_plat_filename, FILE *fd);
 
 // get next byte from currently active byte source in shortened high-level
 // format. When inside quotes, use input_quoted_to_dynabuf() instead!
@@ -165,6 +158,22 @@ extern int input_expect(int chr);
 // read optional info about parameter length
 // FIXME - move to different file!
 extern bits input_get_force_bit(void);
+
+
+// "input change" stuff:
+
+// treat this struct as opaque, its components should only be referenced by inputchange_* functions!
+struct inputchange_buf {
+	struct input	new_input,
+			*outer_input;
+	char		gb;	// buffer for GotByte
+};
+
+// save current input struct in buffer, then switch input to new source code file
+extern void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *eternal_plat_filename);
+
+// restore input struct from buffer
+extern void inputchange_back(struct inputchange_buf *icb);
 
 
 // "include path" stuff:

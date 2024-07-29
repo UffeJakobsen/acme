@@ -430,6 +430,32 @@ int parse_optional_block(void)
 	return TRUE;
 }
 
+// parse a whole source code file
+// file name must be given in platform style, i.e.
+// "directory/basename.extension" on linux,
+// "directory.basename/extension" on RISC OS, etc.
+// and the pointer must remain valid forever!
+void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
+{
+	struct inputchange_buf	icb;
+
+	// be verbose
+	if (config.process_verbosity >= 3)
+		printf("Parsing source file \"%s\".\n", eternal_plat_filename);
+	// set up new input
+	inputchange_new_file(&icb, fd, eternal_plat_filename);
+	// parse block and check end reason
+	parse_until_eob_or_eof();
+	if (GotByte != CHAR_EOF)
+		Throw_error("Expected EOF, found '}' instead." );
+	// close sublevel src
+	// (this looks like we could just use "fd" as arg, but maybe the file
+	// has been replaced with a different one in the meantime...)
+	fclose(input_now->src.fd);
+	// restore outer input
+	inputchange_back(&icb);
+}
+
 
 // Error handling
 

@@ -349,7 +349,7 @@ static void perform_pass(void)
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		if ((fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY))) {
-			input_parse_and_close_platform_file(toplevel_sources_plat[ii], fd);
+			parse_and_close_platform_file(fd, toplevel_sources_plat[ii]);
 		} else {
 			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources_plat[ii]);
 			if (toplevel_sources_plat[ii][0] == '-')
