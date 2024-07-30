@@ -886,7 +886,7 @@ void inputchange_macro2_body(char *macro_body)
 	input_now->src.ram_ptr = macro_body;
 }
 // restore input struct from buffer
-void inputchange_back(struct inputchange_buf *icb)
+void inputchange_back(const struct inputchange_buf *icb)
 {
 	input_now = icb->outer_input;
 	GotByte = icb->gb;

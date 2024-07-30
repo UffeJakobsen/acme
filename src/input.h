@@ -178,7 +178,7 @@ extern void inputchange_macro1_params(struct inputchange_buf *icb, struct locati
 // switch from macro parameters to macro body
 extern void inputchange_macro2_body(char *macro_body);
 // restore input struct from buffer
-extern void inputchange_back(struct inputchange_buf *icb);
+extern void inputchange_back(const struct inputchange_buf *icb);
 
 
 // "include path" stuff:
