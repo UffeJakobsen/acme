@@ -158,6 +158,10 @@ extern int input_expect(int chr);
 // FIXME - move to different file!
 extern bits input_get_force_bit(void);
 
+// force input system to return "end of file" on next read
+// (back end function for "!eof" pseudo opcode)
+extern void input_force_eof(void);
+
 
 // "input change" stuff:
 

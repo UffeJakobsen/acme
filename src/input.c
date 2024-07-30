@@ -739,6 +739,13 @@ bits input_get_force_bit(void)
 	return force_bit;
 }
 
+// force input system to return "end of file" on next read
+// (back end function for "!eof" pseudo opcode)
+void input_force_eof(void)
+{
+	input_now->state = INPUTSTATE_EOF;
+}
+
 
 static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
 

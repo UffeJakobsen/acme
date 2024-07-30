@@ -1411,9 +1411,8 @@ static enum eos po_serious(void)
 // end of source file ("!endoffile" or "!eof")
 static enum eos po_endoffile(void)
 {
-	// well, it doesn't end right here and now, but at end-of-line! :-)
-	input_ensure_EOS();
-	input_now->state = INPUTSTATE_EOF;
+	input_ensure_EOS();	// make sure there are no args
+	input_force_eof();	// fake end of file
 	return AT_EOS_ANYWAY;
 }
 
