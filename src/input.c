@@ -732,30 +732,6 @@ int input_expect(int chr)
 	return FALSE;
 }
 
-// read optional info about parameter length
-// FIXME - move to different file!
-bits input_get_force_bit(void)
-{
-	char	byte;
-	bits	force_bit	= 0;
-
-	if (GotByte == '+') {
-		byte = GetByte();
-		if (byte == '1')
-			force_bit = NUMBER_FORCES_8;
-		else if (byte == '2')
-			force_bit = NUMBER_FORCES_16;
-		else if (byte == '3')
-			force_bit = NUMBER_FORCES_24;
-		if (force_bit)
-			GetByte();
-		else
-			Throw_error("Illegal postfix.");
-	}
-	SKIPSPACE();
-	return force_bit;
-}
-
 // force input system to return "end of file" on next read
 // (back end function for "!eof" pseudo opcode)
 void input_force_eof(void)

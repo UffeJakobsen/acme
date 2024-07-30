@@ -773,7 +773,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 // Mnemonics using only implied addressing.
 static void group_only_implied_addressing(int opcode)
 {
-	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
 	if ((opcode == 0xf8) && (cpu_current_type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY)) {
@@ -926,7 +926,7 @@ static void group_main(int index, bits flags)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	bits		force_bit	= input_get_force_bit();	// skips spaces after
+	bits		force_bit	= parser_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMMEDIATE_ADDRESSING:	// #$ff or #$ffff (depending on accu length)
@@ -990,7 +990,7 @@ static void group_misc(int index, bits immediate_mode)
 {
 	unsigned long	immediate_opcodes;
 	struct number	result;
-	bits		force_bit	= input_get_force_bit();	// skips spaces after
+	bits		force_bit	= parser_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case IMPLIED_ADDRESSING:	// implied addressing
@@ -1031,7 +1031,7 @@ static void group_misc(int index, bits immediate_mode)
 // mnemonics using only 8bit relative addressing (short branch instructions).
 static void group_std_branches(int opcode)
 {
-	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	output_byte(opcode);
 	near_branch(2);
 }
@@ -1040,7 +1040,7 @@ static void group_std_branches(int opcode)
 static void group_bbr_bbs(int opcode)
 {
 	struct number	zpmem;
-	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
@@ -1054,7 +1054,7 @@ static void group_bbr_bbs(int opcode)
 // mnemonics using only 16bit relative addressing (BRL and PER of 65816, and the long branches of 65ce02)
 static void group_relative16(int opcode, int preoffset)
 {
-	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	output_byte(opcode);
 	far_branch(preoffset);
 }
@@ -1066,7 +1066,7 @@ static void group_mvn_mvp(int opcode)
 	boolean		unmatched_hash	= FALSE;
 	struct number	source,
 			target;
-	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 
 	// assembler syntax: "mnemonic source, target" or "mnemonic #source, #target"
 	// machine language order: "opcode target source"
@@ -1103,7 +1103,7 @@ static void group_mvn_mvp(int opcode)
 // "rmb0..7" and "smb0..7"
 static void group_only_zp(int opcode)
 {
-	//bits		force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits		force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	struct number	target;
 
 	get_int_arg(&target, TRUE);
@@ -1116,7 +1116,7 @@ static void group_only_zp(int opcode)
 // NOP on m65 cpu (FIXME - "!align" outputs NOPs, what about that? what if user writes NEG:NEG?)
 static void group_prefix(int opcode)
 {
-	//bits	force_bit	= input_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
+	//bits	force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
 	char	buffer[100];	// 640K should be enough for anybody
 
 	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);
@@ -1127,7 +1127,7 @@ static void group_prefix(int opcode)
 static void group_jump(int index)
 {
 	struct number	result;
-	bits		force_bit	= input_get_force_bit();	// skips spaces after
+	bits		force_bit	= parser_get_force_bit();	// skips spaces after
 
 	switch (get_addr_mode(&result)) {
 	case ABSOLUTE_ADDRESSING:	// absolute16 or absolute24

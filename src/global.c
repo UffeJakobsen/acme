@@ -262,7 +262,7 @@ static void parse_symbol_definition(scope_t scope)
 	if (GotByte == '?')
 		symbol_fix_dynamic_name();
 
-	force_bit = input_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
+	force_bit = parser_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)
 		GetByte();	// eat '='
@@ -455,6 +455,29 @@ void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
 	fclose(input_now->src.fd);
 	// restore outer input
 	inputchange_back(&icb);
+}
+
+// read optional info about parameter length
+bits parser_get_force_bit(void)
+{
+	char	byte;
+	bits	force_bit	= 0;
+
+	if (GotByte == '+') {
+		byte = GetByte();
+		if (byte == '1')
+			force_bit = NUMBER_FORCES_8;
+		else if (byte == '2')
+			force_bit = NUMBER_FORCES_16;
+		else if (byte == '3')
+			force_bit = NUMBER_FORCES_24;
+		if (force_bit)
+			GetByte();
+		else
+			Throw_error("Illegal postfix.");
+	}
+	SKIPSPACE();
+	return force_bit;
 }
 
 

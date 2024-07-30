@@ -826,7 +826,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 	if (input_read_scope_and_symbol_name(&scope))	// skips spaces before
 		return SKIP_REMAINDER;	// zero length
 
-	force_bit = input_get_force_bit();	// skips spaces after
+	force_bit = parser_get_force_bit();	// skips spaces after
 	if (!input_expect('='))
 		return SKIP_REMAINDER;
 
@@ -1058,7 +1058,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;	// zero length
 
 	// now GotByte = illegal char
-	force_bit = input_get_force_bit();	// skips spaces after
+	force_bit = parser_get_force_bit();	// skips spaces after
 	loop.symbol = symbol_find(scope);	// if not number, error will be reported on first assignment
 	if (input_accept_comma()) {
 		// counter syntax (old or new)

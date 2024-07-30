@@ -141,10 +141,6 @@ extern int input_accept_comma(void);
 // If not found, throw syntax error and return FALSE.
 extern int input_expect(int chr);
 
-// read optional info about parameter length
-// FIXME - move to different file!
-extern bits input_get_force_bit(void);
-
 // force input system to return "end of file" on next read
 // (back end function for "!eof" pseudo opcode)
 extern void input_force_eof(void);

@@ -197,6 +197,9 @@ extern int parse_optional_block(void);
 // and the pointer must remain valid forever!
 extern void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename);
 
+// read optional info about parameter length
+extern bits parser_get_force_bit(void);
+
 // generate a debug/info/warning/error message
 extern void throw_message(enum debuglevel level, const char msg[]);
 
