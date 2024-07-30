@@ -439,12 +439,18 @@ int parse_optional_block(void)
 void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
 {
 	struct inputchange_buf	icb;
+	const char		*ppb;	// path buffer in platform format
 
 	// be verbose
 	if (config.process_verbosity >= 3)
 		printf("Parsing source file \"%s\".\n", eternal_plat_filename);
-	// set up new input
+
+	// remember base for relative paths and set new one:
+	ppb = input_plat_pathref_filename;
+	input_plat_pathref_filename = eternal_plat_filename;
+	// remember input and set up new one:
 	inputchange_new_file(&icb, fd, eternal_plat_filename);
+
 	// parse block and check end reason
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
@@ -453,8 +459,11 @@ void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
 	// (this looks like we could just use "fd" as arg, but maybe the file
 	// has been replaced with a different one in the meantime...)
 	fclose(input_now->src.fd);
+
 	// restore outer input
 	inputchange_back(&icb);
+	// restore outer base for relative paths
+	input_plat_pathref_filename = ppb;
 }
 
 // read optional info about parameter length

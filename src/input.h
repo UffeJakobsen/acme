@@ -18,10 +18,7 @@ enum inputsrc {
 	INPUTSRC_RAM
 };
 struct input {
-	const char	*plat_pathref_filename;	// file
-	// the filename *above* refers to the source file currently being parsed, which
-	// is needed as a reference for relative paths.
-	// the filename *below* (in "location") refers to the source file where
+	// the filename below (in "location") refers to the source file where
 	// the current code initially came from, i.e. it may change during macro execution.
 	struct location	location;	// file + line (during RAM reads as well)
 	enum inputsrc	source;
@@ -52,6 +49,9 @@ extern const char	FILE_READBINARY[];
 // Variables
 extern struct input	*input_now;	// current input structure
 extern char		GotByte;	// last byte read (processed)
+// name of source file used for resolving relative paths
+// (i.e. not changed during macro execution):
+extern const char	*input_plat_pathref_filename;	// file name in platform format
 
 
 

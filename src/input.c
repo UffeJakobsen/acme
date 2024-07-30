@@ -43,7 +43,6 @@ const char	FILE_READBINARY[]	= "rb";
 
 // fake input structure (for error msgs before any real input is established)
 static struct input	outermost	= {
-	"<none>",	// file name for resolving paths
 	{
 		"<none>",	// file name where code initially came from (differs during macro execution)
 		0,		// line number
@@ -58,8 +57,10 @@ static struct input	outermost	= {
 
 // variables
 struct input	*input_now	= &outermost;	// current input structure
-char		GotByte;			// last byte read (processed)
-// TODO: move GotByte into input struct!
+char		GotByte;			// last byte read (processed)	TODO: move into input struct!
+// name of source file used for resolving relative paths
+// (i.e. not changed during macro execution):
+const char	*input_plat_pathref_filename	= "";	// file name in platform format
 
 
 // functions
@@ -759,7 +760,7 @@ static void library_path_to_pathbuf(void)
 // copy "default search path" from current file's file name into pathbuf:
 static void default_path_to_pathbuf(void)
 {
-	const char	*start	= input_now->plat_pathref_filename,
+	const char	*start	= input_plat_pathref_filename,
 			*readptr,
 			*found;
 
@@ -846,7 +847,6 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 	// TODO: in future, really buffer old data here! (instead of storing new data and changing pointer)
 	// setup new input
 	icb->new_input = *input_now;	// copy current input structure into new
-	icb->new_input.plat_pathref_filename	= eternal_plat_filename;
 	icb->new_input.location.plat_filename	= eternal_plat_filename;
 	icb->new_input.location.line_number	= 1;
 	icb->new_input.source		= INPUTSRC_FILE;
