@@ -16,6 +16,23 @@
 #include "tree.h"
 
 
+// type definitions
+
+// values for input_now->state
+enum inputstate {
+	INPUTSTATE_SOF,		// start of file (check for hashbang)
+	INPUTSTATE_NORMAL,	// everything's fine
+	INPUTSTATE_AGAIN,	// re-process last byte
+	INPUTSTATE_SKIPBLANKS,	// shrink multiple spaces
+	INPUTSTATE_LF,		// send start-of-line after end-of-statement
+	INPUTSTATE_CR,		// same, but also remember to skip LF
+	INPUTSTATE_SKIPLF,	// skip LF if that's next
+	INPUTSTATE_COMMENT,	// skip characters until newline or EOF
+	INPUTSTATE_EOB,		// send end-of-block after end-of-statement
+	INPUTSTATE_EOF,		// send end-of-file after end-of-statement
+};
+
+
 // Constants
 const char	FILE_READBINARY[]	= "rb";
 #define CHAR_LF		(10)	// line feed		(in file)

@@ -13,19 +13,6 @@
 
 // type definitions
 
-// values for input component "src.state" (FIXME - try to move this into .c file!)
-enum inputstate {
-	INPUTSTATE_SOF,		// start of file (check for hashbang)
-	INPUTSTATE_NORMAL,	// everything's fine
-	INPUTSTATE_AGAIN,	// re-process last byte
-	INPUTSTATE_SKIPBLANKS,	// shrink multiple spaces
-	INPUTSTATE_LF,		// send start-of-line after end-of-statement
-	INPUTSTATE_CR,		// same, but also remember to skip LF
-	INPUTSTATE_SKIPLF,	// skip LF if that's next
-	INPUTSTATE_COMMENT,	// skip characters until newline or EOF
-	INPUTSTATE_EOB,		// send end-of-block after end-of-statement
-	INPUTSTATE_EOF,		// send end-of-file after end-of-statement
-};
 enum inputsrc {
 	INPUTSRC_FILE,
 	INPUTSRC_RAM
@@ -38,7 +25,7 @@ struct input {
 	// the current code initially came from, i.e. it may change during macro execution.
 	struct location	location;	// file + line (during RAM reads as well)
 	enum inputsrc	source;
-	enum inputstate	state;	// state of input
+	int		state;	// state of input (type is really "enum inputstate")
 	union {
 		FILE	*fd;		// file descriptor
 		char	*ram_ptr;	// RAM read ptr (loop or macro block)
