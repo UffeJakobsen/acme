@@ -156,8 +156,12 @@ struct inputchange_buf {
 };
 // save current input struct in buffer, then switch input to new source code file
 extern void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *eternal_plat_filename);
-// save current input struct in buffer, then switch input to macro parameters
-extern void inputchange_macro1_params(struct inputchange_buf *icb, struct location *def, char *params);
+// save current input struct in buffer, then switch to RAM
+extern void inputchange_new_ram(struct inputchange_buf *icb);
+// setup for reading from RAM (for parsing loop conditions etc.)
+extern void inputchange_set_ram(int line_num, char *body);
+// switch input to macro parameters
+extern void inputchange_macro1_params(struct location *def, char *params);
 // switch from macro parameters to macro body
 extern void inputchange_macro2_body(char *macro_body);
 // restore input struct from buffer

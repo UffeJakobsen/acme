@@ -240,8 +240,9 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		// make macro_node point to the macro struct
 		actual_macro = macro_node->body;
 
-		// set up new input
-		inputchange_macro1_params(&icb, &actual_macro->definition, actual_macro->parameter_list);
+		// remember input and set up new one:
+		inputchange_new_ram(&icb);
+		inputchange_macro1_params(&actual_macro->definition, actual_macro->parameter_list);
 
 		outer_msg_sum = pass.warning_count + pass.error_count;	// remember for call stack decision
 
@@ -295,7 +296,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		// restore previous section
 		section_now = outer_section;
 
-		// restore previous input
+		// restore outer input
 		inputchange_back(&icb);
 
 		// if needed, dump call stack

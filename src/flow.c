@@ -53,8 +53,9 @@ boolean check_ifdef_condition(void)
 // parse a loop body (TODO - also use for macro body?)
 static void parse_ram_block(struct block *block)
 {
-	input_now->location.line_number = block->start;	// set line number to loop start
-	input_now->src.ram_ptr = block->body;	// set RAM read pointer to loop
+	// set line number to loop start
+	// set RAM read pointer to loop
+	inputchange_set_ram(block->start, block->body);
 	// parse block
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
@@ -118,20 +119,13 @@ static void iterating_for(struct for_loop *loop)
 // back end function for "!for" pseudo opcode
 void flow_forloop(struct for_loop *loop)
 {
-	struct input	loop_input,
-			*outer_input;
+	struct inputchange_buf	icb;
 
-	// switching input makes us lose GotByte. But we know it's '}' anyway!
-	// set up new input
-	loop_input = *input_now;	// copy current input structure into new
-	loop_input.source = INPUTSRC_RAM;	// set new byte source
-	// remember old input
-	outer_input = input_now;
-	// activate new input
-	// (not yet useable; pointer and line number are still missing)
-	input_now = &loop_input;
+	// remember input and set up new one:
+	inputchange_new_ram(&icb);
 	// fix line number (not for block, but in case symbol handling throws errors)
-	input_now->location.line_number = loop->block.start;
+	inputchange_set_ram(loop->block.start, NULL);
+
 	switch (loop->algorithm) {
 	case FORALGO_OLDCOUNT:
 	case FORALGO_NEWCOUNT:
@@ -143,8 +137,9 @@ void flow_forloop(struct for_loop *loop)
 	default:
 		BUG("IllegalLoopAlgo", loop->algorithm);
 	}
-	// restore previous input:
-	input_now = outer_input;
+
+	// restore outer input
+	inputchange_back(&icb);
 }
 
 
@@ -223,8 +218,8 @@ static boolean check_condition(struct condition *condition)
 		return TRUE;	// non-existing conditions are always true
 
 	// set up input for expression evaluation
-	input_now->location.line_number = condition->line;
-	input_now->src.ram_ptr = condition->body;
+	inputchange_set_ram(condition->line, condition->body);
+
 	GetByte();	// proceed with next char
 	ALU_defined_int(&intresult);
 	if (GotByte)
@@ -236,17 +231,11 @@ static boolean check_condition(struct condition *condition)
 // back end function for "!do" and "!while" pseudo opcodes
 void flow_do_while(struct do_while *loop)
 {
-	struct input	loop_input;
-	struct input	*outer_input;
+	struct inputchange_buf	icb;
 
-	// set up new input
-	loop_input = *input_now;	// copy current input structure into new
-	loop_input.source = INPUTSRC_RAM;	// set new byte source
-	// remember old input
-	outer_input = input_now;
-	// activate new input (not useable yet, as pointer and
-	// line number are not yet set up)
-	input_now = &loop_input;
+	// remember input and prepare new one:
+	inputchange_new_ram(&icb);
+
 	for (;;) {
 		// check head condition
 		if (!check_condition(&loop->head_cond))
@@ -256,8 +245,10 @@ void flow_do_while(struct do_while *loop)
 		if (!check_condition(&loop->tail_cond))
 			break;
 	}
-	// restore previous input:
-	input_now = outer_input;
+	// restore outer input
+	inputchange_back(&icb);
+// FIXME - the line above also restores GotByte, so this is no longer necessary,
+// but check before removing:
 	GotByte = CHAR_EOS;	// CAUTION! Very ugly kluge.
 	// But by switching input, we lost the outer input's GotByte. We know
 	// it was CHAR_EOS. We could just call GetByte() to get real input, but

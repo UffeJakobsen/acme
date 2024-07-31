@@ -854,29 +854,41 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 	icb->new_input.src.fd		= fd;
 	// remember where outer input struct is
 	icb->outer_input = input_now;
-	// activate new input
 	icb->gb = GotByte;
+	// activate new input
 	input_now = &icb->new_input;
 }
-// save current input struct in buffer, then switch input to macro parameters
-void inputchange_macro1_params(struct inputchange_buf *icb, struct location *def, char *params)
+// save current input struct in buffer, then switch to RAM
+void inputchange_new_ram(struct inputchange_buf *icb)
 {
 	icb->new_input = *input_now;	// copy current input structure into new
-	icb->new_input.location = *def;
-	icb->new_input.source = INPUTSRC_RAM;
-	icb->new_input.state = INPUTSTATE_NORMAL;	// FIXME - fix others!
-	icb->new_input.src.ram_ptr = params;
+	icb->new_input.source = INPUTSRC_RAM;	// set new byte source
+	icb->new_input.src.ram_ptr = NULL;	// force crash if used before setup is finished
 	// remember where outer input struct is
 	icb->outer_input = input_now;
-	// activate new input
 	icb->gb = GotByte;
+	// activate new input (not useable yet, as pointer and line number are not yet set up)
 	input_now = &icb->new_input;
+}
+// FIXME - merge these three functions into a single one (by always using a "location"):
+// setup for reading from RAM (for parsing loop conditions etc.)
+void inputchange_set_ram(int line_num, char *body)
+{
+	input_now->location.line_number = line_num;
+	input_now->src.ram_ptr = body;
+}
+// switch input to macro parameters
+void inputchange_macro1_params(struct location *def, char *params)
+{
+	input_now->location = *def;
+	input_now->src.ram_ptr = params;
+	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 }
 // switch from macro parameters to macro body
 void inputchange_macro2_body(char *macro_body)
 {
-	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 	input_now->src.ram_ptr = macro_body;
+	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 }
 // restore input struct from buffer
 void inputchange_back(const struct inputchange_buf *icb)
