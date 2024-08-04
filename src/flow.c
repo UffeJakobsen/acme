@@ -55,7 +55,7 @@ static void parse_ram_block(struct block *block)
 {
 	// set line number to loop start
 	// set RAM read pointer to loop
-	inputchange_set_ram(block->start, block->body);
+	inputchange_set_ram(block->line_number, block->body);
 	// parse block
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
@@ -116,7 +116,7 @@ static void iterating_for(struct for_loop *loop)
 }
 
 
-// back end function for "!for" pseudo opcode
+// back end function for "!for" pseudo opcode, called with GotByte = '}'
 void flow_forloop(struct for_loop *loop)
 {
 	struct inputchange_buf	icb;
@@ -124,7 +124,7 @@ void flow_forloop(struct for_loop *loop)
 	// remember input and set up new one:
 	inputchange_new_ram(&icb);
 	// fix line number (not for block, but in case symbol handling throws errors)
-	inputchange_set_ram(loop->block.start, NULL);
+	inputchange_set_ram(loop->block.line_number, NULL);
 
 	switch (loop->algorithm) {
 	case FORALGO_OLDCOUNT:
@@ -163,7 +163,7 @@ static void copy_condition(struct condition *condition, char terminator)
 		GetByte();
 	}
 	dynabuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
-	condition->body = dynabuf_get_copy(GlobalDynaBuf);
+	condition->block.body = dynabuf_get_copy(GlobalDynaBuf);
 }
 
 // try to read a condition into DynaBuf and store pointer to copy in
@@ -173,10 +173,10 @@ static void copy_condition(struct condition *condition, char terminator)
 void flow_store_doloop_condition(struct condition *condition, char terminator)
 {
 	// write line number
-	condition->line = input_now->location.line_number;
+	condition->block.line_number = input_now->location.line_number;
 	// set defaults
 	condition->invert = FALSE;
-	condition->body = NULL;
+	condition->block.body = NULL;
 	// check for empty condition
 	if (GotByte == terminator)
 		return;
@@ -202,7 +202,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 // call with GotByte = first interesting character
 void flow_store_while_condition(struct condition *condition)
 {
-	condition->line = input_now->location.line_number;
+	condition->block.line_number = input_now->location.line_number;
 	condition->invert = FALSE;
 	copy_condition(condition, CHAR_SOB);
 }
@@ -214,11 +214,11 @@ static boolean check_condition(struct condition *condition)
 	struct number	intresult;
 
 	// first, check whether there actually *is* a condition
-	if (condition->body == NULL)
+	if (condition->block.body == NULL)
 		return TRUE;	// non-existing conditions are always true
 
 	// set up input for expression evaluation
-	inputchange_set_ram(condition->line, condition->body);
+	inputchange_set_ram(condition->block.line_number, condition->block.body);	// FIXME - just pass condition->block!)
 
 	GetByte();	// proceed with next char
 	ALU_defined_int(&intresult);
@@ -247,11 +247,4 @@ void flow_do_while(struct do_while *loop)
 	}
 	// restore outer input
 	inputchange_back(&icb);
-// FIXME - the line above also restores GotByte, so this is no longer necessary,
-// but check before removing:
-	GotByte = CHAR_EOS;	// CAUTION! Very ugly kluge.
-	// But by switching input, we lost the outer input's GotByte. We know
-	// it was CHAR_EOS. We could just call GetByte() to get real input, but
-	// then the main loop could choke on unexpected bytes. So we pretend
-	// that we got the outer input's GotByte value magically back.
 }

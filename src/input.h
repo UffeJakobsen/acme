@@ -25,7 +25,7 @@ struct input {
 	int		state;	// state of input (type is really "enum inputstate")
 	union {
 		FILE	*fd;		// file descriptor
-		char	*ram_ptr;	// RAM read ptr (loop or macro block)
+		const char	*ram_ptr;	// RAM read ptr (loop or macro block)
 	} src;
 };
 struct filespecflags {
@@ -80,11 +80,11 @@ extern int input_unescape_dynabuf(void);
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
 extern void input_block_skip(void);
-// Read block into GlobalDynabuf, make a copy and return a pointer to that
+// Read block into GlobalDynabuf, make a copy and store pointer in struct.
 // (reading starts with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-extern char *input_block_getcopy(void);
+extern void input_block_getcopy(struct block *block);
 
 // append optional '.'/'@' prefix to GlobalDynaBuf, then keep
 // appending while characters are legal for keywords.
@@ -145,6 +145,9 @@ extern int input_expect(int chr);
 // (back end function for "!eof" pseudo opcode)
 extern void input_force_eof(void);
 
+// write current "location" (file name and line number) to given target
+extern void input_get_location(struct location *target);
+
 
 // "input change" stuff:
 
@@ -159,11 +162,11 @@ extern void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const ch
 // save current input struct in buffer, then switch to RAM
 extern void inputchange_new_ram(struct inputchange_buf *icb);
 // setup for reading from RAM (for parsing loop conditions etc.)
-extern void inputchange_set_ram(int line_num, char *body);
+extern void inputchange_set_ram(int line_num, const char *body);
 // switch input to macro parameters
-extern void inputchange_macro1_params(struct location *def, char *params);
+extern void inputchange_macro1_params(const struct location *def, const char *params);
 // switch from macro parameters to macro body
-extern void inputchange_macro2_body(char *macro_body);
+extern void inputchange_macro2_body(const char *macro_body);
 // restore input struct from buffer
 extern void inputchange_back(const struct inputchange_buf *icb);
 

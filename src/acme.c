@@ -348,8 +348,10 @@ static void perform_pass(void)
 	pass.warning_count = 0;
 	// Process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
-		if ((fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY))) {
-			parse_and_close_platform_file(fd, toplevel_sources_plat[ii]);
+		fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY);
+		if (fd) {
+			parse_source_code_file(fd, toplevel_sources_plat[ii]);
+			fclose(fd);
 		} else {
 			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources_plat[ii]);
 			if (toplevel_sources_plat[ii][0] == '-')

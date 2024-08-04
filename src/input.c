@@ -512,19 +512,21 @@ void input_block_skip(void)
 {
 	block_to_dynabuf();
 }
-// Read block into GlobalDynabuf, make a copy and return a pointer to that
+// Read block into GlobalDynabuf, make a copy and store pointer in struct.
 // (reading starts with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
 // but then a serious error would have been thrown.
-char *input_block_getcopy(void)
+void input_block_getcopy(struct block *block)
 {
+	// first store line number...
+	block->line_number = input_now->location.line_number;
+	// ...then get block
 	block_to_dynabuf();
-	// prepare to return copy of block
 	// add EOF, just to make sure block is never read too far
 	dynabuf_append(GlobalDynaBuf, CHAR_EOS);
 	dynabuf_append(GlobalDynaBuf, CHAR_EOF);
-	// return pointer to copy
-	return dynabuf_get_copy(GlobalDynaBuf);
+	// store pointer to copy
+	block->body = dynabuf_get_copy(GlobalDynaBuf);
 }
 
 // Append to GlobalDynaBuf while characters are legal for keywords.
@@ -838,6 +840,12 @@ int input_read_output_filename(void)
 	return 0;	// ok
 }
 
+// write current "location" (file name and line number) to given target
+void input_get_location(struct location *target)
+{
+	*target = input_now->location;
+}
+
 
 // "input change" stuff:
 
@@ -872,20 +880,20 @@ void inputchange_new_ram(struct inputchange_buf *icb)
 }
 // FIXME - merge these three functions into a single one (by always using a "location"):
 // setup for reading from RAM (for parsing loop conditions etc.)
-void inputchange_set_ram(int line_num, char *body)
+void inputchange_set_ram(int line_num, const char *body)
 {
 	input_now->location.line_number = line_num;
 	input_now->src.ram_ptr = body;
 }
 // switch input to macro parameters
-void inputchange_macro1_params(struct location *def, char *params)
+void inputchange_macro1_params(const struct location *def, const char *params)
 {
 	input_now->location = *def;
 	input_now->src.ram_ptr = params;
 	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
 }
 // switch from macro parameters to macro body
-void inputchange_macro2_body(char *macro_body)
+void inputchange_macro2_body(const char *macro_body)
 {
 	input_now->src.ram_ptr = macro_body;
 	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!

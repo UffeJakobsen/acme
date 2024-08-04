@@ -26,6 +26,12 @@ struct location {
 	const char	*plat_filename;	// filename in platform style
 	int		line_number;
 };
+// struct for code blocks (loop conditions, loop bodies and macro bodies)
+struct block {
+	int	line_number;	// start of block
+	char	*body;
+};
+
 
 // stuff for results from expression parser:
 

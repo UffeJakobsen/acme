@@ -436,7 +436,7 @@ int parse_optional_block(void)
 // "directory/basename.extension" on linux,
 // "directory.basename/extension" on RISC OS, etc.
 // and the pointer must remain valid forever!
-void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
+void parse_source_code_file(FILE *fd, const char *eternal_plat_filename)
 {
 	struct inputchange_buf	icb;
 	const char		*ppb;	// path buffer in platform format
@@ -455,10 +455,6 @@ void parse_and_close_platform_file(FILE *fd, const char *eternal_plat_filename)
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
 		Throw_error("Expected EOF, found '}' instead." );
-	// close sublevel src
-	// (this looks like we could just use "fd" as arg, but maybe the file
-	// has been replaced with a different one in the meantime...)
-	fclose(input_now->src.fd);
 
 	// restore outer input
 	inputchange_back(&icb);
@@ -498,21 +494,24 @@ bits parser_get_force_bit(void)
 static void throw_msg(const char *message, const char *ansicolor, const char *type)
 {
 	const char	*resetcolor	= "\033[0m";
+	struct location	location;
 
 	if (!config.format_color) {
 		ansicolor = "";
 		resetcolor = "";
 	}
 
+	input_get_location(&location);
+
 	if (config.format_msvc) {
 		fprintf(config.msg_stream, "%s(%d) : %s%s%s (%s %s): %s\n",
-			input_now->location.plat_filename, input_now->location.line_number,
+			location.plat_filename, location.line_number,
 			ansicolor, type, resetcolor,
 			section_now->type, section_now->title, message);
 	} else {
 		fprintf(config.msg_stream, "%s%s%s - File %s, line %d (%s %s): %s\n",
 			ansicolor, type, resetcolor,
-			input_now->location.plat_filename, input_now->location.line_number,
+			location.plat_filename, location.line_number,
 			section_now->type, section_now->title, message);
 	}
 }
@@ -579,8 +578,9 @@ void throw_redef_error(struct location *old_def, const char msg[])
 
 	// CAUTION, ugly kluge: fiddle with input_now and section_now
 	// data so error message is actually helpful
+// FIXME: maybe better pass "old location" as an optional arg to throw_message!
 	// buffer old data
-	buffered_location = input_now->location;
+	input_get_location(&buffered_location);
 	buffered_section_type = section_now->type;
 	buffered_section_title = section_now->title;
 	// set new (fake) data

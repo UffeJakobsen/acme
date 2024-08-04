@@ -911,7 +911,8 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	stream = includepaths_open_ro(&flags);
 	if (stream) {
 		eternal_plat_filename = dynabuf_get_copy(GlobalDynaBuf);
-		parse_and_close_platform_file(stream, eternal_plat_filename);
+		parse_source_code_file(stream, eternal_plat_filename);
+		fclose(stream);
 	}
 	// leave nesting level
 	++sanity.source_recursions_left;
@@ -1141,16 +1142,11 @@ does not fail. */
 	if (GotByte != CHAR_SOB)
 		Throw_serious_error(exception_no_left_brace);
 
-	// remember line number of loop pseudo opcode
-	loop.block.start = input_now->location.line_number;
-	// read loop body into DynaBuf and get copy
-	// reading block changes line number!
-	loop.block.body = input_block_getcopy();	// must be freed!
+	input_block_getcopy(&loop.block);	// "body" must be freed afterward...
 	flow_forloop(&loop);
-	// free memory
-	free(loop.block.body);
+	free(loop.block.body);	// ...so free it 
 
-	// GotByte of OuterInput would be '}' (if it would still exist)
+	// GotByte is '}'
 	GetByte();	// fetch next byte
 	return ENSURE_EOS;
 }
@@ -1166,11 +1162,8 @@ static enum eos po_do(void)	// now GotByte = illegal char
 	flow_store_doloop_condition(&loop.head_cond, CHAR_SOB);	// must be freed!
 	if (GotByte != CHAR_SOB)
 		Throw_serious_error(exception_no_left_brace);
-	// remember line number of loop body,
-	// then read block and get copy
-	loop.block.start = input_now->location.line_number;
-	// reading block changes line number!
-	loop.block.body = input_block_getcopy();	// must be freed!
+
+	input_block_getcopy(&loop.block);	// "body" must be freed!
 	// now GotByte = '}'
 	NEXTANDSKIPSPACE();	// now GotByte = first non-blank char after block
 	// read tail condition to buffer
@@ -1178,9 +1171,9 @@ static enum eos po_do(void)	// now GotByte = illegal char
 	// now GotByte = CHAR_EOS
 	flow_do_while(&loop);
 	// free memory
-	free(loop.head_cond.body);
+	free(loop.tail_cond.block.body);
 	free(loop.block.body);
-	free(loop.tail_cond.body);
+	free(loop.head_cond.block.body);
 	return AT_EOS_ANYWAY;
 }
 
@@ -1192,22 +1185,18 @@ static enum eos po_while(void)	// now GotByte = illegal char
 
 	// read condition to buffer
 	SKIPSPACE();
-	flow_store_while_condition(&loop.head_cond);	// must be freed!
+	flow_store_while_condition(&loop.head_cond);	// "body" must be freed!
 	if (GotByte != CHAR_SOB)
 		Throw_serious_error(exception_no_left_brace);
-	// remember line number of loop body,
-	// then read block and get copy
-	loop.block.start = input_now->location.line_number;
-	// reading block changes line number!
-	loop.block.body = input_block_getcopy();	// must be freed!
+	// read block
+	input_block_getcopy(&loop.block);	// "body" must be freed!
 	// clear tail condition
-	loop.tail_cond.body = NULL;
+	loop.tail_cond.block.body = NULL;
 	flow_do_while(&loop);
 	// free memory
-	free(loop.head_cond.body);
 	free(loop.block.body);
-	// GotByte of OuterInput would be '}' (if it would still exist)
-	GetByte();	// fetch next byte
+	free(loop.head_cond.block.body);
+	GetByte();	// fetch next byte (last byte read was '}')
 	return ENSURE_EOS;
 }
 

@@ -11,11 +11,6 @@
 #include "config.h"
 
 
-struct block {
-	int	start;	// line number of start of block
-	char	*body;
-};
-
 // struct to pass "!for" loop stuff from pseudoopcodes.c to flow.c
 enum foralgo {
 	FORALGO_OLDCOUNT,	// block can be skipped by passing zero, counter keeps value after block
@@ -42,9 +37,9 @@ struct for_loop {
 
 // structs to pass "!do"/"!while" stuff from pseudoopcodes.c to flow.c
 struct condition {
-	int	line;	// original line number
-	boolean	invert;	// only set for UNTIL conditions
-	char	*body;	// pointer to actual expression
+	// FIXME - add some "boolean given" and use that instead of checking for block.body == NULL
+	boolean		invert;	// only set for UNTIL conditions
+	struct block	block;
 };
 struct do_while {
 	struct condition	head_cond;

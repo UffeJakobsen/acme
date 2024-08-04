@@ -29,8 +29,8 @@
 struct macro {
 	struct location	definition;	// for "macro twice" error
 	char		*original_name,	// as section title in error msgs
-			*parameter_list,	// parameters (whole line)
-			*body;	// RAM block containing macro body
+			*parameter_list;	// parameters (whole line)
+	struct block	body;	// RAM block containing macro body
 };
 // there's no need to make this a struct and add a type component:
 // when the macro has been found, accessing its parameter_list component
@@ -166,10 +166,10 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	}
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
-	new_macro->definition = input_now->location;
 	new_macro->original_name = dynabuf_get_copy(user_macro_name);
 	new_macro->parameter_list = formal_parameters;
-	new_macro->body = input_block_getcopy();	// changes line number!
+	input_get_location(&new_macro->definition);	// includes line number
+	input_block_getcopy(&new_macro->body);	// also includes line number (and then changes it)
 	macro_node->body = new_macro;	// link macro struct to tree node
 	// and that about sums it up
 }
@@ -287,7 +287,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 
 		// and now, finally, parse the actual macro body
 // maybe call parse_ram_block(actual_macro->definition.line_number, actual_macro->body)
-		inputchange_macro2_body(actual_macro->body);
+		inputchange_macro2_body(actual_macro->body.body);
 		parse_until_eob_or_eof();
 		if (GotByte != CHAR_EOB)
 			BUG("IllegalBlockTerminator", GotByte);

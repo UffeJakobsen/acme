@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>	// for strlen and memmove
 #include <kernel.h>
-#include "input.h"	// for input_now->location.plat_filename
+#include "input.h"	// for input_get_location()
 
 
 // constants
@@ -124,11 +124,14 @@ void RISCOS_set_filetype(const char *filename, int file_type)
 // throwback protocol: "type" can be 0, 1 or 2 (DDEUtils message types)
 void RISCOS_throwback(const char *message, int type)
 {
+	struct location		location;
 	_kernel_swi_regs	regs;
 
 	// only use throwback protocol if wanted
 	if ((RISCOS_flags & RISCOSFLAG_THROWBACK) == 0)
 		return;
+
+	input_get_location(&location);
 
 	// if this is the first throwback, set it up and send info
 	if ((RISCOS_flags & RISCOSFLAG_THROWN) == 0) {
@@ -137,14 +140,14 @@ void RISCOS_throwback(const char *message, int type)
 		regs.r[0] = 0;
 		regs.r[1] = 0;
 	//	regs.r[2] = (int) toplevel_source;
-		regs.r[2] = (int) input_now->location.plat_filename;
+		regs.r[2] = (int) location.plat_filename;
 		_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);
 	}
 	// send throwback message
 	regs.r[0] = 1;
 	regs.r[1] = 0;
-	regs.r[2] = (int) input_now->location.plat_filename;
-	regs.r[3] = input_now->location.line_number;
+	regs.r[2] = (int) location.plat_filename;
+	regs.r[3] = location.line_number;
 	regs.r[4] = type;
 	regs.r[5] = (int) message;
 	_kernel_swi(XDDEUTILS_THROWBACKSEND, &regs, &regs);
