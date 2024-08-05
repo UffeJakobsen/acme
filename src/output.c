@@ -99,7 +99,7 @@ static void border_crossed(int current_offset)
 	if (current_offset >= config.outbuf_size)
 		Throw_serious_error("Reached memory limit.");
 	if (pass.flags.do_segment_checks) {
-		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.");
+		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.", NULL);
 		find_segment_max(current_offset + 1);	// find new (next) limit
 	}
 }
@@ -282,7 +282,7 @@ static void check_segment(intval_t new_pc)
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
 			// TODO - include overlap size in error message!
-			throw_message(config.debuglevel_segmentprobs, "Segment starts inside another one, overwriting it.");
+			throw_message(config.debuglevel_segmentprobs, "Segment starts inside another one, overwriting it.", NULL);
 			return;
 		}
 

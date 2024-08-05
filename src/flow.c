@@ -144,6 +144,7 @@ void flow_forloop(struct for_loop *loop)
 
 
 // read condition, make copy, link to struct
+// FIXME - change to some input_line_getcopy() fn, like input_block_getcopy()!
 static void copy_condition(struct condition *condition, char terminator)
 {
 	int	err;
@@ -172,8 +173,11 @@ static void copy_condition(struct condition *condition, char terminator)
 // call with GotByte = first interesting character
 void flow_store_doloop_condition(struct condition *condition, char terminator)
 {
+	struct location	loc;
+
 	// write line number
-	condition->block.line_number = input_now->location.line_number;
+	input_get_location(&loc);	// FIXME - get rid of this when changing copy_condition to input_line_getcopy!
+	condition->block.line_number = loc.line_number;
 	// set defaults
 	condition->invert = FALSE;
 	condition->block.body = NULL;
@@ -202,7 +206,10 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 // call with GotByte = first interesting character
 void flow_store_while_condition(struct condition *condition)
 {
-	condition->block.line_number = input_now->location.line_number;
+	struct location	loc;
+
+	input_get_location(&loc);	// FIXME - get rid of this when changing copy_condition to input_line_getcopy!
+	condition->block.line_number = loc.line_number;
 	condition->invert = FALSE;
 	copy_condition(condition, CHAR_SOB);
 }

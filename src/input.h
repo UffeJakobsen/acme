@@ -47,7 +47,6 @@ extern const char	FILE_READBINARY[];
 
 
 // Variables
-extern struct input	*input_now;	// current input structure
 extern char		GotByte;	// last byte read (processed)
 // name of source file used for resolving relative paths
 // (i.e. not changed during macro execution):

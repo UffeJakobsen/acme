@@ -1351,7 +1351,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 		}
 	} while (input_accept_comma());
 	dynabuf_append(user_message, '\0');
-	throw_message(level, user_message->buffer);
+	throw_message(level, user_message->buffer, NULL);
 	return ENSURE_EOS;
 }
 

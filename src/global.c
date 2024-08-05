@@ -491,7 +491,8 @@ bits parser_get_force_bit(void)
 // This function will do the actual output for warnings, errors and serious
 // errors. It shows the given message string, as well as the current
 // context: file name, line number, source type and source title.
-static void throw_msg(const char *message, const char *ansicolor, const char *type)
+// if the "optional alternative location" given is NULL, the current location is used
+static void throw_msg(const char *message, const char *ansicolor, const char *type, struct location *opt_alt_loc)
 {
 	const char	*resetcolor	= "\033[0m";
 	struct location	location;
@@ -501,7 +502,11 @@ static void throw_msg(const char *message, const char *ansicolor, const char *ty
 		resetcolor = "";
 	}
 
-	input_get_location(&location);
+	// optional alternative location given?
+	if (opt_alt_loc)
+		location = *opt_alt_loc;	// use alternative location
+	else
+		input_get_location(&location);	// use current location
 
 	if (config.format_msvc) {
 		fprintf(config.msg_stream, "%s(%d) : %s%s%s (%s %s): %s\n",
@@ -517,7 +522,8 @@ static void throw_msg(const char *message, const char *ansicolor, const char *ty
 }
 
 // generate debug/info/warning/error message
-void throw_message(enum debuglevel level, const char msg[])
+// if the "optional alternative location" given is NULL, the current location is used
+void throw_message(enum debuglevel level, const char msg[], struct location *opt_alt_loc)
 {
 	// if level is taken from source, ensure valid value:
 	if (level < DEBUGLEVEL_SERIOUS)
@@ -528,14 +534,14 @@ void throw_message(enum debuglevel level, const char msg[])
 		// output a serious error
 		// (assembly stops, for example if outbuffer overruns).
 		PLATFORM_SERIOUS(msg);
-		throw_msg(msg, "\033[1m\033[31m", "Serious error");	// bold + red
+		throw_msg(msg, "\033[1m\033[31m", "Serious error", opt_alt_loc);	// bold + red
 		//++pass.error_count;	// FIXME - needed when problem below is solved
 		exit(ACME_finalize(EXIT_FAILURE)); // FIXME - this inhibits output of macro call stack
 	case DEBUGLEVEL_ERROR:
 		// output an error
 		// (something is wrong, no output file will be generated).
 		PLATFORM_ERROR(msg);
-		throw_msg(msg, "\033[31m", "Error");	// red
+		throw_msg(msg, "\033[31m", "Error", opt_alt_loc);	// red
 		++pass.error_count;
 		if (pass.error_count >= config.max_errors)
 			exit(ACME_finalize(EXIT_FAILURE));
@@ -547,7 +553,7 @@ void throw_message(enum debuglevel level, const char msg[])
 		if (in_nowarn_block || (statement_flags & SF_NOWARN_PREFIX))
 			break;
 		PLATFORM_WARNING(msg);
-		throw_msg(msg, "\033[33m", "Warning");	// yellow
+		throw_msg(msg, "\033[33m", "Warning", opt_alt_loc);	// yellow
 		++pass.warning_count;
 		// then check if warnings should be handled like errors:
 		if (config.all_warnings_are_errors) {
@@ -557,11 +563,11 @@ void throw_message(enum debuglevel level, const char msg[])
 		}
 		break;
 	case DEBUGLEVEL_INFO:
-		throw_msg(msg, "\033[32m", "Info");	// green
+		throw_msg(msg, "\033[32m", "Info", opt_alt_loc);	// green
 		break;
 	default:
 		// debug
-		throw_msg(msg, "\033[36m", "Debug");	// cyan
+		throw_msg(msg, "\033[36m", "Debug", opt_alt_loc);	// cyan
 		break;
 	}
 }
@@ -572,25 +578,20 @@ void throw_message(enum debuglevel level, const char msg[])
 // reach the maximum error limit inbetween.
 void throw_redef_error(struct location *old_def, const char msg[])
 {
-	struct location	buffered_location;
 	const char	*buffered_section_type;
 	char		*buffered_section_title;
 
-	// CAUTION, ugly kluge: fiddle with input_now and section_now
-	// data so error message is actually helpful
-// FIXME: maybe better pass "old location" as an optional arg to throw_message!
-	// buffer old data
-	input_get_location(&buffered_location);
+	// CAUTION, ugly kluge: fiddle with section_now data to generate
+	// "earlier definition" section.
+	// buffer old section
 	buffered_section_type = section_now->type;
 	buffered_section_title = section_now->title;
-	// set new (fake) data
-	input_now->location = *old_def;
+	// set new (fake) section
 	section_now->type = "earlier";
 	section_now->title = "definition";
 	// show warning with location of earlier definition
-	Throw_warning(msg);	// FIXME - throw as info?
-	// restore old data
-	input_now->location = buffered_location;
+	throw_message(DEBUGLEVEL_WARNING, msg, old_def);	// FIXME - throw as info?
+	// restore old section
 	section_now->type = buffered_section_type;
 	section_now->title = buffered_section_title;
 	// show error with location of current definition

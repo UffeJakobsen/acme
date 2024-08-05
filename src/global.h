@@ -201,15 +201,16 @@ extern void parse_source_code_file(FILE *fd, const char *eternal_plat_filename);
 extern bits parser_get_force_bit(void);
 
 // generate a debug/info/warning/error message
-extern void throw_message(enum debuglevel level, const char msg[]);
+// if the "optional alternative location" given is NULL, the current location is used
+extern void throw_message(enum debuglevel level, const char msg[], struct location *opt_alt_loc);
 
 // output a warning (something looks wrong, like "label name starts with shift-space character")
-#define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg)
+#define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg, NULL)
 
 // output an error (something is wrong, no output file will be generated).
 // the assembler will try to go on with the assembly, so the user gets to know
 // about more than one of his typos at a time.
-#define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg)
+#define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg, NULL)
 
 // throw "macro twice" error (FIXME - also use for "symbol twice"!)
 // first output a warning, then an error, this guarantees that ACME does not
@@ -222,7 +223,7 @@ extern void throw_redef_error(struct location *old_def, const char msg[]);
 extern void throw_symbol_error(const char *msg);
 
 // output a serious error (assembly stops, for example if outbuffer overruns).
-#define Throw_serious_error(msg)	throw_message(DEBUGLEVEL_SERIOUS, msg)
+#define Throw_serious_error(msg)	throw_message(DEBUGLEVEL_SERIOUS, msg, NULL)
 
 // handle bugs
 extern void BUG(const char *msg, int code);
