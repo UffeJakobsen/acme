@@ -65,55 +65,90 @@ const char	*input_plat_pathref_filename	= "";	// file name in platform format
 
 // functions
 
+// report generator stuff:
+
 // remember source code character for report generator
 #define HEXBUFSIZE	9	// actually, 4+1 is enough, but for systems without snprintf(), let's be extra-safe.
 #define IF_WANTED_REPORT_SRCCHAR(c)	do { if (report->fd) report_srcchar(c); } while(0)
-static void report_srcchar(char new_char)
+
+static void report_printline(int line_number)
+{
+	int	ii;
+	char	hex_address[HEXBUFSIZE];
+	char	hexdump[2 * REPORT_BINBUFSIZE + 2];	// +2 for '.' and terminator
+
+	// suppress empty lines
+	if (report->bin_used == 0) {
+		if ((report->asc_buf[0] == '\0')
+		|| ((report->asc_buf[0] == ' ') && (report->asc_buf[1] == '\0'))) {
+			report->asc_used = 0;
+			return;
+		}
+	}
+
+	// line start after line break detected and EOS processed,
+	// build report line:
+	// show line number...
+	fprintf(report->fd, "%6d  ", line_number);
+	// prepare outbytes' start address
+	if (report->bin_used) {
+#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
+		snprintf(hex_address, HEXBUFSIZE, "%04x", report->bin_address);
+#else
+		sprintf(hex_address, "%04x", report->bin_address);
+#endif
+	} else {
+		hex_address[0] = '\0';
+	}
+	// prepare outbytes
+	hexdump[0] = '\0';
+	for (ii = 0; ii < report->bin_used; ++ii)
+		sprintf(hexdump + 2 * ii, "%02x", (unsigned int) (unsigned char) (report->bin_buf[ii]));
+	// if binary buffer is full, overwrite last byte with "..."
+	if (report->bin_used == REPORT_BINBUFSIZE)
+		sprintf(hexdump + 2 * (REPORT_BINBUFSIZE - 1), "...");
+	// show address and bytes
+	fprintf(report->fd, "%-4s %-19s", hex_address, hexdump);
+	// at this point the output should be a multiple of 8 characters
+	// so far to preserve tabs of the source...
+	if (report->asc_used == REPORT_ASCBUFSIZE)
+		--report->asc_used;
+	report->asc_buf[report->asc_used] = '\0';
+	fprintf(report->fd, "%s\n", report->asc_buf);	// show source line
+	report->asc_used = 0;	// reset buffers
+	report->bin_used = 0;
+}
+
+// flush line buffer
+static void report_flush(void)
+{
+	if (report->fd) {
+		report_printline(input_now->location.line_number);
+	}
+}
+
+// insert explanation about change in input
+static void report_inputchange(const char prefix[], const char filename[])
+{
+	if (report->fd) {
+		fprintf(report->fd, "\n; ******** %s%s\n", prefix, filename);
+		report->new_input = TRUE;
+	}
+}
+
+static void report_srcchar(int new_char)
 {
 	static char	prev_char	= '\0';
-	int		ii;
-	char		hex_address[HEXBUFSIZE];
-	char		hexdump[2 * REPORT_BINBUFSIZE + 2];	// +2 for '.' and terminator
 
-	// if input has changed, insert explanation
-	if (input_now != report->last_input) {
-		fprintf(report->fd, "\n; ******** Source: %s\n", input_now->location.plat_filename);	// actually, UNIX-style might be better than platform-style here...
-		report->last_input = input_now;
-		report->asc_used = 0;	// clear buffer
+	if (new_char == EOF)
+		new_char = '\n';
+
+	if (report->new_input) {
+		report->new_input = FALSE;
 		prev_char = '\0';
 	}
 	if (prev_char == '\n') {
-		// line start after line break detected and EOS processed,
-		// build report line:
-		// show line number...
-		fprintf(report->fd, "%6d  ", input_now->location.line_number - 1);
-		// prepare outbytes' start address
-		if (report->bin_used) {
-#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-			snprintf(hex_address, HEXBUFSIZE, "%04x", report->bin_address);
-#else
-			sprintf(hex_address, "%04x", report->bin_address);
-#endif
-		} else {
-			hex_address[0] = '\0';
-		}
-		// prepare outbytes
-		hexdump[0] = '\0';
-		for (ii = 0; ii < report->bin_used; ++ii)
-			sprintf(hexdump + 2 * ii, "%02x", (unsigned int) (unsigned char) (report->bin_buf[ii]));
-		// if binary buffer is full, overwrite last byte with "..."
-		if (report->bin_used == REPORT_BINBUFSIZE)
-			sprintf(hexdump + 2 * (REPORT_BINBUFSIZE - 1), "...");
-		// show address and bytes
-		fprintf(report->fd, "%-4s %-19s", hex_address, hexdump);
-		// at this point the output should be a multiple of 8 characters
-		// so far to preserve tabs of the source...
-		if (report->asc_used == REPORT_ASCBUFSIZE)
-			--report->asc_used;
-		report->asc_buf[report->asc_used] = '\0';
-		fprintf(report->fd, "%s\n", report->asc_buf);	// show source line
-		report->asc_used = 0;	// reset buffers
-		report->bin_used = 0;
+		report_printline(input_now->location.line_number - 1);
 	}
 	if (new_char != '\n' && new_char != '\r') {	// detect line break
 		if (report->asc_used < REPORT_ASCBUFSIZE)
@@ -286,6 +321,8 @@ char GetByte(void)
 		switch (input_now->source) {
 		case INPUTSRC_RAM:
 			GotByte = *(input_now->src.ram_ptr++);
+			if (input_now->state== INPUTSTATE_NORMAL)
+				IF_WANTED_REPORT_SRCCHAR(GotByte);
 			break;
 		case INPUTSRC_FILE:
 			GotByte = get_processed_from_file();
@@ -316,6 +353,7 @@ static char GetQuotedByte(void)
 		// if byte source is RAM, then no conversion is necessary,
 		// because in RAM the source already has high-level format
 		GotByte = *(input_now->src.ram_ptr++);
+		IF_WANTED_REPORT_SRCCHAR(GotByte);
 		break;
 	case INPUTSRC_FILE:
 		// fetch a fresh byte from the current source file
@@ -852,6 +890,8 @@ void input_get_location(struct location *target)
 // save current input struct in buffer, then switch input to new source code file
 void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *eternal_plat_filename)
 {
+	report_flush();
+
 	// TODO: in future, really buffer old data here! (instead of storing new data and changing pointer)
 	// setup new input
 	icb->new_input = *input_now;	// copy current input structure into new
@@ -865,10 +905,14 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 	icb->gb = GotByte;
 	// activate new input
 	input_now = &icb->new_input;
+
+	report_inputchange("Source: ", eternal_plat_filename);
 }
 // save current input struct in buffer, then switch to RAM
 void inputchange_new_ram(struct inputchange_buf *icb)
 {
+	report_flush();
+
 	icb->new_input = *input_now;	// copy current input structure into new
 	icb->new_input.source = INPUTSRC_RAM;	// set new byte source
 	icb->new_input.src.ram_ptr = NULL;	// force crash if used before setup is finished
@@ -891,6 +935,8 @@ void inputchange_macro1_params(const struct location *def, const char *params)
 	input_now->location = *def;
 	input_now->src.ram_ptr = params;
 	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+
+	report_inputchange("macro from ", def->plat_filename);
 }
 // switch from macro parameters to macro body
 void inputchange_macro2_body(const char *macro_body)
@@ -901,8 +947,15 @@ void inputchange_macro2_body(const char *macro_body)
 // restore input struct from buffer
 void inputchange_back(const struct inputchange_buf *icb)
 {
+	report_flush();
+
 	input_now = icb->outer_input;
 	GotByte = icb->gb;
+
+	if (input_now->source == INPUTSRC_FILE)
+		report_inputchange("Source: ", input_now->location.plat_filename);
+	else
+		report_inputchange("back", "");
 }
 
 

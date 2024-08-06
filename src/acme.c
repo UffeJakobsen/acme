@@ -157,9 +157,9 @@ PLATFORM_OPTION_HELP
 static void report_init(struct report *report)
 {
 	report->fd = NULL;
+	report->new_input = FALSE;
 	report->asc_used = 0;
 	report->bin_used = 0;
-	report->last_input = NULL;
 }
 // open report file
 static int report_open(struct report *report, const char *filename)

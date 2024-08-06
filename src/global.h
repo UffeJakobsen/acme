@@ -130,7 +130,7 @@ extern struct sanity	sanity;
 #define REPORT_BINBUFSIZE	9	// eight are shown, then "..."
 struct report {
 	FILE		*fd;		// report file descriptor (NULL => no report)
-	struct input	*last_input;
+	boolean		new_input;
 	size_t		asc_used;
 	size_t		bin_used;
 	int		bin_address;	// address at start of bin_buf[]

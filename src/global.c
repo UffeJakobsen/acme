@@ -141,10 +141,11 @@ void config_default(struct config *conf)
 // allocate memory and die if not available
 void *safe_malloc(size_t size)
 {
-	void	*block;
+	void	*block	= malloc(size);
 
-	if ((block = malloc(size)) == NULL)
+	if (block == NULL)
 		Throw_serious_error(exception_no_memory_left);
+
 	return block;
 }
 
