@@ -21,12 +21,12 @@ struct input {
 	// the filename below (in "location") refers to the source file where
 	// the current code initially came from, i.e. it may change during macro execution.
 	struct location	location;	// file + line (during RAM reads as well)
-	enum inputsrc	source;
+	enum inputsrc	srctype;
 	int		state;	// state of input (type is really "enum inputstate")
 	union {
-		FILE	*fd;		// file descriptor
+		FILE		*fd;		// file descriptor
 		const char	*ram_ptr;	// RAM read ptr (loop or macro block)
-	} src;
+	} u;
 };
 struct filespecflags {
 	boolean	uses_lib;	// file name was given in <...> instead of "..."
@@ -152,8 +152,7 @@ extern void input_get_location(struct location *target);
 
 // treat this struct as opaque, its components should only be referenced by inputchange_* functions!
 struct inputchange_buf {
-	struct input	new_input,
-			*outer_input;
+	struct input	input;
 	char		gb;	// buffer for GotByte
 };
 // save current input struct in buffer, then switch input to new source code file

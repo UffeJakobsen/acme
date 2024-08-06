@@ -18,7 +18,7 @@
 
 // type definitions
 
-// values for input_now->state
+// values for current_input.state
 enum inputstate {
 	INPUTSTATE_SOF,		// start of file (check for hashbang)
 	INPUTSTATE_NORMAL,	// everything's fine
@@ -33,7 +33,8 @@ enum inputstate {
 };
 
 
-// Constants
+// constants
+
 const char	FILE_READBINARY[]	= "rb";
 #define CHAR_LF		(10)	// line feed		(in file)
 		//	(10)	// start of line	(in high-level format)
@@ -41,8 +42,8 @@ const char	FILE_READBINARY[]	= "rb";
 		//	(13)	// end of file		(in high-level format)
 // if the characters above are changed, don't forget to adjust byte_flags[]!
 
-// fake input structure (for error msgs before any real input is established)
-static struct input	outermost	= {
+// current input structure (init values are for error msgs before any real input is established)
+static struct input	current_input	= {
 	{
 		"<none>",	// file name where code initially came from (differs during macro execution)
 		0,		// line number
@@ -56,8 +57,8 @@ static struct input	outermost	= {
 
 
 // variables
-struct input	*input_now	= &outermost;	// current input structure
-char		GotByte;			// last byte read (processed)	TODO: move into input struct!
+
+char		GotByte;	// last byte read (processed)
 // name of source file used for resolving relative paths
 // (i.e. not changed during macro execution):
 const char	*input_plat_pathref_filename	= "";	// file name in platform format
@@ -123,7 +124,7 @@ static void report_printline(int line_number)
 static void report_flush(void)
 {
 	if (report->fd) {
-		report_printline(input_now->location.line_number);
+		report_printline(current_input.location.line_number);
 	}
 }
 
@@ -148,7 +149,7 @@ static void report_srcchar(int new_char)
 		prev_char = '\0';
 	}
 	if (prev_char == '\n') {
-		report_printline(input_now->location.line_number - 1);
+		report_printline(current_input.location.line_number - 1);
 	}
 	if (new_char != '\n' && new_char != '\r') {	// detect line break
 		if (report->asc_used < REPORT_ASCBUFSIZE)
@@ -164,23 +165,23 @@ static char get_processed_from_file(void)
 	static int	from_file	= 0;
 
 	for (;;) {
-		switch (input_now->state) {
+		switch (current_input.state) {
 		case INPUTSTATE_SOF:
 			// fetch first byte from the current source file
-			from_file = getc(input_now->src.fd);
+			from_file = getc(current_input.u.fd);
 			IF_WANTED_REPORT_SRCCHAR(from_file);
 			//TODO - check for bogus/malformed BOM (0xef 0xbb 0xbf as UTF-8-encoded 0xfeff) and ignore?
 			// check for hashbang line and ignore
 			if (from_file == '#') {
 				// remember to skip remainder of line
-				input_now->state = INPUTSTATE_COMMENT;
+				current_input.state = INPUTSTATE_COMMENT;
 				return CHAR_EOS;	// end of statement
 			}
-			input_now->state = INPUTSTATE_AGAIN;
+			current_input.state = INPUTSTATE_AGAIN;
 			break;
 		case INPUTSTATE_NORMAL:
 			// fetch a fresh byte from the current source file
-			from_file = getc(input_now->src.fd);
+			from_file = getc(current_input.u.fd);
 			IF_WANTED_REPORT_SRCCHAR(from_file);
 			// now process it
 			/*FALLTHROUGH*/
@@ -191,12 +192,12 @@ static char get_processed_from_file(void)
 			// If the source is changed so there is a possibility
 			// to enter INPUTSTATE_AGAIN mode without first having
 			// defined "from_file", trouble may arise...
-			input_now->state = INPUTSTATE_NORMAL;
+			current_input.state = INPUTSTATE_NORMAL;
 			// EOF must be checked first because it cannot be used
 			// as an index into global_byte_flags[]
 			if (from_file == EOF) {
 				// remember to send an end-of-file
-				input_now->state = INPUTSTATE_EOF;
+				current_input.state = INPUTSTATE_EOF;
 				return CHAR_EOS;	// end of statement
 			}
 
@@ -210,38 +211,38 @@ static char get_processed_from_file(void)
 			case '\t':
 			case ' ':
 				// remember to skip all following blanks
-				input_now->state = INPUTSTATE_SKIPBLANKS;
+				current_input.state = INPUTSTATE_SKIPBLANKS;
 				return ' ';
 
 			case CHAR_LF:	// LF character
 				// remember to send a start-of-line
-				input_now->state = INPUTSTATE_LF;
+				current_input.state = INPUTSTATE_LF;
 				return CHAR_EOS;	// end of statement
 
 			case CHAR_CR:	// CR character
 				// remember to check CRLF + send start-of-line
-				input_now->state = INPUTSTATE_CR;
+				current_input.state = INPUTSTATE_CR;
 				return CHAR_EOS;	// end of statement
 
 			case CHAR_EOB:
 				// remember to send an end-of-block
-				input_now->state = INPUTSTATE_EOB;
+				current_input.state = INPUTSTATE_EOB;
 				return CHAR_EOS;	// end of statement
 
 			case '/':
 				// to check for "//", get another byte:
-				from_file = getc(input_now->src.fd);
+				from_file = getc(current_input.u.fd);
 				IF_WANTED_REPORT_SRCCHAR(from_file);
 				if (from_file != '/') {
 					// not "//", so:
-					input_now->state = INPUTSTATE_AGAIN;	// second byte must be parsed normally later on
+					current_input.state = INPUTSTATE_AGAIN;	// second byte must be parsed normally later on
 					return '/';	// first byte is returned normally right now
 				}
 				// it's really "//", so act as if ';'
 				/*FALLTHROUGH*/
 			case ';':
 				// remember to skip remainder of line
-				input_now->state = INPUTSTATE_COMMENT;
+				current_input.state = INPUTSTATE_COMMENT;
 				return CHAR_EOS;	// end of statement
 
 			case ':':	// statement delimiter
@@ -256,53 +257,53 @@ static char get_processed_from_file(void)
 		case INPUTSTATE_SKIPBLANKS:
 			// read until non-blank, then deliver that
 			do {
-				from_file = getc(input_now->src.fd);
+				from_file = getc(current_input.u.fd);
 				IF_WANTED_REPORT_SRCCHAR(from_file);
 			} while ((from_file == '\t') || (from_file == ' '));
 			// re-process last byte
-			input_now->state = INPUTSTATE_AGAIN;
+			current_input.state = INPUTSTATE_AGAIN;
 			break;
 		case INPUTSTATE_LF:
 			// return start-of-line, then continue in normal mode
-			input_now->state = INPUTSTATE_NORMAL;
+			current_input.state = INPUTSTATE_NORMAL;
 			return CHAR_SOL;	// new line
 
 		case INPUTSTATE_CR:
 			// return start-of-line, remember to check for LF
-			input_now->state = INPUTSTATE_SKIPLF;
+			current_input.state = INPUTSTATE_SKIPLF;
 			return CHAR_SOL;	// new line
 
 		case INPUTSTATE_SKIPLF:
-			from_file = getc(input_now->src.fd);
+			from_file = getc(current_input.u.fd);
 			IF_WANTED_REPORT_SRCCHAR(from_file);
 			// if LF, ignore it and fetch another byte
 			// otherwise, process current byte
 			if (from_file == CHAR_LF)
-				input_now->state = INPUTSTATE_NORMAL;
+				current_input.state = INPUTSTATE_NORMAL;
 			else
-				input_now->state = INPUTSTATE_AGAIN;
+				current_input.state = INPUTSTATE_AGAIN;
 			break;
 		case INPUTSTATE_COMMENT:
 			// read until end-of-line or end-of-file
 			do {
-				from_file = getc(input_now->src.fd);
+				from_file = getc(current_input.u.fd);
 				IF_WANTED_REPORT_SRCCHAR(from_file);
 			} while ((from_file != EOF) && (from_file != CHAR_CR) && (from_file != CHAR_LF));
 			// re-process last byte
-			input_now->state = INPUTSTATE_AGAIN;
+			current_input.state = INPUTSTATE_AGAIN;
 			break;
 		case INPUTSTATE_EOB:
 			// deliver EOB
-			input_now->state = INPUTSTATE_NORMAL;
+			current_input.state = INPUTSTATE_NORMAL;
 			return CHAR_EOB;	// end of block
 
 		case INPUTSTATE_EOF:
 			// deliver EOF
-			input_now->state = INPUTSTATE_NORMAL;
+			current_input.state = INPUTSTATE_NORMAL;
 			return CHAR_EOF;	// end of file
 
 		default:
-			BUG("StrangeInputMode", input_now->state);
+			BUG("StrangeInputMode", current_input.state);
 		}
 	}
 }
@@ -318,25 +319,25 @@ char GetByte(void)
 		// high-level format
 		// Otherwise, the source is a file. This means we will call
 		// get_processed_from_file() which will do a shit load of conversions.
-		switch (input_now->source) {
+		switch (current_input.srctype) {
 		case INPUTSRC_RAM:
-			GotByte = *(input_now->src.ram_ptr++);
-			if (input_now->state== INPUTSTATE_NORMAL)
+			GotByte = *(current_input.u.ram_ptr++);
+			if (current_input.state== INPUTSTATE_NORMAL)
 				IF_WANTED_REPORT_SRCCHAR(GotByte);
 			break;
 		case INPUTSRC_FILE:
 			GotByte = get_processed_from_file();
 			break;
 		default:
-			BUG("IllegalInputSrc", input_now->source);
+			BUG("IllegalInputSrc", current_input.srctype);
 		}
 //		// if start-of-line was read, increment line counter and repeat
 //		if (GotByte != CHAR_SOL)
 //			return GotByte;
-//		input_now->location.line_number++;
+//		current_input.location.line_number++;
 //	}
 		if (GotByte == CHAR_SOL)
-			input_now->location.line_number++;
+			current_input.location.line_number++;
 		return GotByte;
 }
 
@@ -348,31 +349,31 @@ static char GetQuotedByte(void)
 {
 	int	from_file;	// must be an int to catch EOF
 
-	switch (input_now->source) {
+	switch (current_input.srctype) {
 	case INPUTSRC_RAM:
 		// if byte source is RAM, then no conversion is necessary,
 		// because in RAM the source already has high-level format
-		GotByte = *(input_now->src.ram_ptr++);
+		GotByte = *(current_input.u.ram_ptr++);
 		IF_WANTED_REPORT_SRCCHAR(GotByte);
 		break;
 	case INPUTSRC_FILE:
 		// fetch a fresh byte from the current source file
-		from_file = getc(input_now->src.fd);
+		from_file = getc(current_input.u.fd);
 		IF_WANTED_REPORT_SRCCHAR(from_file);
 		switch (from_file) {
 		case EOF:
 			// remember to send an end-of-file
-			input_now->state = INPUTSTATE_EOF;
+			current_input.state = INPUTSTATE_EOF;
 			GotByte = CHAR_EOS;	// end of statement
 			break;
 		case CHAR_LF:	// LF character
 			// remember to send a start-of-line
-			input_now->state = INPUTSTATE_LF;
+			current_input.state = INPUTSTATE_LF;
 			GotByte = CHAR_EOS;	// end of statement
 			break;
 		case CHAR_CR:	// CR character
 			// remember to check for CRLF + send a start-of-line
-			input_now->state = INPUTSTATE_CR;
+			current_input.state = INPUTSTATE_CR;
 			GotByte = CHAR_EOS;	// end of statement
 			break;
 		default:
@@ -380,7 +381,7 @@ static char GetQuotedByte(void)
 		}
 		break;
 	default:
-		BUG("IllegalInputSrc", input_now->source);
+		BUG("IllegalInputSrc", current_input.srctype);
 	}
 	// now check for end of statement
 	if (GotByte == CHAR_EOS)
@@ -557,7 +558,7 @@ void input_block_skip(void)
 void input_block_getcopy(struct block *block)
 {
 	// first store line number...
-	block->line_number = input_now->location.line_number;
+	block->line_number = current_input.location.line_number;
 	// ...then get block
 	block_to_dynabuf();
 	// add EOF, just to make sure block is never read too far
@@ -777,7 +778,7 @@ int input_expect(int chr)
 // (back end function for "!eof" pseudo opcode)
 void input_force_eof(void)
 {
-	input_now->state = INPUTSTATE_EOF;
+	current_input.state = INPUTSTATE_EOF;
 }
 
 
@@ -881,7 +882,7 @@ int input_read_output_filename(void)
 // write current "location" (file name and line number) to given target
 void input_get_location(struct location *target)
 {
-	*target = input_now->location;
+	*target = current_input.location;
 }
 
 
@@ -892,19 +893,15 @@ void inputchange_new_file(struct inputchange_buf *icb, FILE *fd, const char *ete
 {
 	report_flush();
 
-	// TODO: in future, really buffer old data here! (instead of storing new data and changing pointer)
-	// setup new input
-	icb->new_input = *input_now;	// copy current input structure into new
-	icb->new_input.location.plat_filename	= eternal_plat_filename;
-	icb->new_input.location.line_number	= 1;
-	icb->new_input.source		= INPUTSRC_FILE;
-	icb->new_input.state		= INPUTSTATE_SOF;
-	icb->new_input.src.fd		= fd;
-	// remember where outer input struct is
-	icb->outer_input = input_now;
+	// remember old state in buffer struct
+	icb->input = current_input;
 	icb->gb = GotByte;
-	// activate new input
-	input_now = &icb->new_input;
+	// set new state
+	current_input.location.plat_filename	= eternal_plat_filename;
+	current_input.location.line_number	= 1;
+	current_input.srctype			= INPUTSRC_FILE;
+	current_input.state			= INPUTSTATE_SOF;
+	current_input.u.fd			= fd;
 
 	report_inputchange("Source: ", eternal_plat_filename);
 }
@@ -913,47 +910,46 @@ void inputchange_new_ram(struct inputchange_buf *icb)
 {
 	report_flush();
 
-	icb->new_input = *input_now;	// copy current input structure into new
-	icb->new_input.source = INPUTSRC_RAM;	// set new byte source
-	icb->new_input.src.ram_ptr = NULL;	// force crash if used before setup is finished
-	// remember where outer input struct is
-	icb->outer_input = input_now;
+	// remember old state in buffer struct
+	icb->input = current_input;
 	icb->gb = GotByte;
-	// activate new input (not useable yet, as pointer and line number are not yet set up)
-	input_now = &icb->new_input;
+	// set new state (not useable yet, as pointer and line number are not yet set up)
+	current_input.srctype	= INPUTSRC_RAM;	// set new byte source
+	current_input.u.ram_ptr	= NULL;		// force crash if used before setup is finished
 }
 // FIXME - merge these three functions into a single one (by always using a "location"):
 // setup for reading from RAM (for parsing loop conditions etc.)
 void inputchange_set_ram(int line_num, const char *body)
 {
-	input_now->location.line_number = line_num;
-	input_now->src.ram_ptr = body;
+	current_input.location.line_number	= line_num;
+	current_input.u.ram_ptr			= body;
 }
 // switch input to macro parameters
 void inputchange_macro1_params(const struct location *def, const char *params)
 {
-	input_now->location = *def;
-	input_now->src.ram_ptr = params;
-	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+	current_input.location	= *def;
+	current_input.u.ram_ptr	= params;
+	current_input.state	= INPUTSTATE_NORMAL;	// FIXME - fix others!
 
 	report_inputchange("macro from ", def->plat_filename);
 }
 // switch from macro parameters to macro body
 void inputchange_macro2_body(const char *macro_body)
 {
-	input_now->src.ram_ptr = macro_body;
-	input_now->state = INPUTSTATE_NORMAL;	// FIXME - fix others!
+	current_input.u.ram_ptr	= macro_body;
+	current_input.state	= INPUTSTATE_NORMAL;	// FIXME - fix others!
 }
 // restore input struct from buffer
 void inputchange_back(const struct inputchange_buf *icb)
 {
 	report_flush();
 
-	input_now = icb->outer_input;
+	// restore old state from buffer struct
+	current_input = icb->input;
 	GotByte = icb->gb;
 
-	if (input_now->source == INPUTSRC_FILE)
-		report_inputchange("Source: ", input_now->location.plat_filename);
+	if (current_input.srctype == INPUTSRC_FILE)
+		report_inputchange("Source: ", current_input.location.plat_filename);
 	else
 		report_inputchange("back", "");
 }
