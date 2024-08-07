@@ -171,12 +171,14 @@ static int report_open(struct report *report, const char *filename)
 		perror("Error: Cannot open report file");
 		return 1;
 	}
+	input_set_report_enabled(TRUE);
 	return 0;	// success
 }
 // close report file
 static void report_close(struct report *report)
 {
 	if (report && report->fd) {
+		input_set_report_enabled(FALSE);
 		fclose(report->fd);
 		report->fd = NULL;
 	}

@@ -14,6 +14,7 @@
 // type definitions
 
 enum inputsrc {
+	INPUTSRC_NONE,	// dummy before input is set up
 	INPUTSRC_FILE,
 	INPUTSRC_RAM
 };
@@ -27,6 +28,7 @@ struct input {
 		FILE		*fd;		// file descriptor
 		const char	*ram_ptr;	// RAM read ptr (loop or macro block)
 	} u;
+	boolean		report;	// copy to report file?
 };
 struct filespecflags {
 	boolean	uses_lib;	// file name was given in <...> instead of "..."
@@ -143,6 +145,10 @@ extern int input_expect(int chr);
 // force input system to return "end of file" on next read
 // (back end function for "!eof" pseudo opcode)
 extern void input_force_eof(void);
+
+// enable/disable writing to report file
+// (only enable if report file has been opened!)
+extern void input_set_report_enabled(boolean new_state);
 
 // write current "location" (file name and line number) to given target
 extern void input_get_location(struct location *target);

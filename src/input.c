@@ -42,17 +42,19 @@ const char	FILE_READBINARY[]	= "rb";
 		//	(13)	// end of file		(in high-level format)
 // if the characters above are changed, don't forget to adjust byte_flags[]!
 
-// current input structure (init values are for error msgs before any real input is established)
+// current input structure
 static struct input	current_input	= {
 	{
 		"<none>",	// file name where code initially came from (differs during macro execution)
 		0,		// line number
+		// (these init values are for error msgs before any real input is established)
 	},
-	INPUTSRC_FILE,	// fake file access, so no RAM read
+	INPUTSRC_NONE,
 	INPUTSTATE_EOF,	// state of input
 	{
 		NULL	// RAM read pointer or file handle
-	}
+	},
+	FALSE	// do not write to report file
 };
 
 
@@ -70,7 +72,7 @@ const char	*input_plat_pathref_filename	= "";	// file name in platform format
 
 // remember source code character for report generator
 #define HEXBUFSIZE	9	// actually, 4+1 is enough, but for systems without snprintf(), let's be extra-safe.
-#define IF_WANTED_REPORT_SRCCHAR(c)	do { if (report->fd) report_srcchar(c); } while(0)
+#define IF_WANTED_REPORT_SRCCHAR(c)	do { if (current_input.report) report_srcchar(c); } while(0)
 
 static void report_printline(int line_number)
 {
@@ -123,7 +125,7 @@ static void report_printline(int line_number)
 // flush line buffer
 static void report_flush(void)
 {
-	if (report->fd) {
+	if (current_input.report) {
 		report_printline(current_input.location.line_number);
 	}
 }
@@ -131,7 +133,7 @@ static void report_flush(void)
 // insert explanation about change in input
 static void report_inputchange(const char prefix[], const char filename[])
 {
-	if (report->fd) {
+	if (current_input.report) {
 		fprintf(report->fd, "\n; ******** %s%s\n", prefix, filename);
 		report->new_input = TRUE;
 	}
@@ -782,6 +784,14 @@ void input_force_eof(void)
 }
 
 
+// enable/disable writing to report file
+// (only enable if report file has been opened!)
+void input_set_report_enabled(boolean new_state)
+{
+	current_input.report = new_state;
+}
+
+
 static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
 
 // copy platform-specific library search path into pathbuf:
@@ -923,6 +933,7 @@ void inputchange_set_ram(int line_num, const char *body)
 {
 	current_input.location.line_number	= line_num;
 	current_input.u.ram_ptr			= body;
+	input_set_report_enabled(FALSE);	// do not expand loops in report file (reverts to previous state when changing input back)
 }
 // switch input to macro parameters
 void inputchange_macro1_params(const struct location *def, const char *params)
@@ -948,10 +959,19 @@ void inputchange_back(const struct inputchange_buf *icb)
 	current_input = icb->input;
 	GotByte = icb->gb;
 
-	if (current_input.srctype == INPUTSRC_FILE)
+	switch (current_input.srctype) {
+	case INPUTSRC_NONE:
+		report_inputchange("done", "");
+		break;
+	case INPUTSRC_FILE:
 		report_inputchange("Source: ", current_input.location.plat_filename);
-	else
+		break;
+	case INPUTSRC_RAM:
 		report_inputchange("back", "");
+		break;
+	default:
+		BUG("IllegalInputSrc", current_input.srctype);
+	}
 }
 
 
