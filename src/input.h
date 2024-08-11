@@ -36,7 +36,8 @@ struct filespecflags {
 };
 
 
-// Constants
+// constants
+
 extern const char	FILE_READBINARY[];
 // Special characters
 // The program *heavily* relies on CHAR_EOS (end of statement) being 0x00!
@@ -48,7 +49,8 @@ extern const char	FILE_READBINARY[];
 // if the characters above are changed, don't forget to adjust global_byte_flags[]!
 
 
-// Variables
+// variables
+
 extern char		GotByte;	// last byte read (processed)
 // name of source file used for resolving relative paths
 // (i.e. not changed during macro execution):
@@ -56,18 +58,18 @@ extern const char	*input_plat_pathref_filename;	// file name in platform format
 
 
 
-// Prototypes
+// prototypes
 
 // get next byte from currently active byte source in shortened high-level
 // format. When inside quotes, use input_quoted_to_dynabuf() instead!
 extern char GetByte(void);
 
-// Skip remainder of statement, for example on error
-extern void input_skip_remainder(void);
+// skip remainder of statement, for example on error
+extern void parser_skip_remainder(void);
 
-// Ensure that the remainder of the current statement is empty, for example
+// ensure that the remainder of the current statement is empty, for example
 // after mnemonics using implied addressing.
-extern void input_ensure_EOS(void);
+extern void parser_ensure_EOS(void);
 
 // read string to dynabuf until closing quote is found
 // returns 1 on errors (unterminated, escaping error)
@@ -104,13 +106,13 @@ extern int input_readscopeandsymbolname(scope_t *scope, boolean dotkluge);
 // character is read. Zero-terminate the string. Return its length (without
 // terminator).
 // Zero lengths will produce a "missing string" error.
-extern int input_read_keyword(void);
+extern int parser_read_keyword(void);
 
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string, then convert to lower case.
 // Return its length (without terminator).
 // Zero lengths will produce a "missing string" error.
-extern int input_read_and_lower_keyword(void);
+extern int parser_read_and_lower_keyword(void);
 
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
@@ -119,7 +121,7 @@ extern int input_read_and_lower_keyword(void);
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
+// parser_skip_remainder() then.
 extern int input_read_input_filename(struct filespecflags *flags);
 
 // try to read a file name for an output file ("!to" and "!sl" only).
@@ -128,19 +130,19 @@ extern int input_read_input_filename(struct filespecflags *flags);
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
+// parser_skip_remainder() then.
 // FIXME - the name suggests this fn reads "the" output filename, but it only
 // reads "an" output filename: either symbollist or the real output file.
 extern int input_read_output_filename(void);
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.
-extern int input_accept_comma(void);
+extern int parser_accept_comma(void);
 
 // Try to read given character.
 // If found, eat character and return TRUE.
 // If not found, throw syntax error and return FALSE.
-extern int input_expect(int chr);
+extern int parser_expect(int chr);
 
 // force input system to return "end of file" on next read
 // (back end function for "!eof" pseudo opcode)

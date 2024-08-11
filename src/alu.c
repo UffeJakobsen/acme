@@ -1031,7 +1031,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			register int	length;
 
 			// Read global label (or "NOT")
-			length = input_read_keyword();
+			length = parser_read_keyword();
 			// Now GotByte = illegal char
 			// Check for NOT. Okay, it's hardcoded,
 			// but so what? Sue me...
@@ -1161,7 +1161,7 @@ static void expect_dyadic_operator(struct expression *expression)
 // Multi-character dyadic operators
 	case '!':	// "!="
 		GetByte();	// eat '!'
-		if (input_expect('=')) {
+		if (parser_expect('=')) {
 			op = &ops_not_equal;
 			goto push_dyadic_op;
 		}
@@ -1216,7 +1216,7 @@ static void expect_dyadic_operator(struct expression *expression)
 	default:
 		// check string versions of operators
 		if (BYTE_STARTS_KEYWORD(GotByte)) {
-			input_read_and_lower_keyword();
+			parser_read_and_lower_keyword();
 			// Now GotByte = illegal char
 			// search for tree item
 			if (tree_easy_scan(op_tree, &node_body, GlobalDynaBuf)) {
@@ -2542,10 +2542,10 @@ static int parse_expression(struct expression *expression)
 		//result->u.number.val.intval = 0;
 		result->u.number.addr_refs = 0;
 		// make sure no additional (spurious) errors are reported:
-		input_skip_remainder();
+		parser_skip_remainder();
 		// FIXME - remove this when new function interface gets used:
 		// callers must decide for themselves what to do when expression
-		// parser returns error (and may decide to call input_skip_remainder)
+		// parser returns error (and may decide to call parser_skip_remainder)
 		return 1;	// error
 	}
 }

@@ -542,7 +542,7 @@ static struct ronode	mnemo_m65_tree[]	= {
 // TODO: add pointer arg for result, use return value to indicate parse error!
 static int get_index(void)
 {
-	if (!input_accept_comma())
+	if (!parser_accept_comma())
 		return INDEX_NONE;
 
 	// there was a comma, so check next character (spaces will have been skipped):
@@ -614,7 +614,7 @@ static bits get_addr_mode(struct number *result)
 		GetByte();	// eat '['
 		get_int_arg(result, FALSE);
 		typesystem_want_addr(result);
-		if (input_expect(']')) {
+		if (parser_expect(']')) {
 			address_mode_bits = AMB_LONGINDIRECT | AMB_INDEX(get_index());
 		}
 		break;
@@ -630,7 +630,7 @@ static bits get_addr_mode(struct number *result)
 			// in case there are still open parentheses,
 			// read internal index
 			address_mode_bits |= AMB_PREINDEX(get_index());
-			if (input_expect(')')) {
+			if (parser_expect(')')) {
 				// fn already does everything for us!
 			}
 		}
@@ -638,7 +638,7 @@ static bits get_addr_mode(struct number *result)
 		address_mode_bits |= AMB_INDEX(get_index());
 	}
 	// ensure end of line
-	input_ensure_EOS();
+	parser_ensure_EOS();
 	//printf("AM: %x\n", address_mode_bits);
 	return address_mode_bits;
 }
@@ -781,7 +781,7 @@ static void group_only_implied_addressing(int opcode)
 			Throw_warning("Found SED instruction for CPU with known decimal SBC bug.");
 	}
 	output_byte(opcode);
-	input_ensure_EOS();
+	parser_ensure_EOS();
 }
 
 // helper function to output "Target not in bank" message
@@ -825,7 +825,7 @@ static void near_branch(int preoffset)
 	// so use output_byte() instead of output_8()
 	//output_8(offset);
 	output_byte(offset);
-	input_ensure_EOS();
+	parser_ensure_EOS();
 }
 
 // helper function for relative addressing with 16-bit offset
@@ -847,7 +847,7 @@ static void far_branch(int preoffset)
 		}
 	}
 	output_le16(offset);
-	input_ensure_EOS();
+	parser_ensure_EOS();
 }
 
 // set addressing mode bits depending on which opcodes exist, then calculate
@@ -1044,7 +1044,7 @@ static void group_bbr_bbs(int opcode)
 
 	get_int_arg(&zpmem, TRUE);
 	typesystem_want_addr(&zpmem);
-	if (input_expect(',')) {
+	if (parser_expect(',')) {
 		output_byte(opcode);
 		output_byte(zpmem.val.intval);
 		near_branch(3);
@@ -1079,7 +1079,7 @@ static void group_mvn_mvp(int opcode)
 	get_int_arg(&source, TRUE);
 	typesystem_want_nonaddr(&source);
 	// get comma
-	if (!input_expect(',')) {
+	if (!parser_expect(',')) {
 		return;
 	}
 	SKIPSPACE();
@@ -1097,7 +1097,7 @@ static void group_mvn_mvp(int opcode)
 	// sanity check
 	if (unmatched_hash)
 		Throw_error(exception_syntax);	// FIXME - maybe "Use ARG,ARG or #ARG,#ARG but do not mix and match"?
-	input_ensure_EOS();
+	parser_ensure_EOS();
 }
 
 // "rmb0..7" and "smb0..7"
@@ -1110,7 +1110,7 @@ static void group_only_zp(int opcode)
 	typesystem_want_addr(&target);
 	output_byte(opcode);
 	output_8(target.val.intval);
-	input_ensure_EOS();
+	parser_ensure_EOS();
 }
 
 // NOP on m65 cpu (FIXME - "!align" outputs NOPs, what about that? what if user writes NEG:NEG?)

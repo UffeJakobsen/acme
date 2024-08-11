@@ -346,8 +346,7 @@ char GetByte(void)
 // This function delivers the next byte from the currently active byte source
 // in un-shortened high-level format.
 // This function complains if CHAR_EOS (end of statement) is read.
-// TODO - check if return value is actually used
-static char GetQuotedByte(void)
+static void get_quoted_byte(void)
 {
 	int	from_file;	// must be an int to catch EOF
 
@@ -388,11 +387,10 @@ static char GetQuotedByte(void)
 	// now check for end of statement
 	if (GotByte == CHAR_EOS)
 		Throw_error("Quotes still open at end of line.");
-	return GotByte;
 }
 
-// Skip remainder of statement, for example on error
-void input_skip_remainder(void)
+// skip remainder of statement, for example on error
+void parser_skip_remainder(void)
 {
 	// read characters until end-of-statement, but check for quotes,
 	// otherwise this might treat a quoted colon like EOS!
@@ -408,9 +406,9 @@ void input_skip_remainder(void)
 	dynabuf_clear(GlobalDynaBuf);
 }
 
-// Ensure that the remainder of the current statement is empty, for example
+// ensure that the remainder of the current statement is empty, for example
 // after mnemonics using implied addressing.
-void input_ensure_EOS(void)	// Now GotByte = first char to test
+void parser_ensure_EOS(void)	// now GotByte = first char to test
 {
 	SKIPSPACE();
 	if (GotByte) {
@@ -422,7 +420,7 @@ void input_ensure_EOS(void)	// Now GotByte = first char to test
 		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
 		sprintf(buf, "Expected end-of-statement, found %c%c%c instead.", quote, GotByte, quote);
 		Throw_error(buf);
-		input_skip_remainder();
+		parser_skip_remainder();
 	}
 }
 
@@ -434,9 +432,9 @@ int input_quoted_to_dynabuf(char closing_quote)
 
 	//dynabuf_clear(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
 	for (;;) {
-		GetQuotedByte();
+		get_quoted_byte();
 		if (GotByte == CHAR_EOS)
-			return 1;	// unterminated string constant; GetQuotedByte will have complained already
+			return 1;	// unterminated string constant; get_quoted_byte will have complained already
 
 		if (escaped) {
 			// previous byte was backslash, so do not check for terminator nor backslash
@@ -644,7 +642,7 @@ int input_readscopeandsymbolname(scope_t *scope, boolean dotkluge)
 // character is read. Zero-terminate the string. Return its length (without
 // terminator).
 // Zero lengths will produce a "missing string" error.
-int input_read_keyword(void)
+int parser_read_keyword(void)
 {
 	int	length;
 
@@ -659,7 +657,7 @@ int input_read_keyword(void)
 // character is read. Zero-terminate the string, then convert to lower case.
 // Return its length (without terminator).
 // Zero lengths will produce a "missing string" error.
-int input_read_and_lower_keyword(void)
+int parser_read_and_lower_keyword(void)
 {
 	int	length;
 
@@ -676,7 +674,7 @@ int input_read_and_lower_keyword(void)
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf, including terminator.
 // Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
+// parser_skip_remainder() then.
 static int read_filename_shared_end(boolean *absolute)
 {
 	// check length
@@ -712,7 +710,7 @@ static int read_filename_shared_end(boolean *absolute)
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
+// parser_skip_remainder() then.
 int input_read_input_filename(struct filespecflags *flags)
 {
 	dynabuf_clear(GlobalDynaBuf);
@@ -751,7 +749,7 @@ int input_read_input_filename(struct filespecflags *flags)
 
 // Try to read a comma, skipping spaces before and after. Return TRUE if comma
 // found, otherwise FALSE.
-int input_accept_comma(void)
+int parser_accept_comma(void)
 {
 	SKIPSPACE();
 	if (GotByte != ',')
@@ -764,7 +762,7 @@ int input_accept_comma(void)
 // Try to read given character.
 // If found, eat character and return TRUE.
 // If not found, throw syntax error and return FALSE.
-int input_expect(int chr)
+int parser_expect(int chr)
 {
 	// one caller uses this to read the '=' part of "!=", so
 	// do not call SKIPSPACE() here!
@@ -844,7 +842,7 @@ static void default_path_to_pathbuf(void)
 // UNIX style to platform style.
 // Returns nonzero on error. Filename in GlobalDynaBuf.
 // Errors are handled and reported, but caller should call
-// input_skip_remainder() then.
+// parser_skip_remainder() then.
 //
 // this is only used for "!to" and "!sl", i.e. output file names. these
 // must be given as a literal string, and it should be kept this way.

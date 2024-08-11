@@ -186,7 +186,7 @@ void flow_store_doloop_condition(struct condition *condition, char terminator)
 		return;
 
 	// seems as if there really *is* a condition, so check for until/while
-	if (input_read_and_lower_keyword()) {
+	if (parser_read_and_lower_keyword()) {
 		if (strcmp(GlobalDynaBuf->buffer, "while") == 0) {
 			//condition.invert = FALSE;
 		} else if (strcmp(GlobalDynaBuf->buffer, "until") == 0) {

@@ -89,7 +89,7 @@ static int pipe_comma(void)
 {
 	int	result;
 
-	result = input_accept_comma();
+	result = parser_accept_comma();
 	if (result)
 		DYNABUF_APPEND(GlobalDynaBuf, ',');
 	return result;
@@ -226,7 +226,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 				ALU_any_result(&(arg_table[arg_count].result));
 			}
 			++arg_count;
-		} while (input_accept_comma());
+		} while (parser_accept_comma());
 	}
 	// now arg_table contains the arguments
 	// now GlobalDynaBuf = unused
@@ -235,7 +235,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 	search_for_macro(&macro_node, macro_scope, FALSE);
 	if (macro_node == NULL) {
 		Throw_error("Macro not defined (or wrong signature).");
-		input_skip_remainder();
+		parser_skip_remainder();
 	} else {
 		// make macro_node point to the macro struct
 		actual_macro = macro_node->body;
@@ -282,7 +282,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 					symbol->object = arg_table[arg_count].result;	// FIXME - this assignment redefines globals/whatever without throwing errors!
 				}
 				++arg_count;
-			} while (input_accept_comma());
+			} while (parser_accept_comma());
 		}
 
 		// and now, finally, parse the actual macro body
@@ -303,7 +303,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		if (outer_msg_sum != pass.warning_count + pass.error_count)
 			Throw_warning("...called from here.");
 
-		input_ensure_EOS();
+		parser_ensure_EOS();
 	}
 	++sanity.macro_recursions_left;	// leave this nesting level
 }

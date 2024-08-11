@@ -199,7 +199,7 @@ static int first_symbol_of_statement(void)
 {
 	if (statement_flags & SF_FOUND_SYMBOL) {
 		Throw_error("Unknown mnemonic");
-		input_skip_remainder();
+		parser_skip_remainder();
 		return FALSE;
 	}
 	statement_flags |= SF_FOUND_SYMBOL;	// now there has been one
@@ -268,7 +268,7 @@ static void parse_symbol_definition(scope_t scope)
 		// explicit symbol definition (symbol = <something>)
 		GetByte();	// eat '='
 		parse_assignment(scope, force_bit, POWER_NONE);
-		input_ensure_EOS();
+		parser_ensure_EOS();
 	} else {
 		// implicit symbol definition (label)
 		set_label(scope, force_bit, POWER_NONE);
@@ -280,7 +280,7 @@ static void parse_symbol_definition(scope_t scope)
 static void parse_mnemo_or_global_symbol_def(void)
 {
 	// read keyword and ask current cpu type if it's a mnemonic
-	if (cpu_current_type->keyword_is_mnemonic(input_read_keyword()))
+	if (cpu_current_type->keyword_is_mnemonic(parser_read_keyword()))
 		return;	// statement has been handled
 
 	// if we're here, it wasn't a mnemonic, so it can only be a symbol name
@@ -404,7 +404,7 @@ void parse_until_eob_or_eof(void)
 						parse_mnemo_or_global_symbol_def();
 					} else {
 						Throw_error(exception_syntax);	// FIXME - include char in error message!
-						input_skip_remainder();
+						parser_skip_remainder();
 					}
 				}
 			}

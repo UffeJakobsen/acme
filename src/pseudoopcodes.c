@@ -102,10 +102,10 @@ static enum eos po_to(void)
 	config.output_filename = dynabuf_get_copy(GlobalDynaBuf);
 
 	// select output format
-	if (input_accept_comma()) {
+	if (parser_accept_comma()) {
 		// parse output format name
 		// if no keyword given, give up
-		if (input_read_and_lower_keyword() == 0)
+		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;
 
 		format = outputformat_find();
@@ -228,7 +228,7 @@ static enum eos iterate(void (*fn)(intval_t))
 	do {
 		ALU_any_result(&object);
 		output_object(&object, &iter);
-	} while (input_accept_comma());
+	} while (parser_accept_comma());
 	return ENSURE_EOS;
 }
 
@@ -427,7 +427,7 @@ static enum eos po_convtab(void)
 
 	// expect keyword: either one of the pre-defined encodings or
 	// "file" with a filename argument:
-	if (input_read_and_lower_keyword() == 0)
+	if (parser_read_and_lower_keyword() == 0)
 		return SKIP_REMAINDER;	// "No string given" error has already been thrown
 
 	// now check for known keywords:
@@ -442,7 +442,7 @@ static enum eos po_convtab(void)
 
 	if (strcmp(GlobalDynaBuf->buffer, "file") == 0) {
 		SKIPSPACE();
-		if (!input_expect('=')) {
+		if (!parser_expect('=')) {
 			return SKIP_REMAINDER;
 		}
 		return use_encoding_from_file();
@@ -492,7 +492,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			ALU_any_result(&object);
 			output_object(&object, &iter);
 		}
-	} while (input_accept_comma());
+	} while (parser_accept_comma());
 	encoder_current = outer_encoder;	// reactivate buffered encoder
 	return ENSURE_EOS;
 }
@@ -522,7 +522,7 @@ static enum eos po_scrxor(void)
 	intval_t	xor;
 
 	ALU_any_int(&xor);
-	if (input_expect(',')) {
+	if (parser_expect(',')) {
 		return encode_string(&encoder_scr, xor);
 	}
 	return SKIP_REMAINDER;
@@ -551,7 +551,7 @@ static enum eos po_binary(void)
 		return SKIP_REMAINDER;
 
 	// read optional arguments
-	if (input_accept_comma()) {
+	if (parser_accept_comma()) {
 		// any size given?
 		if ((GotByte != ',') && (GotByte != CHAR_EOS)) {
 			// then parse it
@@ -560,7 +560,7 @@ static enum eos po_binary(void)
 				Throw_serious_error(exception_negative_size);
 		}
 		// more?
-		if (input_accept_comma()) {
+		if (parser_accept_comma()) {
 			// any skip given?
 			if (GotByte != CHAR_EOS) {
 				// then parse it
@@ -614,7 +614,7 @@ static enum eos po_fill(void)
 	intval_t	fill	= FILLVALUE_FILL;
 
 	ALU_defined_int(&sizeresult);	// FIXME - forbid addresses!
-	if (input_accept_comma())
+	if (parser_accept_comma())
 		ALU_any_int(&fill);	// FIXME - forbid addresses!
 	while (sizeresult.val.intval--)
 		output_8(fill);
@@ -650,11 +650,11 @@ static enum eos po_align(void)
 	// now: "!align ANDVALUE, EQUALVALUE [,FILLVALUE]"
 	// in future: "!align BLOCKSIZE" where block size must be a power of two
 	ALU_defined_int(&andresult);	// FIXME - forbid addresses!
-	if (input_expect(',')) {
+	if (parser_expect(',')) {
 		// fn already does everything for us
 	}
 	ALU_defined_int(&equalresult);	// ...allow addresses (unlikely, but possible)
-	if (input_accept_comma())
+	if (parser_accept_comma())
 		ALU_any_int(&fill);
 	else
 		fill = cpu_current_type->default_align_value;
@@ -698,9 +698,9 @@ static enum eos po_pseudopc(void)
 	ALU_defined_int(&new_pc);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
 /* TODO - add this. check if code can be shared with "*="!
 	// check for modifiers
-	while (input_accept_comma()) {
+	while (parser_accept_comma()) {
 		// parse modifier. if no keyword given, give up
-		if (input_read_and_lower_keyword() == 0)
+		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;
 
 		if (strcmp(GlobalDynaBuf->buffer, "limit") == 0) {
@@ -754,7 +754,7 @@ static enum eos po_cpu(void)
 	const struct cpu_type	*cpu_buffer	= cpu_current_type;	// remember
 	const struct cpu_type	*new_cpu_type;
 
-	if (input_read_and_lower_keyword()) {
+	if (parser_read_and_lower_keyword()) {
 		new_cpu_type = cputype_find();
 		if (new_cpu_type)
 			cpu_current_type = new_cpu_type;	// activate new cpu type
@@ -827,7 +827,7 @@ static enum eos po_set(void)	// now GotByte = illegal char
 		return SKIP_REMAINDER;	// zero length
 
 	force_bit = parser_get_force_bit();	// skips spaces after
-	if (!input_expect('='))
+	if (!parser_expect('='))
 		return SKIP_REMAINDER;
 
 	// TODO: in versions before 0.97, force bit handling was broken in both
@@ -859,7 +859,7 @@ static enum eos po_zone(void)
 	if (BYTE_CONTINUES_KEYWORD(GotByte)) {
 		// because we know of one character for sure,
 		// there's no need to check the return value.
-		input_read_keyword();
+		parser_read_keyword();
 		new_title = dynabuf_get_copy(GlobalDynaBuf);
 		allocated = TRUE;
 	}
@@ -989,7 +989,7 @@ static enum eos ifelse(enum ifmode mode)
 			return AT_EOS_ANYWAY;	// normal exit if there is no ELSE {...} block
 
 		// read keyword (expected to be "else")
-		if (input_read_and_lower_keyword() == 0)
+		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
 
 		// make sure it's "else"
@@ -1006,7 +1006,7 @@ static enum eos ifelse(enum ifmode mode)
 		}
 
 		// read keyword (expected to be if/ifdef/ifndef)
-		if (input_read_and_lower_keyword() == 0)
+		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
 
 		// which one is it?
@@ -1061,12 +1061,12 @@ static enum eos po_for(void)	// now GotByte = illegal char
 	// now GotByte = illegal char
 	force_bit = parser_get_force_bit();	// skips spaces after
 	loop.symbol = symbol_find(scope);	// if not number, error will be reported on first assignment
-	if (input_accept_comma()) {
+	if (parser_accept_comma()) {
 		// counter syntax (old or new)
 		loop.u.counter.force_bit = force_bit;
 		ALU_defined_int(&intresult);	// read first argument
 		loop.u.counter.addr_refs = intresult.addr_refs;
-		if (input_accept_comma()) {
+		if (parser_accept_comma()) {
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
 			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX) {
@@ -1120,9 +1120,9 @@ was just a typo. if the current byte is '.' or '-' or whatever, then trying to
 read a keyword will result in "No string given" - which is confusing for the
 user if they did not even want to put a string there.
 so if the current byte is not the start of "in" we just throw a syntax error.
-knowing there is an "i" also makes sure that input_read_and_lower_keyword()
+knowing there is an "i" also makes sure that parser_read_and_lower_keyword()
 does not fail. */
-		input_read_and_lower_keyword();
+		parser_read_and_lower_keyword();
 		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
 			Throw_error(exception_want_IN_or_comma);
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
@@ -1238,7 +1238,7 @@ static enum eos tracewatch(boolean enter_monitor)
 	if (GotByte != CHAR_EOS) {
 		do {
 			// parse flag. if no keyword given, give up
-			if (input_read_and_lower_keyword() == 0)
+			if (parser_read_and_lower_keyword() == 0)
 				return SKIP_REMAINDER;	// fail (error has been reported)
 
 			if (strcmp(GlobalDynaBuf->buffer, "load") == 0) {
@@ -1251,7 +1251,7 @@ static enum eos tracewatch(boolean enter_monitor)
 				Throw_error("Unknown flag (known are: load, store, exec).");	// FIXME - add to docs!
 				return SKIP_REMAINDER;
 			}
-		} while (input_accept_comma());
+		} while (parser_accept_comma());
 	}
 	// shortcut: no flags at all -> set all flags!
 	if (!flags)
@@ -1349,7 +1349,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 			ALU_any_result(&object);
 			object.type->print(&object, user_message);
 		}
-	} while (input_accept_comma());
+	} while (parser_accept_comma());
 	dynabuf_append(user_message, '\0');
 	throw_message(level, user_message->buffer, NULL);
 	return ENSURE_EOS;
@@ -1361,7 +1361,7 @@ static enum eos po_debug(void)
 	struct number	debuglevel;
 
 	ALU_defined_int(&debuglevel);
-	if (!input_expect(','))
+	if (!parser_expect(','))
 		return SKIP_REMAINDER;
 
 	// drop this one?
@@ -1400,7 +1400,7 @@ static enum eos po_serious(void)
 // end of source file ("!endoffile" or "!eof")
 static enum eos po_endoffile(void)
 {
-	input_ensure_EOS();	// make sure there are no args
+	parser_ensure_EOS();	// make sure there are no args
 	input_force_eof();	// fake end of file
 	return AT_EOS_ANYWAY;
 }
@@ -1495,7 +1495,7 @@ void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop
 
 	GetByte();	// read next byte
 	// on missing keyword, return (complaining will have been done)
-	if (input_read_and_lower_keyword()) {
+	if (parser_read_and_lower_keyword()) {
 		// search for tree item
 		if ((tree_easy_scan(pseudo_opcode_tree, &node_body, GlobalDynaBuf))
 		&& node_body) {
@@ -1508,9 +1508,9 @@ void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop
 		}
 	}
 	if (then == SKIP_REMAINDER)
-		input_skip_remainder();
+		parser_skip_remainder();
 	else if (then == ENSURE_EOS)
-		input_ensure_EOS();
+		parser_ensure_EOS();
 	// the other two possibilities (PARSE_REMAINDER and AT_EOS_ANYWAY)
 	// will lead to the remainder of the line being parsed by the mainloop.
 }
@@ -1526,14 +1526,14 @@ void notreallypo_setpc(void)	// GotByte is '*'
 
 	// next non-space must be '='
 	NEXTANDSKIPSPACE();
-	if (!input_expect('='))
+	if (!parser_expect('='))
 		goto fail;
 
 	ALU_defined_int(&intresult);	// read new address
 	// check for modifiers
-	while (input_accept_comma()) {
+	while (parser_accept_comma()) {
 		// parse modifier. if no keyword given, give up
-		if (input_read_and_lower_keyword() == 0)
+		if (parser_read_and_lower_keyword() == 0)
 			goto fail;
 
 		if (strcmp(GlobalDynaBuf->buffer, "overlay") == 0) {
@@ -1584,9 +1584,9 @@ void notreallypo_setpc(void)	// GotByte is '*'
 	if (do_outfilestart)
 		po_outfilestart();
 
-	input_ensure_EOS();
+	parser_ensure_EOS();
 	return;
 
 fail:
-	input_skip_remainder();
+	parser_skip_remainder();
 }
