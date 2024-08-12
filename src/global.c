@@ -260,9 +260,6 @@ static void parse_symbol_definition(scope_t scope)
 {
 	bits	force_bit;
 
-	if (GotByte == '?')
-		symbol_fix_dynamic_name();
-
 	force_bit = parser_get_force_bit();	// skips spaces after	(yes, force bit is allowed for label definitions)
 	if (GotByte == '=') {
 		// explicit symbol definition (symbol = <something>)

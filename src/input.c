@@ -310,12 +310,122 @@ static char get_processed_from_file(void)
 	}
 }
 
+int		subst_chars_left	= 0;	// number of bytes left in buffer
+boolean		subst_enabled		= TRUE;	// flag to disable substing (for example while substing, or when copying block to RAM)
+const char	*subst_read_ptr		= NULL;	// pointer to read bytes from
+STRUCT_DYNABUF_REF(subst_buffer, 40);	// buffer to hold substitution result
+
+// fetch next byte from buffer
+static char subst_get_char(void)
+{
+	if (subst_chars_left-- == 0)
+		BUG("NoSubstLeft", 0);
+	return *(subst_read_ptr++);
+}
+// read symbol name from source and then setup substitution buffer with contents
+// of symbol (string or integer). int is converted to decimal digits.
+// example:
+// if "somesymbol" is 42 and "endsymbol" is 47,
+//	basename?(somesymbol)middle?endsymbol=9
+// becomes
+//	basename42middle47=9
+// this would happen in two steps,
+// the first result would be "42m" and the second would be "47="
+static void subst_substitute(void)	// now GotByte = '?'
+{
+	scope_t		tmp_scope;
+	struct symbol	*tmp_symbol;
+	boolean		parenthesized;
+
+	if (GotByte != '?')
+		BUG("NotQuestionMark", GotByte);
+
+	GetByte();	// eat '?' character
+	// handle parentheses
+	if (GotByte == '(') {
+		GetByte();	// eat '(' character
+		parenthesized = TRUE;
+	} else {
+		parenthesized = FALSE;
+	}
+
+	// reading symbol name will clobber GlobalDynaBuf, so we'll use our own
+	// buffer as tmp storage:
+	dynabuf_clear(subst_buffer);
+	dynabuf_add_bytes(subst_buffer, GlobalDynaBuf->buffer, GlobalDynaBuf->size);
+
+	// read symbol name into GlobalDynaBuf and get symbol ptr:
+	if (input_read_scope_and_symbol_name(&tmp_scope)) {
+		tmp_symbol = NULL;	// remember failure (check after restoring GlobalDynaBuf)
+	} else {
+		tmp_symbol = symbol_find(tmp_scope);	// reads name from GlobalDynaBuf
+		tmp_symbol->has_been_read = TRUE;
+	}
+
+	// restore previous contents of GlobalDynaBuf:
+	dynabuf_clear(GlobalDynaBuf);
+	dynabuf_add_bytes(GlobalDynaBuf, subst_buffer->buffer, subst_buffer->size);
+
+	// read symbol and put value into subst buffer
+	dynabuf_clear(subst_buffer);
+	if (tmp_symbol == NULL) {
+		goto fail;	// input_read_scope_and_symbol_name will have thrown error
+	}
+	if (tmp_symbol->object.type == NULL) {
+		Throw_error("Substitution symbol is undefined.");
+		// FIXME - set type to undefined int, just to make sure later refs via type do not crash!
+		goto fail;
+	} else if (tmp_symbol->object.type == &type_number) {
+		if (tmp_symbol->object.u.number.ntype != NUMTYPE_INT) {
+			Throw_error("Substitution symbol is undefined or not integer.");
+			goto fail;
+		}
+		dynabuf_add_signed_long(subst_buffer, (long) tmp_symbol->object.u.number.val.intval);
+	} else if (tmp_symbol->object.type == &type_string) {
+		dynabuf_add_bytes(subst_buffer, tmp_symbol->object.u.string->payload, tmp_symbol->object.u.string->length);
+	} else {
+		Throw_error("Substitution symbol is neither number nor string.");
+		goto fail;
+	}
+
+	// check for closing parenthesis
+	if (parenthesized) {
+		SKIPSPACE();
+		if (GotByte == ')') {
+			GetByte();	// eat ')'
+		} else {
+			Throw_error("Substitution does not end with ')' character.");
+			goto fail;
+		}
+	}
+	// now append the delimiter character to the buffer, otherwise it would
+	// be lost because reading from the buffer keeps clobbering GotByte:
+	dynabuf_append(subst_buffer, GotByte);
+	subst_chars_left = subst_buffer->size;
+	subst_read_ptr = subst_buffer->buffer;
+	// FIXME: do we need checks for "buffer contains braces, colon, EOS, ..."
+	// or is it enough to add "user, do not try stupid things" to docs?
+	return;
+fail:
+	dynabuf_clear(subst_buffer);
+	dynabuf_append(subst_buffer, GotByte);
+	subst_chars_left = subst_buffer->size;
+	subst_read_ptr = subst_buffer->buffer;
+}
+
 // This function delivers the next byte from the currently active byte source
 // in shortened high-level format. FIXME - use fn ptr?
 // When inside quotes, use input_quoted_to_dynabuf() instead!
+// CAUTION, symbol substitutions cause this fn to be called recursively!
 char GetByte(void)
 {
-//	for (;;) {
+	// substitution buffer has priority, so if anything is in there,
+	// deliver that:
+	if (subst_chars_left) {
+		GotByte = subst_get_char();
+	} else {
+		// otherwise get a byte from file/ram:
+
 		// If byte source is RAM, then no conversions are
 		// necessary, because in RAM the source already has
 		// high-level format
@@ -333,14 +443,33 @@ char GetByte(void)
 		default:
 			BUG("IllegalInputSrc", current_input.srctype);
 		}
-//		// if start-of-line was read, increment line counter and repeat
-//		if (GotByte != CHAR_SOL)
-//			return GotByte;
-//		current_input.location.line_number++;
-//	}
+
 		if (GotByte == CHAR_SOL)
 			current_input.location.line_number++;
-		return GotByte;
+	}
+	// check for '?' substitutions
+	if ((GotByte == '?') && (subst_enabled) && (subst_chars_left == 0)) {
+		// start a new substitution
+/*
+the check for "subst_chars_left" is needed because characters from the buffer
+are not allowed to start a new substitution, except for the very last char!
+the last char wasn't part of the result, it was the original delimiter. example:
+		cd = "xyz"
+		!info ab?cd?ef
+the first '?' causes a lookup for "cd" and will write the result "xyz" to the
+buffer. then the second '?' (now GotByte because it was the keyword delimiter)
+will be appended to the buffer because otherwise it would get lost during buffer
+reads.
+*/
+		subst_enabled = FALSE;	// no substitutions in substitutions!
+		subst_substitute();	// do the actual work
+		subst_enabled = TRUE;	// back to previous state
+		// because the delimiter is put into the buffer, we know the
+		// buffer isn't empty, even if the substitution result was "".
+		// so this is allowed:
+		GotByte = subst_get_char();
+	}
+	return GotByte;
 }
 
 // This function delivers the next byte from the currently active byte source
@@ -349,6 +478,13 @@ char GetByte(void)
 static void get_quoted_byte(void)
 {
 	int	from_file;	// must be an int to catch EOF
+
+	// substitution buffer has priority, so if anything is in there,
+	// deliver that:
+	if (subst_chars_left) {
+		GotByte = subst_get_char();
+		return;
+	}
 
 	switch (current_input.srctype) {
 	case INPUTSRC_RAM:
@@ -518,6 +654,10 @@ static void block_to_dynabuf(void)
 {
 	char	byte;
 	int	depth	= 1;	// to find matching block end
+	boolean	substflagbuf	= subst_enabled;
+
+	// make sure not to subst while reading block (should only be done while parsing)
+	subst_enabled = FALSE;
 
 	// prepare global dynamic buffer
 	dynabuf_clear(GlobalDynaBuf);
@@ -543,6 +683,9 @@ static void block_to_dynabuf(void)
 			break;
 		}
 	} while (depth);
+
+	// restore subst state
+	subst_enabled = substflagbuf;
 }
 // Skip block (starting with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
@@ -656,7 +799,7 @@ int parser_read_keyword(void)
 // Clear dynamic buffer, then append to it until an illegal (for a keyword)
 // character is read. Zero-terminate the string, then convert to lower case.
 // Return its length (without terminator).
-// Zero lengths will produce a "missing string" error.
+// Zero lengths will produce a "missing string" error. (FIXME - change error msg!)
 int parser_read_and_lower_keyword(void)
 {
 	int	length;

@@ -727,9 +727,6 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		if (input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
 
-		if ((GotByte == '?') && symbol_fix_dynamic_name())
-			return 1;	// error
-
 		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
 //	} else if (...) {
 //		// anonymous symbol
@@ -994,10 +991,6 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 
 		// here we need to put '.' into GlobalDynaBuf even though we have already skipped it:
 		if (input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
-			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
-				alu_state = STATE_ERROR;
-				break;//goto done;
-			}
 			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
@@ -1008,10 +1001,6 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		if (input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
-			if ((GotByte == '?') && symbol_fix_dynamic_name()) {
-				alu_state = STATE_ERROR;
-				break;//goto done;
-			}
 			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
 			goto now_expect_dyadic_op;	// ok
 		}
@@ -1052,8 +1041,6 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					if (GotByte == '?')
-						symbol_fix_dynamic_name();
 					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
 					goto now_expect_dyadic_op;
 				}
