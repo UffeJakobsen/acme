@@ -266,7 +266,7 @@ static void save_output_file(void)
 			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		if (amount > 0xffff) {
-			fprintf(stderr, "Error: File size 0x%04x too large for apple file format.\n", loadaddr);
+			fprintf(stderr, "Error: File size 0x%04x too large for apple file format.\n", amount);
 			exit(ACME_finalize(EXIT_FAILURE));
 		}
 		header[0] = loadaddr & 255;
