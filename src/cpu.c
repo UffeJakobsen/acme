@@ -15,52 +15,62 @@
 static struct cpu_type	cpu_type_6502	= {
 	keyword_is_6502_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY,	// warn about "XYZ ($ff),y" and "jmp ($XYff)"
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_nmos6502	= {
 	keyword_is_nmos6502_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,	// ANE/LXA #$xx are unstable unless arg is $00
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_c64dtv2	= {
 	keyword_is_c64dtv2_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR | CPUFLAG_INDIRECTJMPBUGGY | CPUFLAG_8B_AND_AB_NEED_0_ARG,
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65c02	= {
 	keyword_is_65c02_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_r65c02	= {
 	keyword_is_r65c02_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_w65c02	= {
 	keyword_is_w65c02_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR,	// from WDC docs
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65816	= {
 	keyword_is_65816_mnemo,
 	// TODO - what about CPUFLAG_WARN_ABOUT_FF_PTR? only needed for old opcodes in emulation mode!
 	CPUFLAG_SUPPORTSLONGREGS,	// allows A and XY to be 16bits wide
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_65ce02	= {
 	keyword_is_65ce02_mnemo,
 	CPUFLAG_DECIMALSUBTRACTBUGGY,	// SBC does not work reliably in decimal mode
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_4502	= {
 	keyword_is_4502_mnemo,
 	CPUFLAG_DECIMALSUBTRACTBUGGY,	// SBC does not work reliably in decimal mode
+	0xffff,
 	234	// !align fills with "NOP"
 };
 static struct cpu_type	cpu_type_m65	= {
 	keyword_is_m65_mnemo,
 	CPUFLAG_WARN_ABOUT_FF_PTR,	// TODO - remove this? check datasheets/realhw!
+	0xffff,
 	234	// !align fills with "NOP"
 };
 

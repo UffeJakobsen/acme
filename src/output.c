@@ -11,6 +11,7 @@
 // 20 Apr 2019	Prepared for "make segment overlap warnings into errors" later on
 #include "output.h"
 #include <string.h>	// for memset()
+#include "cpu.h"
 #include "global.h"
 
 
@@ -478,10 +479,19 @@ int output_get_statement_size(void)
 // adjust program counter (called at end of each statement)
 void output_end_statement(void)
 {
-	// FIXME - that '&' cannot be right!
-	// it makes sense from a cpu point of view (which wraps around to 0),
-	// but not from "outbuf" point of view.
-	program_counter = (program_counter + statement_size) & (config.outbuf_size - 1);
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
+		program_counter += statement_size;
+	} else {
+		// older versions did this stupid crap:
+		program_counter = (program_counter + statement_size) & cpu_current_type->pc_mask;
+		// making the program counter automatically wrap around from
+		// 0xffff to 0x0000 without any warning or error is just asking
+		// for trouble.
+		// but I think I added this to fulfill a feature request where
+		// demo code was located at $ffxx and in zero page, and with the
+		// dialect feature I can actually be backward-compatible...
+		// ...so there.
+	}
 	statement_size = 0;	// reset
 }
 

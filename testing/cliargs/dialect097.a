@@ -1,5 +1,13 @@
-	; 0.97 interprets all file names as relative to the initial directory:
+	*=$3000
+	; file names are relative to the containing file beginning with 0.98:
 	!src "subdir/sub1.inc"
 	!if depth_given_in_included_file != 0 {
 		!error "included wrong file."
+	}
+	; program counter no longer silently wraps to zero beginning with 0.98:
+	!pseudopc $fffe {
+		!by 0, 1, 2, 3
+label	}
+	!if label != 2 {
+		!error "program counter does not wrap to zero"
 	}

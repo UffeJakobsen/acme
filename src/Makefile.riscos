@@ -39,7 +39,7 @@ macro.o: config.h alu.h dynabuf.h global.h input.h section.h symbol.h tree.h mac
 
 mnemo.o: config.h alu.h cpu.h dynabuf.h global.h input.h output.h tree.h mnemo.h mnemo.c
 
-output.o: config.h global.h output.h output.c
+output.o: config.h cpu.h global.h output.h output.c
 
 platform.o: config.h platform.h platform.c
 
