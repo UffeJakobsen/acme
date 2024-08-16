@@ -38,7 +38,7 @@ struct output {
 		intval_t	max;	// highest address segment may use
 		bits		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
-	} segment;	// FIXME - rename either this component or "struct segment"!
+	} segm;
 	char		xor;		// output modifier
 };
 
@@ -74,19 +74,19 @@ static void report_binary(char value)
 // just find the next segment start and subtract 1.
 static void find_segment_max(intval_t new_pc)
 {
-	struct segment	*test_segment	= out->segment.list_head.next;
+	struct segment	*test_segment	= out->segm.list_head.next;
 
 	// search for smallest segment start address that
 	// is larger than given address
 	// use list head as sentinel
 // FIXME - if +1 overflows intval_t, we have an infinite loop!
-	out->segment.list_head.start = new_pc + 1;
+	out->segm.list_head.start = new_pc + 1;
 	while (test_segment->start <= new_pc)
 		test_segment = test_segment->next;
-	if (test_segment == &out->segment.list_head)
-		out->segment.max = config.outbuf_size - 1;
+	if (test_segment == &out->segm.list_head)
+		out->segm.max = config.outbuf_size - 1;
 	else
-		out->segment.max = test_segment->start - 1;	// last free address available
+		out->segm.max = test_segment->start - 1;	// last free address available
 }
 
 
@@ -115,7 +115,7 @@ static void real_output(intval_t byte)
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
-	if (out->write_idx > out->segment.max)
+	if (out->write_idx > out->segm.max)
 		border_crossed(out->write_idx);
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
@@ -162,7 +162,7 @@ void output_skip(int size)
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
-	if (out->write_idx + size - 1 > out->segment.max)
+	if (out->write_idx + size - 1 > out->segm.max)
 		border_crossed(out->write_idx + size - 1);
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
@@ -238,8 +238,8 @@ void output_createbuffer(void)
 		fill_completely(config.mem_init_value & 0xff);
 	}
 	// init ring list of segments
-	out->segment.list_head.next = &out->segment.list_head;
-	out->segment.list_head.prev = &out->segment.list_head;
+	out->segm.list_head.next = &out->segm.list_head;
+	out->segm.list_head.prev = &out->segm.list_head;
 }
 
 
@@ -247,15 +247,15 @@ void output_createbuffer(void)
 static void link_segment(intval_t start, intval_t length)
 {
 	struct segment	*new_segment,
-			*test_segment	= out->segment.list_head.next;
+			*test_segment	= out->segm.list_head.next;
 
 	// init new segment
 	new_segment = safe_malloc(sizeof(*new_segment));
 	new_segment->start = start;
 	new_segment->length = length;
 	// use ring head as sentinel
-	out->segment.list_head.start = start;
-	out->segment.list_head.length = length + 1;	// +1 to make sure sentinel exits loop
+	out->segm.list_head.start = start;
+	out->segm.list_head.length = length + 1;	// +1 to make sure sentinel exits loop
 	// walk ring to find correct spot
 	while ((test_segment->start < new_segment->start)
 	|| ((test_segment->start == new_segment->start) && (test_segment->length < new_segment->length)))
@@ -273,11 +273,11 @@ static void link_segment(intval_t start, intval_t length)
 // FIXME - do it the other way round and only complain if there were no other errors!
 static void check_segment(intval_t new_pc)
 {
-	struct segment	*test_segment	= out->segment.list_head.next;
+	struct segment	*test_segment	= out->segm.list_head.next;
 
 	// use list head as sentinel
-	out->segment.list_head.start = new_pc + 1;	// +1 to make sure sentinel exits loop
-	out->segment.list_head.length = 1;
+	out->segm.list_head.start = new_pc + 1;	// +1 to make sure sentinel exits loop
+	out->segm.list_head.length = 1;
 	// search ring for matching entry
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
@@ -311,9 +311,9 @@ void output_passinit(void)
 	// deactivate output - any byte written will trigger error:
 	output_byte = no_output;
 	out->write_idx = 0;	// same as pc on pass init!
-	out->segment.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
-	out->segment.max = config.outbuf_size - 1;	// TODO - use end of bank?
-	out->segment.flags = 0;
+	out->segm.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
+	out->segm.max = config.outbuf_size - 1;	// TODO - use end of bank?
+	out->segm.flags = 0;
 	out->xor = 0;
 
 	//vcpu stuff:
@@ -350,26 +350,26 @@ static void end_segment(void)
 		return;
 
 	// if there is no segment, there is nothing to do
-	if (out->segment.start == NO_SEGMENT_START)
+	if (out->segm.start == NO_SEGMENT_START)
 		return;
 
 	// ignore "invisible" segments
-	if (out->segment.flags & SEGMENT_FLAG_INVISIBLE)
+	if (out->segm.flags & SEGMENT_FLAG_INVISIBLE)
 		return;
 
 	// ignore empty segments
-	amount = out->write_idx - out->segment.start;
+	amount = out->write_idx - out->segm.start;
 	if (amount == 0)
 		return;
 
 	// link to segment list
-	link_segment(out->segment.start, amount);
+	link_segment(out->segm.start, amount);
 	// announce
 	if (config.process_verbosity >= 2)
 		// TODO - change output to start, limit, size, name:
 		// TODO - output hex numbers as %04x? What about limit 0x10000?
 		printf("Segment size is %d (0x%x) bytes (0x%x - 0x%x exclusive).\n",
-			amount, amount, out->segment.start, out->write_idx);
+			amount, amount, out->segm.start, out->write_idx);
 }
 
 
@@ -390,15 +390,15 @@ static void start_segment(intval_t address_change, bits segment_flags)
 
 	// calculate start of new segment
 	out->write_idx = (out->write_idx + address_change) & (config.outbuf_size - 1);
-	out->segment.start = out->write_idx;
-	out->segment.flags = segment_flags;
+	out->segm.start = out->write_idx;
+	out->segm.flags = segment_flags;
 	// allow writing to output buffer
 	output_byte = real_output;
 	// in first/last pass, check for other segments and maybe issue warning
 	if (pass.flags.do_segment_checks) {
 		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
-			check_segment(out->segment.start);
-		find_segment_max(out->segment.start);
+			check_segment(out->segm.start);
+		find_segment_max(out->segm.start);
 	}
 }
 
