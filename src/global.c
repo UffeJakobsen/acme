@@ -533,15 +533,15 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		// (assembly stops, for example if outbuffer overruns).
 		PLATFORM_SERIOUS(msg);
 		throw_msg(msg, "\033[1m\033[31m", "Serious error", opt_alt_loc);	// bold + red
-		//++pass.error_count;	// FIXME - needed when problem below is solved
+		//++pass.counters.errors;	// FIXME - needed when problem below is solved
 		exit(ACME_finalize(EXIT_FAILURE)); // FIXME - this inhibits output of macro call stack
 	case DEBUGLEVEL_ERROR:
 		// output an error
 		// (something is wrong, no output file will be generated).
 		PLATFORM_ERROR(msg);
 		throw_msg(msg, "\033[31m", "Error", opt_alt_loc);	// red
-		++pass.error_count;
-		if (pass.error_count >= config.max_errors)
+		++pass.counters.errors;
+		if (pass.counters.errors >= config.max_errors)
 			exit(ACME_finalize(EXIT_FAILURE));
 		break;
 	case DEBUGLEVEL_WARNING:
@@ -552,11 +552,11 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 			break;
 		PLATFORM_WARNING(msg);
 		throw_msg(msg, "\033[33m", "Warning", opt_alt_loc);	// yellow
-		++pass.warning_count;
+		++pass.counters.warnings;
 		// then check if warnings should be handled like errors:
 		if (config.all_warnings_are_errors) {
-			++pass.error_count;
-			if (pass.error_count >= config.max_errors)
+			++pass.counters.errors;
+			if (pass.counters.errors >= config.max_errors)
 				exit(ACME_finalize(EXIT_FAILURE));
 		}
 		break;

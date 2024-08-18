@@ -106,11 +106,17 @@ extern struct config	config;
 
 struct pass {
 	int	number;	// counts up from one
-	int	undefined_count;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
-	//int	needvalue_count;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
-	int	changed_count;	// count symbol changes (if nonzero, another pass is needed)
-	int	error_count;
-	int	warning_count;
+	struct {
+		int	undefineds;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
+		//int	needvalue;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
+		int	symbolchanges;	// count symbol changes (if nonzero, another pass is needed)
+		int	errors;
+		int	warnings;
+		// FIXME - add a counter for "errors not reported because pass flags
+		// said so", because then we can read the value after all symbol changes
+		// have finally settled and know if the next pass is a victory lap or an
+		// error output pass.
+	} counters;
 	struct {
 		char	complain_about_undefined;	// will be FALSE until error pass is needed
 		char	do_segment_checks;	// atm only used in pass 1, should be used in _last_ pass!

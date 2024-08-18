@@ -343,12 +343,12 @@ static void perform_pass(void)
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
 	// init variables
-	pass.undefined_count = 0;
-	//pass.needvalue_count = 0;	FIXME - use
-	pass.changed_count = 0;
-	pass.error_count = 0;
-	pass.warning_count = 0;
-	// Process toplevel files
+	pass.counters.undefineds = 0;
+	//pass.counters.needvalue = 0;	FIXME - use
+	pass.counters.symbolchanges = 0;
+	pass.counters.errors = 0;
+	pass.counters.warnings = 0;
+	// process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY);
 		if (fd) {
@@ -358,7 +358,7 @@ static void perform_pass(void)
 			fprintf(stderr, "Error: Cannot open toplevel file \"%s\".\n", toplevel_sources_plat[ii]);
 			if (toplevel_sources_plat[ii][0] == '-')
 				fprintf(stderr, "Options (starting with '-') must be given _before_ source files!\n");
- 			++pass.error_count;
+ 			++pass.counters.errors;
 		}
 	}
 	output_endofpass();	// make sure last code segment is closed
@@ -366,8 +366,8 @@ static void perform_pass(void)
 	// in the future to two general expressions, this is the point where
 	// they would need to be evaluated.
 	if (config.process_verbosity >= 8)
-		printf("Undefined expressions: %d. Symbol updates: %d.\n", pass.undefined_count, pass.changed_count);
-	if (pass.error_count)
+		printf("Undefined expressions: %d. Symbol updates: %d.\n", pass.counters.undefineds, pass.counters.symbolchanges);
+	if (pass.counters.errors)
 		exit(ACME_finalize(EXIT_FAILURE));
 	// now increment pass number
 	// this must be done _after_ the pass because assignments done via
@@ -396,11 +396,11 @@ static void do_actual_work(void)
 	perform_pass();	// first pass
 	pass.flags.do_segment_checks = FALSE;	// FIXME - do in _last_ pass instead!
 	// pretend there has been a previous pass, with one more undefined result
-	undefs_before = pass.undefined_count + 1;
+	undefs_before = pass.counters.undefineds + 1;
 	// keep doing passes as long as the number of undefined results keeps decreasing.
-	// stop on zero (FIXME - zero-check pass.needvalue_count instead!)
-	while ((pass.undefined_count && (pass.undefined_count < undefs_before)) || pass.changed_count) {
-		undefs_before = pass.undefined_count;
+	// stop on zero (FIXME - zero-check pass.counters.needvalue instead!)
+	while ((pass.counters.undefineds && (pass.counters.undefineds < undefs_before)) || pass.counters.symbolchanges) {
+		undefs_before = pass.counters.undefineds;
 		perform_pass();
 		if (--sanity.passes_left < 0) {
 			// FIXME - exit with error
@@ -410,7 +410,7 @@ static void do_actual_work(void)
 		}
 	}
 	// any errors left?
-	if (pass.undefined_count == 0) {	// FIXME - use pass.needvalue_count instead!
+	if (pass.counters.undefineds == 0) {	// FIXME - use pass.counters.needvalue instead!
 		// if listing report is wanted and there were no errors,
 		// do another pass to generate listing report
 		if (config.report_filename) {

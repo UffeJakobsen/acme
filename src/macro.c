@@ -244,7 +244,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		inputchange_new_ram(&icb);
 		inputchange_macro1_params(&actual_macro->definition, actual_macro->parameter_list);
 
-		outer_msg_sum = pass.warning_count + pass.error_count;	// remember for call stack decision
+		outer_msg_sum = pass.counters.warnings + pass.counters.errors;	// remember for call stack decision
 
 		// remember old section
 		outer_section = section_now;
@@ -300,7 +300,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 		inputchange_back(&icb);
 
 		// if needed, dump call stack
-		if (outer_msg_sum != pass.warning_count + pass.error_count)
+		if (outer_msg_sum != pass.counters.warnings + pass.counters.errors)
 			Throw_warning("...called from here.");
 
 		parser_ensure_EOS();

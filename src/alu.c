@@ -2513,7 +2513,7 @@ static int parse_expression(struct expression *expression)
 			// not empty. undefined?
 			if (!(result->type->is_defined(result))) {
 				// then count (in all passes)
-				++pass.undefined_count;
+				++pass.counters.undefineds;
 			}
 		}
 		// do some checks depending on int/float

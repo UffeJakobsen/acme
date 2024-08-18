@@ -571,8 +571,8 @@ static enum eos po_binary(void)
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-	if ((size.val.intval >= 0) && (pass.undefined_count || pass.error_count)) {
-	//if ((size.val.intval >= 0) && (pass.needvalue_count || pass.error_count)) {	FIXME - use!
+	if ((size.val.intval >= 0) && (pass.counters.undefineds || pass.counters.errors)) {
+	//if ((size.val.intval >= 0) && (pass.counters.needvalue || pass.counters.errors)) {	FIXME - use!
 		output_skip(size.val.intval);	// really including is useless anyway
 	} else {
 		// really insert file

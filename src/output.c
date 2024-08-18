@@ -189,11 +189,11 @@ void output_newdefault(void)
 {
 	// init memory
 	fill_completely(config.mem_init_value);
-	// enforce another pass
-	if (pass.undefined_count == 0)
-		pass.undefined_count = 1;
-	//if (pass.needvalue_count == 0)	FIXME - use? instead or additionally?
-	//	pass.needvalue_count = 1;
+	// enforce another pass (FIXME - no, just do a separate output pass anyway!)
+	if (pass.counters.undefineds == 0)
+		pass.counters.undefineds = 1;
+	//if (pass.counters.needvalue == 0)	FIXME - use? instead or additionally?
+	//	pass.counters.needvalue = 1;
 // enforcing another pass is not needed if there hasn't been any
 // output yet. But that's tricky to detect without too much overhead.
 // The old solution was to add &&(out->lowest_written < out->highest_written+1) to "if" above
