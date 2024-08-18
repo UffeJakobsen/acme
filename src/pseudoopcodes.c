@@ -72,9 +72,6 @@ static enum eos po_initmem(void)
 	// remember value
 	config.mem_init_value = intresult.val.intval & 0xff;
 
-	// fill outbuffer and enforce another pass
-	output_newdefault();	// FIXME - remove when outbuffer gets initialized only right before "last" pass!
-
 	return ENSURE_EOS;
 }
 
@@ -537,6 +534,7 @@ static enum eos po_binary(void)
 	int		byte;
 	struct number	size,
 			skip;
+	int		amount;
 
 	size.val.intval = -1;	// means "not given" => "until EOF"
 	skip.val.intval	= 0;
@@ -571,8 +569,7 @@ static enum eos po_binary(void)
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-	if ((size.val.intval >= 0) && (pass.counters.undefineds || pass.counters.errors)) {
-	//if ((size.val.intval >= 0) && (pass.counters.needvalue || pass.counters.errors)) {	FIXME - use!
+	if ((size.val.intval >= 0) && (!pass.flags.generate_output)) {
 		output_skip(size.val.intval);	// really including is useless anyway
 	} else {
 		// really insert file
@@ -593,16 +590,14 @@ static enum eos po_binary(void)
 				output_byte(0);
 			} while (--size.val.intval);
 		}
+		// if verbose, produce some output
+		if (config.process_verbosity >= 2) {
+			amount = output_get_statement_size();
+			printf("Loaded %d (0x%04x) bytes from file offset %d (0x%04x).\n",
+				amount, amount, skip.val.intval, skip.val.intval);
+		}
 	}
 	fclose(stream);
-	// if verbose, produce some output
-	// FIXME - do in _last_ pass instead of first!
-	if ((pass.number == 1) && (config.process_verbosity >= 2)) {
-		int	amount	= output_get_statement_size();
-
-		printf("Loaded %d (0x%04x) bytes from file offset %d (0x%04x).\n",
-			amount, amount, skip.val.intval, skip.val.intval);
-	}
 	return ENSURE_EOS;
 }
 

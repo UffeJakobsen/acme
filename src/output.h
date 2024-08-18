@@ -34,9 +34,6 @@ extern void output_skip(int size);
 // FIXME - replace by output_sequence(char *src, size_t size)
 extern void (*output_byte)(intval_t);
 
-// default value for empty memory has changed (called by "!initmem" pseudo opcode)
-extern void output_newdefault(void);
-
 // remember current outbuf index as start/limit of output file
 extern void outbuf_set_outfile_start(void);
 extern void outbuf_set_outfile_limit(void);

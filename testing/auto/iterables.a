@@ -15,7 +15,7 @@
 	otherstring = "Ford"
 	+a otherstring + emptystring + somestring == "FordArthur"
 
-	collection = []
+	!set collection = []
 	!for c in "Trillian" {
 		!set collection = collection + [c]
 	}

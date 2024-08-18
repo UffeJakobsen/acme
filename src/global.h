@@ -118,8 +118,9 @@ struct pass {
 		// error output pass.
 	} counters;
 	struct {
-		char	complain_about_undefined;	// will be FALSE until error pass is needed
-		char	do_segment_checks;	// atm only used in pass 1, should be used in _last_ pass!
+		boolean	complain_about_undefined;	// will be FALSE until error pass is needed
+		boolean	throw_segment_messages;	// atm only used in pass 1, should be used in _last_ pass!
+		boolean	generate_output;	// create output and/or report file
 	} flags;
 };
 extern struct pass	pass;

@@ -162,17 +162,16 @@ static void report_init(struct report *report)
 	report->bin_used = 0;
 }
 // open report file
-static int report_open(struct report *report, const char *filename)
+static void report_open(struct report *report, const char *filename)
 {
 	// show filename _now_ because I do not want to massage it into perror()
 	printf("Opening report file \"%s\".\n", filename);
 	report->fd = fopen(filename, FILE_WRITETEXT);
 	if (report->fd == NULL) {
 		perror("Error: Cannot open report file");
-		return 1;
+		exit(ACME_finalize(EXIT_FAILURE));
 	}
 	input_set_report_enabled(TRUE);
-	return 0;	// success
 }
 // close report file
 static void report_close(struct report *report)
@@ -330,24 +329,38 @@ static void save_output_file(void)
 }
 
 
+// definitions for pass flags:
+#define PF_COMPLAIN_ABOUT_UNDEFINEDS	(1u << 0)	// throw "Symbol not defined" errors
+#define PF_THROW_SEGMENT_MESSAGES	(1u << 1)	// throw segment warnings/errors
+#define PF_GENERATE_OUTPUT		(1u << 2)	// generate output and/or report file
 // perform a single pass
-static void perform_pass(void)
+static void perform_pass(bits passflags)
 {
 	FILE	*fd;
 	int	ii;
 
+	// init variables
+	pass.counters.undefineds	= 0;
+	//pass.counters.needvalue	= 0;	FIXME - use
+	pass.counters.symbolchanges	= 0;
+	pass.counters.errors		= 0;
+	pass.counters.warnings		= 0;
+	pass.flags.complain_about_undefined	= !!(passflags & PF_COMPLAIN_ABOUT_UNDEFINEDS);
+	pass.flags.throw_segment_messages	= !!(passflags & PF_THROW_SEGMENT_MESSAGES);
+	pass.flags.generate_output		= !!(passflags & PF_GENERATE_OUTPUT);
+
 	if (config.process_verbosity >= 2)
 		printf("Pass %d:\n", pass.number);
+
+	if (pass.flags.generate_output) {
+		// if wanted, open report listing
+		if (config.report_filename)
+			report_open(report, config.report_filename);
+	}
 	cputype_passinit();	// set default cpu type
 	output_passinit();	// set initial pc or start with undefined pc
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
-	// init variables
-	pass.counters.undefineds = 0;
-	//pass.counters.needvalue = 0;	FIXME - use
-	pass.counters.symbolchanges = 0;
-	pass.counters.errors = 0;
-	pass.counters.warnings = 0;
 	// process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY);
@@ -367,8 +380,17 @@ static void perform_pass(void)
 	// they would need to be evaluated.
 	if (config.process_verbosity >= 8)
 		printf("Undefined expressions: %d. Symbol updates: %d.\n", pass.counters.undefineds, pass.counters.symbolchanges);
+	// FIXME - make this into next if's "else" block:
 	if (pass.counters.errors)
 		exit(ACME_finalize(EXIT_FAILURE));
+
+	if (pass.flags.generate_output) {
+		// FIXME - add some code here to do "if there were errors, call BUG()"
+		// if report listing is open, close it
+		if (config.report_filename)
+			report_close(report);
+		save_output_file();
+	}
 	// now increment pass number
 	// this must be done _after_ the pass because assignments done via
 	// "-DSYMBOL=VALUE" cli args must be handled as if they were done at the
@@ -387,21 +409,21 @@ static void do_actual_work(void)
 	report = &global_report;	// let global pointer point to something
 	report_init(report);	// we must init struct before doing passes
 
-	sanity.macro_recursions_left = config.sanity_limit;
-	sanity.source_recursions_left = config.sanity_limit;
-	sanity.passes_left = config.sanity_limit;
+	sanity.macro_recursions_left	= config.sanity_limit;
+	sanity.source_recursions_left	= config.sanity_limit;
+	sanity.passes_left		= config.sanity_limit;
 
-	pass.flags.complain_about_undefined = FALSE;	// disable until error pass needed
-	pass.flags.do_segment_checks = TRUE;	// FIXME - do in _last_ pass instead!
-	perform_pass();	// first pass
-	pass.flags.do_segment_checks = FALSE;	// FIXME - do in _last_ pass instead!
+// first pass:
+	perform_pass(PF_THROW_SEGMENT_MESSAGES);	// FIXME - check segments in all passes, but only throw errors/warnings in final pass!
 	// pretend there has been a previous pass, with one more undefined result
 	undefs_before = pass.counters.undefineds + 1;
+
+// further passes:
 	// keep doing passes as long as the number of undefined results keeps decreasing.
 	// stop on zero (FIXME - zero-check pass.counters.needvalue instead!)
 	while ((pass.counters.undefineds && (pass.counters.undefineds < undefs_before)) || pass.counters.symbolchanges) {
 		undefs_before = pass.counters.undefineds;
-		perform_pass();
+		perform_pass(0);
 		if (--sanity.passes_left < 0) {
 			// FIXME - exit with error
 			// ...or maybe do one additional pass where all errors are reported, including "not defined" and "value has changed".
@@ -409,27 +431,20 @@ static void do_actual_work(void)
 			//break;
 		}
 	}
+
+// last pass:
 	// any errors left?
 	if (pass.counters.undefineds == 0) {	// FIXME - use pass.counters.needvalue instead!
-		// if listing report is wanted and there were no errors,
-		// do another pass to generate listing report
-		if (config.report_filename) {
-			if (config.process_verbosity >= 2)
-				puts("Extra pass to generate listing report.");
-			if (report_open(report, config.report_filename) == 0) {
-				perform_pass();
-				report_close(report);
-			}
-			// FIXME - add some code here to do "if there were errors, call BUG()"
-		}
-		save_output_file();
+		// victory lap
+		if (config.process_verbosity >= 2)
+			puts("Extra pass to generate output.");
+		perform_pass(PF_GENERATE_OUTPUT);
 	} else {
 		// There are still errors (unsolvable by doing further passes),
 		// so perform additional pass to find and show them.
 		if (config.process_verbosity >= 2)
 			puts("Extra pass to display errors.");
-		pass.flags.complain_about_undefined = TRUE;	// activate error output
-		perform_pass();	// perform pass, but now show "value undefined"
+		perform_pass(PF_COMPLAIN_ABOUT_UNDEFINEDS);	// perform pass, but now show "value undefined"
 		// FIXME - perform_pass() calls exit() when there were errors,
 		// so if controls returns here, call BUG()!
 		// (this can be triggered using ifdef/ifndef)

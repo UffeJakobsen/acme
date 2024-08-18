@@ -99,7 +99,7 @@ static void border_crossed(int current_offset)
 	// further:
 	if (current_offset >= config.outbuf_size)
 		Throw_serious_error("Reached memory limit.");
-	if (pass.flags.do_segment_checks) {
+	if (pass.flags.throw_segment_messages) {
 		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.", NULL);
 		find_segment_max(current_offset + 1);	// find new (next) limit
 	}
@@ -177,29 +177,6 @@ void output_skip(int size)
 }
 
 
-// fill output buffer with given byte value
-static void fill_completely(char value)
-{
-	memset(out->buffer, value, config.outbuf_size);
-}
-
-
-// default value for empty memory has changed (called by "!initmem" pseudo opcode)
-void output_newdefault(void)
-{
-	// init memory
-	fill_completely(config.mem_init_value);
-	// enforce another pass (FIXME - no, just do a separate output pass anyway!)
-	if (pass.counters.undefineds == 0)
-		pass.counters.undefineds = 1;
-	//if (pass.counters.needvalue == 0)	FIXME - use? instead or additionally?
-	//	pass.counters.needvalue = 1;
-// enforcing another pass is not needed if there hasn't been any
-// output yet. But that's tricky to detect without too much overhead.
-// The old solution was to add &&(out->lowest_written < out->highest_written+1) to "if" above
-// in future, just allocate and init outbuf at the start of the "last" pass!
-}
-
 // remember current outbuf index as start/limit of output file
 static boolean	force_file_start	= FALSE;
 static intval_t	forced_start_idx;
@@ -228,16 +205,10 @@ void outbuf_set_outfile_limit(void)
 
 
 // init output struct
+// FIXME - remove this, create the buffer at start of final pass instead!
 void output_createbuffer(void)
 {
 	out->buffer = safe_malloc(config.outbuf_size);
-// FIXME - in future, do both of these only at start of "last" pass:
-	// fill memory with initial value
-	if (config.mem_init_value == NO_VALUE_GIVEN) {
-		fill_completely(0);	// default value
-	} else {
-		fill_completely(config.mem_init_value & 0xff);
-	}
 	// init ring list of segments
 	out->segm.list_head.next = &out->segm.list_head;
 	out->segm.list_head.prev = &out->segm.list_head;
@@ -272,6 +243,7 @@ static void link_segment(intval_t start, intval_t length)
 // check whether given PC is inside segment.
 // only call in first pass, otherwise too many warnings might be thrown
 // FIXME - do it the other way round and only complain if there were no other errors!
+// FIXME - move this fn to its single caller!
 static void check_segment(intval_t new_pc)
 {
 	struct segment	*test_segment	= out->segm.list_head.next;
@@ -297,9 +269,23 @@ void output_passinit(void)
 {
 //	struct segment	*temp;
 
+	// are we supposed to actually generate correct output?
+	if (pass.flags.generate_output) {
+		// FIXME - allocate output buffer using size info gathered in previous pass!
+		// fill output buffer with initial byte value
+		if (config.mem_init_value == NO_VALUE_GIVEN) {
+			memset(out->buffer, 0, config.outbuf_size);	// default value
+		} else {
+			memset(out->buffer, config.mem_init_value & 0xff, config.outbuf_size);
+		}
+	}
+
 //FIXME - why clear ring list in every pass?
 // Because later pass shouldn't complain about overwriting the same segment from earlier pass!
-// Currently this does not happen because segment warnings are only generated in first pass. FIXME!
+// Currently this does not happen because segment warnings are only generated in first pass.
+// FIXME - in future we want to _output_ the errors/warnings in the final pass only,
+// but we need to _check_ for them in every pass because only the results of the second-to-last
+// pass are important. so for the time being, keep this code:
 	// delete segment list (and free blocks)
 //	while ((temp = segment_list)) {
 //		segment_list = segment_list->next;
@@ -347,7 +333,8 @@ static void end_segment(void)
 	intval_t	amount;
 
 	// only do in first or last pass
-	if (!pass.flags.do_segment_checks)
+	// FIXME - do the _checking_ in all passes, but only throw errors/warnings in final pass!
+	if (!pass.flags.throw_segment_messages)
 		return;
 
 	// if there is no segment, there is nothing to do
@@ -396,7 +383,7 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	// allow writing to output buffer
 	output_byte = real_output;
 	// in first/last pass, check for other segments and maybe issue warning
-	if (pass.flags.do_segment_checks) {
+	if (pass.flags.throw_segment_messages) {
 		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
 			check_segment(out->segm.start);
 		find_segment_max(out->segm.start);

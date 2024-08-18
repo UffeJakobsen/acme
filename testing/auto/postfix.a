@@ -23,7 +23,7 @@ label4
 		lda d
 	+a * - label4 == 3
 label5
-	e+2=5
+	!set e+2=5
 	!for e+2, 17, 17 {
 		lda e
 	}
