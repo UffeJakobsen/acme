@@ -333,6 +333,7 @@ static void save_output_file(void)
 #define PF_COMPLAIN_ABOUT_UNDEFINEDS	(1u << 0)	// throw "Symbol not defined" errors
 #define PF_THROW_SEGMENT_MESSAGES	(1u << 1)	// throw segment warnings/errors
 #define PF_GENERATE_OUTPUT		(1u << 2)	// generate output and/or report file
+
 // perform a single pass
 static void perform_pass(bits passflags)
 {
@@ -399,8 +400,8 @@ static void perform_pass(bits passflags)
 	++pass.number;
 }
 
-
 static struct report	global_report;
+
 // do passes until done (or errors occurred).
 static void do_actual_work(void)
 {
@@ -412,6 +413,9 @@ static void do_actual_work(void)
 	sanity.macro_recursions_left	= config.sanity_limit;
 	sanity.source_recursions_left	= config.sanity_limit;
 	sanity.passes_left		= config.sanity_limit;
+
+	// init output system
+	output_init();
 
 // first pass:
 	perform_pass(PF_THROW_SEGMENT_MESSAGES);	// FIXME - check segments in all passes, but only throw errors/warnings in final pass!
@@ -813,8 +817,6 @@ int main(int argc, const char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	// init output buffer
-	output_createbuffer();
 	// do the actual work
 	do_actual_work();
 	return ACME_finalize(EXIT_SUCCESS);	// dump labels, if wanted

@@ -19,8 +19,8 @@
 
 // prototypes
 
-// alloc and init mem buffer (called once on startup)
-extern void output_createbuffer(void);
+// init structs (called once on startup)
+extern void output_init(void);
 
 // clear segment list and disable output (called on each pass)
 extern void output_passinit(void);

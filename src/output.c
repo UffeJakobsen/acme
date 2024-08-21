@@ -124,10 +124,14 @@ static void real_output(intval_t byte)
 	// new maximum address?
 	if (out->write_idx > out->highest_written)
 		out->highest_written = out->write_idx;
-	// write byte and advance ptrs
+	// tell report listing about byte
 	if (report->fd)
 		report_binary(byte & 0xff);	// file for reporting
-	out->buffer[out->write_idx++] = (byte & 0xff) ^ out->xor;
+	// write byte to output buffer
+	if (out->buffer)
+		out->buffer[out->write_idx] = (byte & 0xff) ^ out->xor;
+	// advance pointer
+	out->write_idx++;
 	++statement_size;	// count this byte
 }
 
@@ -204,17 +208,6 @@ void outbuf_set_outfile_limit(void)
 }
 
 
-// init output struct
-// FIXME - remove this, create the buffer at start of final pass instead!
-void output_createbuffer(void)
-{
-	out->buffer = safe_malloc(config.outbuf_size);
-	// init ring list of segments
-	out->segm.list_head.next = &out->segm.list_head;
-	out->segm.list_head.prev = &out->segm.list_head;
-}
-
-
 // link segment data into segment ring
 static void link_segment(intval_t start, intval_t length)
 {
@@ -264,6 +257,16 @@ static void check_segment(intval_t new_pc)
 }
 
 
+// init structs
+void output_init(void)
+{
+	out->buffer = NULL;
+	// init ring list of segments (FIXME - move to passinit)
+	out->segm.list_head.next = &out->segm.list_head;
+	out->segm.list_head.prev = &out->segm.list_head;
+}
+
+
 // clear segment list and disable output
 void output_passinit(void)
 {
@@ -271,7 +274,9 @@ void output_passinit(void)
 
 	// are we supposed to actually generate correct output?
 	if (pass.flags.generate_output) {
-		// FIXME - allocate output buffer using size info gathered in previous pass!
+		// allocate output buffer
+		// FIXME - use size info gathered in previous pass!
+		out->buffer = safe_malloc(config.outbuf_size);
 		// fill output buffer with initial byte value
 		if (config.mem_init_value == NO_VALUE_GIVEN) {
 			memset(out->buffer, 0, config.outbuf_size);	// default value
@@ -490,6 +495,9 @@ void output_get_result(const char **ptr, intval_t *size, intval_t *loadaddr)
 	intval_t	start,
 			limit,	// end+1
 			amount;
+
+	if (out->buffer == NULL)
+		BUG("noOutBuf", 0);
 
 	start = out->lowest_written;
 	limit = out->highest_written + 1;
