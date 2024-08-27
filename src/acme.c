@@ -687,7 +687,6 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_TEST) == 0) {
 		config.dialect = V__FUTURE_VERSION;
 		config.test_new_features = TRUE;
-		config.outbuf_size = 0x1000000;	// 16 MiB (FIXME - give it its own cli switch!)
 	} PLATFORM_LONGOPTION_CODE
 	else if (strcmp(string, OPTION_COLOR) == 0)
 		config.format_color = TRUE;
@@ -797,17 +796,17 @@ int main(int argc, const char *argv[])
 
 	// now that we have processed all cli switches, check a few values for
 	// valid range:
-	if ((config.initial_pc != NO_VALUE_GIVEN) && (config.initial_pc >= config.outbuf_size)) {
-		fprintf(stderr, "%sProgram counter exceeds outbuffer size.\n", cliargs_error);
+	if ((config.initial_pc != NO_VALUE_GIVEN) && (config.initial_pc >= OUTBUF_MAXSIZE)) {
+		fprintf(stderr, "%sProgram counter exceeds maximum outbuffer size.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
-	if ((config.outfile_start != NO_VALUE_GIVEN) && (config.outfile_start >= config.outbuf_size)) {
-		fprintf(stderr, "%sStart address of output file exceeds outbuffer size.\n", cliargs_error);
+	if ((config.outfile_start != NO_VALUE_GIVEN) && (config.outfile_start >= OUTBUF_MAXSIZE)) {
+		fprintf(stderr, "%sStart address of output file exceeds maximum outbuffer size.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
 	// "limit" is end+1 and therefore we need ">" instead of ">=":
-	if ((config.outfile_limit != NO_VALUE_GIVEN) && (config.outfile_limit > config.outbuf_size)) {
-		fprintf(stderr, "%sEnd+1 of output file exceeds outbuffer size.\n", cliargs_error);
+	if ((config.outfile_limit != NO_VALUE_GIVEN) && (config.outfile_limit > OUTBUF_MAXSIZE)) {
+		fprintf(stderr, "%sEnd+1 of output file exceeds maximum outbuffer size.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
 	if ((config.outfile_start != NO_VALUE_GIVEN)

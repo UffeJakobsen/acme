@@ -4,10 +4,3 @@
 	!if depth_given_in_included_file != 0 {
 		!error "included wrong file."
 	}
-	; program counter no longer silently wraps to zero beginning with 0.98:
-	!pseudopc $fffe {
-		!by 0, 1, 2, 3
-label	}
-	!if label != 2 {
-		!error "program counter does not wrap to zero"
-	}

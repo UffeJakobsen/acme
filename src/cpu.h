@@ -17,7 +17,8 @@ struct cpu_type {
 	// because that's where the mnemonic is stored!
 	boolean		(*keyword_is_mnemonic)(int);
 	bits		flags;	// see below for bit meanings
-	int		pc_mask;	// last value before program counter wraps to zero
+//	int		pc_mask;	// last value before program counter wraps to zero
+	int		dummy_pc;	// value to use for pc after complaining to user they did not set it
 	unsigned char	default_align_value;
 	//int		reserved_keywords_maxlen;	// TODO - add
 	//int		(*reserved_keyword_check)(void);	// TODO - add

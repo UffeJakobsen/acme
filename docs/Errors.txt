@@ -491,8 +491,9 @@ Out of memory.
     will ever see this error, though. ;)
 
 Reached memory limit.
-    The program counter reached address $10000, leaving the output
-    buffer. At the moment, ACME can only produce a maximum of 64 KB.
+    This error is reported if the write index for the output buffer
+    exceeds 16 megabytes. This is an arbitrary limit - if you have a
+    good reason for having it raised further, tell me. :D
 
 Syntax error.
     This is only given as a _serious_ error if it's in a "!do" loop

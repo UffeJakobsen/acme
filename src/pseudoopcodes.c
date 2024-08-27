@@ -684,13 +684,12 @@ static void old_offset_assembly(void)
 
 // start offset assembly
 // (allows for block, so must be reentrant)
-// TODO - maybe add a label argument to assign the block size afterwards (for assemble-to-end-address) (or add another pseudo opcode)
 static enum eos po_pseudopc(void)
 {
 	struct number	new_pc;
 
 	// get new value
-	ALU_defined_int(&new_pc);	// FIXME - allow for undefined! (complaining about non-addresses would be logical, but annoying)
+	ALU_defined_int(&new_pc);	// complaining about non-addresses would be logical, but annoying
 /* TODO - add this. check if code can be shared with "*="!
 	// check for modifiers
 	while (parser_accept_comma()) {
@@ -710,6 +709,10 @@ static enum eos po_pseudopc(void)
 		}
 	}
 */
+	if (new_pc.val.intval < 0) {
+		Throw_error("Program counter cannot be negative.");
+		new_pc.val.intval = cpu_current_type->dummy_pc;
+	}
 	pseudopc_start(&new_pc);
 	// if there's a block, parse that and then restore old value!
 	if (parse_optional_block()) {
@@ -1573,6 +1576,10 @@ void notreallypo_setpc(void)	// GotByte is '*'
 		}
 	}
 
+	if (intresult.val.intval < 0) {
+		Throw_error("Program counter cannot be negative.");
+		intresult.val.intval = cpu_current_type->dummy_pc;
+	}
 	vcpu_set_pc(intresult.val.intval, segment_flags);
 
 	// if wanted, perform "!outfilestart":

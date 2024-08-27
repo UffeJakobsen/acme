@@ -123,7 +123,6 @@ void config_default(struct config *conf)
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->dialect			= V__CURRENT_VERSION;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
-	conf->outbuf_size		= 0x10000;	// 64K, "--test" changes to 16M
 	conf->initial_cpu_type		= NULL;
 	conf->symbollist_filename	= NULL;
 	conf->vicelabels_filename	= NULL;

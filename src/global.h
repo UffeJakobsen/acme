@@ -13,10 +13,11 @@
 #include "config.h"
 
 
+// constants
+
 #define LOCAL_PREFIX	'.'	// DO NOT CHANGE (or change expression parser accordingly)
 #define CHEAP_PREFIX	'@'	// prefix character for cheap locals
-
-// Constants
+#define NO_VALUE_GIVEN	(-1)	// used when only non-negative values are valid, e.g. for addresses
 
 extern char		s_untitled[];
 // error messages during assembly
@@ -89,14 +90,13 @@ struct config {
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum dialect	dialect;	// set by --dialect (and --test --test)
 	int		debuglevel;	// set by --debuglevel, used by "!debug"
-	intval_t	outbuf_size;	// 64K, "--test" changes to 16M
 	const struct cpu_type	*initial_cpu_type;
 	const char	*symbollist_filename;
 	const char	*vicelabels_filename;
 	const char	*output_filename;	// TODO - put in "part" struct
 	enum outfile_format	outfile_format;
 	const char	*report_filename;	// TODO - put in "part" struct
-#define NO_VALUE_GIVEN	(-1)	// default value for these fields if cli switch not used:
+// default value for these fields (if cli switch not used) is NO_VALUE_GIVEN:
 	int		mem_init_value;	// set by --initmem
 	intval_t	initial_pc;	// set by --setpc
 	intval_t	outfile_start;	// set by --from-to

@@ -30,10 +30,12 @@ struct segment {
 // structure for all output stuff:
 struct output {
 	// output buffer stuff
-	char		*buffer;	// holds assembled code (size is config.outbuf_size)
+	char		*buffer;	// holds assembled code (size is needed_bufsize)
 	intval_t	write_idx;	// index of next write
 	intval_t	lowest_written;		// smallest address used
 	intval_t	highest_written;	// largest address used
+	intval_t	forced_start_idx;	// first index to go into output file
+	intval_t	forced_limit_idx;	// first index to not go into output file
 	struct {
 		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
 		intval_t	max;	// highest address segment may use
@@ -41,6 +43,7 @@ struct output {
 		struct segment	list_head;	// head element of doubly-linked ring list
 	} segm;
 	char		xor;		// output modifier
+	intval_t	needed_bufsize;	// calculated at end of each pass
 };
 
 // for offset assembly:
@@ -85,7 +88,7 @@ static void find_segment_max(intval_t new_pc)
 	while (test_segment->start <= new_pc)
 		test_segment = test_segment->next;
 	if (test_segment == &out->segm.list_head)
-		out->segm.max = config.outbuf_size - 1;
+		out->segm.max = OUTBUF_MAXSIZE - 1;
 	else
 		out->segm.max = test_segment->start - 1;	// last free address available
 }
@@ -97,7 +100,7 @@ static void border_crossed(int current_offset)
 	// FIXME - find a way to make this a normal error instead of a serious one,
 	// so it can be suppressed until we are sure the program won't shrink any
 	// further:
-	if (current_offset >= config.outbuf_size)
+	if (current_offset >= OUTBUF_MAXSIZE)
 		Throw_serious_error("Reached memory limit.");
 	if (pass.flags.throw_segment_messages) {
 		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.", NULL);
@@ -135,13 +138,18 @@ static void real_output(intval_t byte)
 	++statement_size;	// count this byte
 }
 
+// throw "program counter not defined" error and then use a fake pc so this does
+// not happen again
+static void complain_and_use_dummy_pc(void)
+{
+	Throw_error(exception_pc_undefined);
+	vcpu_set_pc(cpu_current_type->dummy_pc, 0);	// 0 = no flags
+}
 
 // throw error (pc undefined) and use fake pc from now on
 static void no_output(intval_t byte)
 {
-	Throw_error(exception_pc_undefined);
-	// now change fn ptr to not complain again.
-	output_byte = real_output;
+	complain_and_use_dummy_pc();
 	output_byte(byte);	// try again
 }
 
@@ -160,10 +168,9 @@ void output_skip(int size)
 	}
 
 	// check whether ptr undefined
-	if (output_byte == no_output) {
-		output_byte(0);	// trigger error with a dummy byte
-		--size;	// fix amount to cater for dummy byte
-	}
+	if (output_byte == no_output)
+		complain_and_use_dummy_pc();
+
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
@@ -182,29 +189,19 @@ void output_skip(int size)
 
 
 // remember current outbuf index as start/limit of output file
-static boolean	force_file_start	= FALSE;
-static intval_t	forced_start_idx;
 void outbuf_set_outfile_start(void)
 {
 	// check whether ptr undefined
-	if (output_byte == no_output) {
-		Throw_error(exception_pc_undefined);
-	} else {
-		force_file_start = TRUE;
-		forced_start_idx = out->write_idx;
-	}
+	if (output_byte == no_output)
+		complain_and_use_dummy_pc();
+	out->forced_start_idx = out->write_idx;
 }
-static boolean	force_file_limit	= FALSE;
-static intval_t	forced_limit_idx;
 void outbuf_set_outfile_limit(void)
 {
 	// check whether ptr undefined
-	if (output_byte == no_output) {
-		Throw_error(exception_pc_undefined);
-	} else {
-		force_file_limit = TRUE;
-		forced_limit_idx = out->write_idx;
-	}
+	if (output_byte == no_output)
+		complain_and_use_dummy_pc();
+	out->forced_limit_idx = out->write_idx;
 }
 
 
@@ -260,31 +257,56 @@ static void check_segment(intval_t new_pc)
 // init structs
 void output_init(void)
 {
-	out->buffer = NULL;
 	// init ring list of segments (FIXME - move to passinit)
 	out->segm.list_head.next = &out->segm.list_head;
 	out->segm.list_head.prev = &out->segm.list_head;
+	// init the one field not initialized by output_passinit:
+	out->needed_bufsize = NO_VALUE_GIVEN;
 }
 
 
 // clear segment list and disable output
 void output_passinit(void)
 {
-//	struct segment	*temp;
+	//struct segment	*temp;
 
-	// are we supposed to actually generate correct output?
+	// init output struct:
 	if (pass.flags.generate_output) {
-		// allocate output buffer
-		// FIXME - use size info gathered in previous pass!
-		out->buffer = safe_malloc(config.outbuf_size);
+		// we are supposed to actually generate correct output, so
+		// allocate and init output buffer:
+		if (out->needed_bufsize == NO_VALUE_GIVEN) {
+			// this is not an error. it happens when the source code
+			// does not create a single output byte, for example if
+			// someone uses ACME simply for "!info 3456 / 78"
+			out->needed_bufsize = 16;	// actually 1 would suffice...
+		}
+		if (out->needed_bufsize > OUTBUF_MAXSIZE) {
+			Throw_serious_error("Output buffer size exceeds maximum.");
+		}
+		//fprintf(stderr, "Allocating outbuf of size 0x%06x.\n", out->needed_bufsize);
+		out->buffer = safe_malloc(out->needed_bufsize);
 		// fill output buffer with initial byte value
 		if (config.mem_init_value == NO_VALUE_GIVEN) {
-			memset(out->buffer, 0, config.outbuf_size);	// default value
+			memset(out->buffer, 0, out->needed_bufsize);	// default is zero
 		} else {
-			memset(out->buffer, config.mem_init_value & 0xff, config.outbuf_size);
+			memset(out->buffer, config.mem_init_value & 0xff, out->needed_bufsize);
 		}
+	} else {
+		out->buffer = NULL;
 	}
-
+	// FIXME - this should be NO_VALUE_GIVEN, but then pseudopc offset would be off, and
+	// we cannot use NO_VALUE_GIVEN for pc as long as setting pc uses diff to old value!
+	out->write_idx = 0;	// ...so we set it to the same value as pc on pass init!
+	// invalidate start and end (first byte actually written will fix them)
+	out->lowest_written = OUTBUF_MAXSIZE;	// FIXME - add code so OUTBUF_MAXSIZE-1 is a hard limit!
+	out->highest_written = -1;
+	// no overrides for start and end yet:
+	out->forced_start_idx = NO_VALUE_GIVEN;
+	out->forced_limit_idx = NO_VALUE_GIVEN;
+	// not in a segment
+	out->segm.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
+	out->segm.max = OUTBUF_MAXSIZE - 1;
+	out->segm.flags = 0;
 //FIXME - why clear ring list in every pass?
 // Because later pass shouldn't complain about overwriting the same segment from earlier pass!
 // Currently this does not happen because segment warnings are only generated in first pass.
@@ -296,17 +318,13 @@ void output_passinit(void)
 //		segment_list = segment_list->next;
 //		free(temp);
 //	}
+	// no "encryption":
+	out->xor = 0;
+	// needed size of buffer will be calculated at end of pass, so
+	//out->needed_bufsize = do not init
 
-	// invalidate start and end (first byte actually written will fix them)
-	out->lowest_written = config.outbuf_size - 1;
-	out->highest_written = 0;
 	// deactivate output - any byte written will trigger error:
 	output_byte = no_output;
-	out->write_idx = 0;	// same as pc on pass init!
-	out->segm.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
-	out->segm.max = config.outbuf_size - 1;	// TODO - use end of bank?
-	out->segm.flags = 0;
-	out->xor = 0;
 
 	//vcpu stuff:
 	pc_ntype = NUMTYPE_UNDEFINED;	// not defined yet
@@ -372,6 +390,13 @@ static void end_segment(void)
 void output_endofpass(void)
 {
 	end_segment();
+	// calculate size of output buffer
+	if (out->highest_written >= out->lowest_written) {
+		out->needed_bufsize = out->highest_written + 1;
+	} else {
+		out->needed_bufsize = NO_VALUE_GIVEN;
+	}
+	//fprintf(stderr, "Need outbuf size of 0x%04x bytes.\n", out->needed_bufsize);
 }
 
 
@@ -382,10 +407,15 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	end_segment();
 
 	// calculate start of new segment
-	out->write_idx = (out->write_idx + address_change) & (config.outbuf_size - 1);
+	out->write_idx = (out->write_idx + address_change);
+	if (out->write_idx < 0) {
+		Throw_serious_error("Tried to write to negative addresses.");
+	} else if (out->write_idx >= OUTBUF_MAXSIZE) {
+		Throw_serious_error("Reached memory limit.");
+	}
 	out->segm.start = out->write_idx;
 	out->segm.flags = segment_flags;
-	// allow writing to output buffer
+	// allow "writing to buffer" (even though buffer does not really exist until final pass)
 	output_byte = real_output;
 	// in first/last pass, check for other segments and maybe issue warning
 	if (pass.flags.throw_segment_messages) {
@@ -407,7 +437,7 @@ void output_set_xor(char xor)
 }
 
 
-// set program counter to defined value (FIXME - allow for undefined!)
+// set program counter to defined value
 // if start address was given on command line, main loop will call this before each pass.
 // in addition to that, it will be called on each "*= VALUE".
 void vcpu_set_pc(intval_t new_pc, bits segment_flags)
@@ -416,39 +446,10 @@ void vcpu_set_pc(intval_t new_pc, bits segment_flags)
 
 	pc_change = new_pc - program_counter;
 	program_counter = new_pc;	// FIXME - oversized values are accepted without error and will be wrapped at end of statement!
-	pc_ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
+	pc_ntype = NUMTYPE_INT;
 	// now tell output buffer to start a new segment
 	start_segment(pc_change, segment_flags);
 }
-/*
-TODO - overhaul program counter and memory pointer stuff:
-general stuff: PC and mem ptr might be marked as "undefined" via flags field.
-However, their "value" fields are still updated, so we can calculate differences.
-
-on pass init:
-	if value given on command line, set PC and out ptr to that value
-	otherwise, set both to zero and mark as "undefined"
-when ALU asks for "*":
-	return current PC (value and flags)
-when encountering "!pseudopc VALUE { BLOCK }":
-	parse new value (NEW: might be undefined!)
-	remember difference between current and new value
-	set PC to new value
-	after BLOCK, use remembered difference to change PC back
-when encountering "*= VALUE":
-	parse new value (NEW: might be undefined!)
-	calculate difference between current PC and new value
-	set PC to new value
-	tell outbuf to add difference to mem ptr (starting a new segment)
-		if new value is undefined, tell outbuf to disable output
-
-Problem: always check for "undefined"; there are some problematic combinations.
-I need a way to return the size of a generated code block even if PC undefined.
-Maybe like this:
-	*= new_address [, invisible] [, overlay] [, size_counter = symbol {]
-		...code...
-	[} ; at end of block, size is written to symbol given above!]
-*/
 
 
 // get program counter
@@ -471,19 +472,7 @@ int output_get_statement_size(void)
 // adjust program counter (called at end of each statement)
 void output_end_statement(void)
 {
-	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
-		program_counter += statement_size;
-	} else {
-		// older versions did this stupid crap:
-		program_counter = (program_counter + statement_size) & cpu_current_type->pc_mask;
-		// making the program counter automatically wrap around from
-		// 0xffff to 0x0000 without any warning or error is just asking
-		// for trouble.
-		// but I think I added this to fulfill a feature request where
-		// demo code was located at $ffxx and in zero page, and with the
-		// dialect feature I can actually be backward-compatible...
-		// ...so there.
-	}
+	program_counter += statement_size;
 	statement_size = 0;	// reset
 }
 
@@ -502,10 +491,10 @@ void output_get_result(const char **ptr, intval_t *size, intval_t *loadaddr)
 	start = out->lowest_written;
 	limit = out->highest_written + 1;
 	// if pseudo opcodes were used, they override the actual values:
-	if (force_file_start)
-		start = forced_start_idx;
-	if (force_file_limit)
-		limit = forced_limit_idx;
+	if (out->forced_start_idx != NO_VALUE_GIVEN)
+		start = out->forced_start_idx;
+	if (out->forced_limit_idx != NO_VALUE_GIVEN)
+		limit = out->forced_limit_idx;
 	// if cli args were given, they override even harder:
 	if (config.outfile_start != NO_VALUE_GIVEN)
 		start = config.outfile_start;
@@ -535,6 +524,10 @@ void pseudopc_start(struct number *new_pc)
 {
 	struct pseudopc	*new_context;
 
+	// check whether ptr undefined
+	if (output_byte == no_output)
+		complain_and_use_dummy_pc();
+
 	new_context = safe_malloc(sizeof(*new_context));	// create new struct (this must never be freed, as it gets linked to labels!)
 	new_context->outer = pseudopc_current_context;	// let it point to previous one
 	pseudopc_current_context = new_context;	// make it the current one
@@ -542,14 +535,14 @@ void pseudopc_start(struct number *new_pc)
 	new_context->ntype = pc_ntype;
 	new_context->offset = new_pc->val.intval - program_counter;
 	program_counter = new_pc->val.intval;
-	pc_ntype = NUMTYPE_INT;	// FIXME - remove when allowing undefined!
+	pc_ntype = NUMTYPE_INT;
 	//new: pc_flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
 void pseudopc_end(void)
 {
-	// FIXME - check this "wraparound" stuff, it may no longer make sense!
-	program_counter = (program_counter - pseudopc_current_context->offset) & (config.outbuf_size - 1);	// pc might have wrapped around
+	program_counter = program_counter - pseudopc_current_context->offset;
+// FIXME - if pc can wrap around, then we should have fixed the offset!
 	pc_ntype = pseudopc_current_context->ntype;
 	pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	if (pseudopc_current_context == NULL)
@@ -572,7 +565,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 1;	// error
 		}
 		// FIXME - in future, check both target and context for NUMTYPE_UNDEFINED!
-		target->val.intval = (target->val.intval - context->offset) & (config.outbuf_size - 1);	// FIXME - is masking really needed?	TODO
+		target->val.intval = target->val.intval - context->offset;
 		context = context->outer;
 	}
 	return 0;	// ok
