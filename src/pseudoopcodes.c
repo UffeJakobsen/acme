@@ -619,7 +619,6 @@ static enum eos po_fill(void)
 
 // skip over some bytes in output without starting a new segment.
 // in contrast to "*=*+AMOUNT", "!skip AMOUNT" does not start a new segment.
-// (...and it will be needed in future for assemble-to-end-address)
 static enum eos po_skip(void)	// now GotByte = illegal char
 {
 	struct number	amount;
@@ -655,7 +654,7 @@ static enum eos po_align(void)
 		fill = cpu_current_type->default_align_value;
 
 	// make sure PC is defined
-	vcpu_read_pc(&pc);
+	programcounter_read(&pc);
 	if (pc.ntype == NUMTYPE_UNDEFINED) {
 		Throw_error(exception_pc_undefined);
 		return SKIP_REMAINDER;
@@ -1230,7 +1229,7 @@ static enum eos tracewatch(boolean enter_monitor)
 	struct number	pc;
 	bits		flags	= 0;
 
-	vcpu_read_pc(&pc);
+	programcounter_read(&pc);
 	SKIPSPACE();
 	// check for flags
 	if (GotByte != CHAR_EOS) {
@@ -1580,7 +1579,7 @@ void notreallypo_setpc(void)	// GotByte is '*'
 		Throw_error("Program counter cannot be negative.");
 		intresult.val.intval = cpu_current_type->dummy_pc;
 	}
-	vcpu_set_pc(intresult.val.intval, segment_flags);
+	programcounter_set(intresult.val.intval, segment_flags);
 
 	// if wanted, perform "!outfilestart":
 	if (do_outfilestart)

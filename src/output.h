@@ -19,11 +19,14 @@
 
 // prototypes
 
-// init structs (called once on startup)
+// called once on startup, inits structs
 extern void output_init(void);
 
-// clear segment list and disable output (called on each pass)
+// called before each pass, clears segment list and disables output
 extern void output_passinit(void);
+
+// called after each pass, closes last code segment and calculates outbuffer size
+extern void output_endofpass(void);
 
 // skip over some bytes in output buffer without starting a new segment
 // (used by "!skip", and also called by "!binary" if really calling
@@ -38,18 +41,16 @@ extern void (*output_byte)(intval_t);
 extern void outbuf_set_outfile_start(void);
 extern void outbuf_set_outfile_limit(void);
 
-// make sure last code segment is closed
-extern void output_endofpass(void);
-
 // get/set "encryption" byte
 extern char output_get_xor(void);
 extern void output_set_xor(char xor);
 
-// set program counter to defined value (TODO - allow undefined!)
-extern void vcpu_set_pc(intval_t new_pc, bits segment_flags);
+// set program counter to defined value -> start a new segment.
+// this will in turn set the outbuf index according to the current pseudopc offset.
+extern void programcounter_set(intval_t new_pc, bits segment_flags);
 
 // get program counter
-extern void vcpu_read_pc(struct number *target);
+extern void programcounter_read(struct number *target);
 
 // get size of current statement (until now) - needed for "!bin" verbose output
 extern int output_get_statement_size(void);

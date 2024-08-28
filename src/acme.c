@@ -359,9 +359,12 @@ static void perform_pass(bits passflags)
 			report_open(report, config.report_filename);
 	}
 	cputype_passinit();	// set default cpu type
-	output_passinit();	// set initial pc or start with undefined pc
+	output_passinit();	// clear segment list, disable output, undefine pc, ...
 	encoding_passinit();	// set default encoding
 	section_passinit();	// set initial zone (untitled)
+	// if start address was given on command line, use it to define pc:
+	if (config.initial_pc != NO_VALUE_GIVEN)
+		programcounter_set(config.initial_pc, 0);	// 0 -> no segment flags
 	// process toplevel files
 	for (ii = 0; ii < toplevel_src_count; ++ii) {
 		fd = fopen(toplevel_sources_plat[ii], FILE_READBINARY);

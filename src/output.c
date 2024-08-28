@@ -51,7 +51,6 @@ struct output {
 struct pseudopc {
 	struct pseudopc	*outer;	// next layer (to be able to "unpseudopc" labels by more than one level)
 	intval_t	offset;	// inner minus outer pc
-	enum numtype	ntype;	// type of outer pc (INT/UNDEFINED)
 };
 static struct pseudopc	outermost_pseudopc_context;	// dummy struct when "!pseudopc" not in use
 static struct pseudopc	*pseudopc_current_context	= &outermost_pseudopc_context;	// current struct
@@ -60,9 +59,14 @@ static struct pseudopc	*pseudopc_current_context	= &outermost_pseudopc_context;	
 // variables
 static struct output	default_output;
 static struct output	*out	= &default_output;	// FIXME - never changes! is the ptr a preparation for "assembling several different parts in one go"?
-static int		statement_size;	// add to PC after statement
 static intval_t		program_counter;	// current program counter (pseudopc value)
-static enum numtype	pc_ntype;
+static int		statement_size;	// added to program counter after each statement
+// "program_counter" differs substantially from "out->write_idx":
+// - "write_idx" changes after each byte, "program_counter" only changes between statements
+//	(when "statement_size" gets added)
+// - of course the values can be wildly different because of offset assembly
+// - because "!pseudopc" can be nested and we need all offsets separately for
+//	the '&' operator anyway, we do not keep a total offset.
 
 // report binary output
 static void report_binary(char value)
@@ -109,9 +113,11 @@ static void border_crossed(int current_offset)
 }
 
 
-// function ptr to write byte into output buffer (might point to real fn or error trigger)
+// function ptr to write byte into output buffer (points to real_output or no_output)
 void (*output_byte)(intval_t byte);
 
+// test for "has user set program counter yet?"
+#define PC_NOT_SET	(program_counter == NO_VALUE_GIVEN)
 
 // send low byte to output buffer and remember to later increase program counter
 static void real_output(intval_t byte)
@@ -143,13 +149,13 @@ static void real_output(intval_t byte)
 static void complain_and_use_dummy_pc(void)
 {
 	Throw_error(exception_pc_undefined);
-	vcpu_set_pc(cpu_current_type->dummy_pc, 0);	// 0 = no flags
+	programcounter_set(cpu_current_type->dummy_pc, 0);	// 0 = no flags
 }
 
 // throw error (pc undefined) and use fake pc from now on
 static void no_output(intval_t byte)
 {
-	complain_and_use_dummy_pc();
+	complain_and_use_dummy_pc();	// this lets output_byte point to the real_output
 	output_byte(byte);	// try again
 }
 
@@ -168,7 +174,7 @@ void output_skip(int size)
 	}
 
 	// check whether ptr undefined
-	if (output_byte == no_output)
+	if (PC_NOT_SET)
 		complain_and_use_dummy_pc();
 
 	// CAUTION - there are two copies of these checks!
@@ -192,14 +198,14 @@ void output_skip(int size)
 void outbuf_set_outfile_start(void)
 {
 	// check whether ptr undefined
-	if (output_byte == no_output)
+	if (PC_NOT_SET)
 		complain_and_use_dummy_pc();
 	out->forced_start_idx = out->write_idx;
 }
 void outbuf_set_outfile_limit(void)
 {
 	// check whether ptr undefined
-	if (output_byte == no_output)
+	if (PC_NOT_SET)
 		complain_and_use_dummy_pc();
 	out->forced_limit_idx = out->write_idx;
 }
@@ -254,7 +260,7 @@ static void check_segment(intval_t new_pc)
 }
 
 
-// init structs
+// called once on startup, inits structs
 void output_init(void)
 {
 	// init ring list of segments (FIXME - move to passinit)
@@ -265,7 +271,7 @@ void output_init(void)
 }
 
 
-// clear segment list and disable output
+// called before each pass, clears segment list and disables output
 void output_passinit(void)
 {
 	//struct segment	*temp;
@@ -294,9 +300,8 @@ void output_passinit(void)
 	} else {
 		out->buffer = NULL;
 	}
-	// FIXME - this should be NO_VALUE_GIVEN, but then pseudopc offset would be off, and
-	// we cannot use NO_VALUE_GIVEN for pc as long as setting pc uses diff to old value!
-	out->write_idx = 0;	// ...so we set it to the same value as pc on pass init!
+	// program counter has not been set yet, so the write index is also unknown:
+	out->write_idx = NO_VALUE_GIVEN;	// must be same value as pc on pass init!
 	// invalidate start and end (first byte actually written will fix them)
 	out->lowest_written = OUTBUF_MAXSIZE;	// FIXME - add code so OUTBUF_MAXSIZE-1 is a hard limit!
 	out->highest_written = -1;
@@ -321,31 +326,21 @@ void output_passinit(void)
 	// no "encryption":
 	out->xor = 0;
 	// needed size of buffer will be calculated at end of pass, so
-	//out->needed_bufsize = do not init
+	//out->needed_bufsize = do not overwrite result of previous pass
 
 	// deactivate output - any byte written will trigger error:
 	output_byte = no_output;
 
-	//vcpu stuff:
-	pc_ntype = NUMTYPE_UNDEFINED;	// not defined yet
-	// FIXME - number type is "undefined", but still the intval 0 below will
-	// be used to calculate diff when pc is first set.
-	program_counter = 0;	// same as output's write_idx on pass init
+	// program counter stuff:
+	program_counter = NO_VALUE_GIVEN;	// must be same value as write_idx on pass init!
 	statement_size = 0;	// increase PC by this at end of statement
 
 	// pseudopc stuff:
 	// init dummy pseudopc struct
 	outermost_pseudopc_context.outer = NULL;
 	outermost_pseudopc_context.offset = 0;
-	outermost_pseudopc_context.ntype = NUMTYPE_UNDEFINED;
 	// and use it:
 	pseudopc_current_context = &outermost_pseudopc_context;
-
-// this was moved over from caller - does it make sense to merge into some if/else?
-
-	// if start address was given on command line, use it:
-	if (config.initial_pc != NO_VALUE_GIVEN)
-		vcpu_set_pc(config.initial_pc, 0);	// 0 -> no segment flags
 }
 
 
@@ -384,12 +379,12 @@ static void end_segment(void)
 }
 
 
-// make sure last code segment is closed
-// (this gets called exactly once at the end of each pass, as opposed to
-// the static fn "end_segment" which is also called when a new segment starts)
+// called after each pass, closes last code segment and calculates outbuffer size
 void output_endofpass(void)
 {
+	// properly finalize previous segment (link to list, announce)
 	end_segment();
+
 	// calculate size of output buffer
 	if (out->highest_written >= out->lowest_written) {
 		out->needed_bufsize = out->highest_written + 1;
@@ -407,7 +402,7 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	end_segment();
 
 	// calculate start of new segment
-	out->write_idx = (out->write_idx + address_change);
+	out->write_idx = out->write_idx + address_change;
 	if (out->write_idx < 0) {
 		Throw_serious_error("Tried to write to negative addresses.");
 	} else if (out->write_idx >= OUTBUF_MAXSIZE) {
@@ -437,28 +432,33 @@ void output_set_xor(char xor)
 }
 
 
-// set program counter to defined value
-// if start address was given on command line, main loop will call this before each pass.
+// set program counter to defined value -> start a new segment.
+// this will in turn set the outbuf index according to the current pseudopc offset.
+// if start address was given on command line, this will be called at the start of each pass.
 // in addition to that, it will be called on each "*= VALUE".
-void vcpu_set_pc(intval_t new_pc, bits segment_flags)
+void programcounter_set(intval_t new_pc, bits segment_flags)
 {
 	intval_t	pc_change;
 
 	pc_change = new_pc - program_counter;
-	program_counter = new_pc;	// FIXME - oversized values are accepted without error and will be wrapped at end of statement!
-	pc_ntype = NUMTYPE_INT;
+	program_counter = new_pc;
 	// now tell output buffer to start a new segment
 	start_segment(pc_change, segment_flags);
 }
 
 
-// get program counter
-void vcpu_read_pc(struct number *target)
+// read program counter
+void programcounter_read(struct number *target)
 {
-	target->ntype = pc_ntype;
+	// check whether ptr undefined
+	if (PC_NOT_SET) {
+		target->ntype = NUMTYPE_UNDEFINED;
+	} else {
+		target->ntype = NUMTYPE_INT;
+	}
 	target->flags = 0;	// FIXME - if defined, check for FITS_BYTE etc.? use pc_flags?
 	target->val.intval = program_counter;
-	target->addr_refs = 1;	// yes, PC counts as address
+	target->addr_refs = 1;	// program counter is an address
 }
 
 
@@ -474,6 +474,10 @@ void output_end_statement(void)
 {
 	program_counter += statement_size;
 	statement_size = 0;	// reset
+	// we could check if we overran cpu's address space here and maybe throw
+	// an error, but then the user would have to add "!pseudopc" blocks even
+	// if they just wanted to re-cut some existing cartridge file using
+	// "!binary", without using any assembler mnemonics.
 }
 
 
@@ -525,25 +529,20 @@ void pseudopc_start(struct number *new_pc)
 	struct pseudopc	*new_context;
 
 	// check whether ptr undefined
-	if (output_byte == no_output)
+	if (PC_NOT_SET)
 		complain_and_use_dummy_pc();
 
 	new_context = safe_malloc(sizeof(*new_context));	// create new struct (this must never be freed, as it gets linked to labels!)
 	new_context->outer = pseudopc_current_context;	// let it point to previous one
-	pseudopc_current_context = new_context;	// make it the current one
-
-	new_context->ntype = pc_ntype;
-	new_context->offset = new_pc->val.intval - program_counter;
-	program_counter = new_pc->val.intval;
-	pc_ntype = NUMTYPE_INT;
+	new_context->offset = new_pc->val.intval - program_counter;	// remember offset
+	pseudopc_current_context = new_context;	// make new struct the current one
+	program_counter = new_pc->val.intval;	// set new pc
 	//new: pc_flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
 void pseudopc_end(void)
 {
-	program_counter = program_counter - pseudopc_current_context->offset;
-// FIXME - if pc can wrap around, then we should have fixed the offset!
-	pc_ntype = pseudopc_current_context->ntype;
+	program_counter = program_counter - pseudopc_current_context->offset;	// remove offset
 	pseudopc_current_context = pseudopc_current_context->outer;	// go back to outer block
 	if (pseudopc_current_context == NULL)
 		BUG("PseudoPCContext", 0);
@@ -564,8 +563,7 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error
 		}
-		// FIXME - in future, check both target and context for NUMTYPE_UNDEFINED!
-		target->val.intval = target->val.intval - context->offset;
+		target->val.intval = target->val.intval - context->offset;	// remove offset
 		context = context->outer;
 	}
 	return 0;	// ok

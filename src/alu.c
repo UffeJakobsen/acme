@@ -388,7 +388,7 @@ static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = 
 	struct object	*arg;
 
 	GetByte();
-	vcpu_read_pc(&pc);
+	programcounter_read(&pc);
 	// if needed, output "value not defined" error
 	if (pc.ntype == NUMTYPE_UNDEFINED)
 		is_not_defined(NULL, "*", 1);

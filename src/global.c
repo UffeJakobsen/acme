@@ -221,7 +221,7 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 	}
 	symbol = symbol_find(scope);
 	result.type = &type_number;
-	vcpu_read_pc(&result.u.number);	// FIXME - if undefined, check pass.flags.complain_about_undefined and maybe throw "value not defined"!
+	programcounter_read(&result.u.number);	// FIXME - if undefined, check pass.flags.complain_about_undefined and maybe throw "value not defined"!
 	symbol_set_object(symbol, &result, powers);
 	if (force_bit)
 		symbol_set_force_bit(symbol, force_bit);
