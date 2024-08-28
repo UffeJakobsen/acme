@@ -253,7 +253,7 @@ static char get_processed_from_file(void)
 
 			default:
 				// complain if byte is 0
-				Throw_error("Source file contains illegal character.");	// FIXME - throw some dynamic "did not expect XYZ character" error instead!
+				throw_error("Source file contains illegal character.");	// FIXME - throw some dynamic "did not expect XYZ character" error instead!
 				return (char) from_file;
 			}
 		case INPUTSTATE_SKIPBLANKS:
@@ -372,19 +372,19 @@ static void subst_substitute(void)	// now GotByte = '?'
 		goto fail;	// input_read_scope_and_symbol_name will have thrown error
 	}
 	if (tmp_symbol->object.type == NULL) {
-		Throw_error("Substitution symbol is undefined.");
+		throw_error("Substitution symbol is undefined.");
 		// FIXME - set type to undefined int, just to make sure later refs via type do not crash!
 		goto fail;
 	} else if (tmp_symbol->object.type == &type_number) {
 		if (tmp_symbol->object.u.number.ntype != NUMTYPE_INT) {
-			Throw_error("Substitution symbol is undefined or not integer.");
+			throw_error("Substitution symbol is undefined or not integer.");
 			goto fail;
 		}
 		dynabuf_add_signed_long(subst_buffer, (long) tmp_symbol->object.u.number.val.intval);
 	} else if (tmp_symbol->object.type == &type_string) {
 		dynabuf_add_bytes(subst_buffer, tmp_symbol->object.u.string->payload, tmp_symbol->object.u.string->length);
 	} else {
-		Throw_error("Substitution symbol is neither number nor string.");
+		throw_error("Substitution symbol is neither number nor string.");
 		goto fail;
 	}
 
@@ -394,7 +394,7 @@ static void subst_substitute(void)	// now GotByte = '?'
 		if (GotByte == ')') {
 			GetByte();	// eat ')'
 		} else {
-			Throw_error("Substitution does not end with ')' character.");
+			throw_error("Substitution does not end with ')' character.");
 			goto fail;
 		}
 	}
@@ -522,7 +522,7 @@ static void get_quoted_byte(void)
 	}
 	// now check for end of statement
 	if (GotByte == CHAR_EOS)
-		Throw_error("Quotes still open at end of line.");
+		throw_error("Quotes still open at end of line.");
 }
 
 // skip remainder of statement, for example on error
@@ -555,7 +555,7 @@ void parser_ensure_EOS(void)	// now GotByte = first char to test
 		// FIXME - change quoting: do not assume char is printable!
 		quote = (GotByte == '\'') ? '"' : '\'';	// use single quotes, unless byte is a single quote (then use double quotes)
 		sprintf(buf, "Expected end-of-statement, found %c%c%c instead.", quote, GotByte, quote);
-		Throw_error(buf);
+		throw_error(buf);
 		parser_skip_remainder();
 	}
 }
@@ -628,7 +628,7 @@ int input_unescape_dynabuf(void)
 				break;
 			// TODO - 'a' to BEL? others?
 			default:
-				Throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
+				throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
 			}
 			GLOBALDYNABUF_CURRENT[write_index++] = byte;
 			escaped = FALSE;
@@ -668,7 +668,7 @@ static void block_to_dynabuf(void)
 		// now check for some special characters
 		switch (byte) {
 		case CHAR_EOF:	// End-of-file in block? Sorry, no way.
-			Throw_serious_error(exception_no_right_brace);
+			throw_serious_error(exception_no_right_brace);
 
 		case '"':	// Quotes? Okay, read quoted stuff.
 		case '\'':
@@ -725,7 +725,7 @@ static int append_keyword_to_global_dynabuf(void)
 		GetByte();
 	}
 	if (length == 0)
-		Throw_error(exception_missing_string);
+		throw_error(exception_missing_string);
 	return length;
 }
 
@@ -741,7 +741,7 @@ int input_append_symbol_name_to_global_dynabuf(void)
 		GetByte();
 	} else if (!BYTE_STARTS_KEYWORD(GotByte)) {
 		// FIXME - show invalid char in error message!
-		Throw_error(exception_missing_string);
+		throw_error(exception_missing_string);
 		return 1;	// error
 	}
 	return append_keyword_to_global_dynabuf() == 0;	// zero length -> error!
@@ -822,7 +822,7 @@ static int read_filename_shared_end(boolean *absolute)
 {
 	// check length
 	if (GlobalDynaBuf->size == 0) {
-		Throw_error("No file name given.");
+		throw_error("No file name given.");
 		return 1;	// error
 	}
 
@@ -871,7 +871,7 @@ int input_read_input_filename(struct filespecflags *flags)
 		flags->uses_lib = FALSE;
 // old algo (do not merge with similar parts from "if" block!):
 		if (GotByte != '"') {
-			Throw_error("File name quotes not found (\"\" or <>).");
+			throw_error("File name quotes not found (\"\" or <>).");
 			return 1;	// error
 		}
 		// read file name string
@@ -913,7 +913,7 @@ int parser_expect(int chr)
 		GetByte();	// eat expected char
 		return TRUE;
 	}
-	Throw_error(exception_syntax);	// FIXME - build "expected X, found Y" error msg!
+	throw_error(exception_syntax);	// FIXME - build "expected X, found Y" error msg!
 	return FALSE;
 }
 
@@ -943,7 +943,7 @@ static void library_path_to_pathbuf(void)
 	dynabuf_clear(pathbuf);
 	lib_prefix = PLATFORM_LIBPREFIX;
 	if ((PLATFORM_NEEDS_ENV_VAR) && (lib_prefix == NULL)) {
-		Throw_error("\"ACME\" environment variable not found.");
+		throw_error("\"ACME\" environment variable not found.");
 	} else {
 		dynabuf_add_string(pathbuf, lib_prefix);
 	}
@@ -995,11 +995,11 @@ int input_read_output_filename(void)
 
 	SKIPSPACE();
 	if (GotByte == '<') {
-		Throw_error("Writing to library not supported.");
+		throw_error("Writing to library not supported.");
 		return 1;	// error
 	}
 	if (GotByte != '"') {
-		Throw_error("File name quotes not found (\"\").");
+		throw_error("File name quotes not found (\"\").");
 		return 1;	// error
 	}
 	dynabuf_clear(GlobalDynaBuf);
@@ -1213,7 +1213,7 @@ FILE *includepaths_open_ro(struct filespecflags *flags)
 		dynabuf_append(pathbuf, flags->uses_lib ? '>' : '\"');
 		dynabuf_append(pathbuf, '.');
 		dynabuf_append(pathbuf, '\0');
-		Throw_error(pathbuf->buffer);
+		throw_error(pathbuf->buffer);
 	}
 	//fprintf(stderr, "File is [%s]\n", GLOBALDYNABUF_CURRENT);
 	return stream;

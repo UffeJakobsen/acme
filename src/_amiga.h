@@ -27,6 +27,7 @@
 #define PLATFORM_SETFILETYPE_TEXT(a)
 
 // platform specific message output
+#define PLATFORM_INFO(a)
 #define PLATFORM_WARNING(a)
 #define PLATFORM_ERROR(a)
 #define PLATFORM_SERIOUS(a)

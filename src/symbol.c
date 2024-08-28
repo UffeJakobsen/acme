@@ -154,7 +154,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 		// if too different, needs power (or complains)
 		if (symbol->object.type != new_value->type) {
 			if (!(powers & POWER_CHANGE_OBJTYPE))
-				Throw_error(exception_symbol_defined);
+				throw_error(exception_symbol_defined);
 			// CAUTION: if above line throws error, we still go ahead and change type!
 			// this is to keep "!for" working, where the counter var is accessed.
 			symbol->object = *new_value;	// copy whole struct including type
@@ -182,7 +182,7 @@ void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 		BUG("NullTypeObject", 0);
 
 	if (symbol->object.type != &type_number) {
-		Throw_error("Force bits can only be given to numbers.");
+		throw_error("Force bits can only be given to numbers.");
 		return;
 	}
 
@@ -195,7 +195,7 @@ void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 
 	// it's too late to change, so check if the wanted bit is actually different
 	if ((symbol->object.u.number.flags & NUMBER_FORCEBITS) != force_bit)
-		Throw_error("Too late for postfix.");
+		throw_error("Too late for postfix.");
 }
 
 

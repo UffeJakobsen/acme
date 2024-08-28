@@ -60,7 +60,7 @@ static void enlarge_arg_table(void)
 	//printf("Doubling arg table size to %d.\n", argtable_size);
 	arg_table = realloc(arg_table, argtable_size * sizeof(*arg_table));
 	if (arg_table == NULL)
-		Throw_serious_error(exception_no_memory_left);
+		throw_serious_error(exception_no_memory_left);
 }
 
 // Read macro scope and title. Title is read to GlobalDynaBuf and then copied
@@ -149,7 +149,7 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 		} while (pipe_comma());
 		// ensure CHAR_SOB ('{')
 		if (GotByte != CHAR_SOB)
-			Throw_serious_error(exception_no_left_brace);
+			throw_serious_error(exception_no_left_brace);
 	}
 	dynabuf_append(GlobalDynaBuf, CHAR_EOS);	// terminate param list
 	// now GlobalDynaBuf = comma-separated parameter list without spaces,
@@ -197,7 +197,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 	// Enter deeper nesting level
 	// Quit program if recursion too deep.
 	if (--sanity.macro_recursions_left < 0)
-		Throw_serious_error("Too deeply nested. Recursive macro calls?");
+		throw_serious_error("Too deeply nested. Recursive macro calls?");
 	macro_scope = get_scope_and_title();
 	// now GotByte = first non-space after title
 	// internal_name = MacroTitle ARG_SEPARATOR (grows to signature)
@@ -234,7 +234,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 	// Search for macro. Do not create if not found.
 	search_for_macro(&macro_node, macro_scope, FALSE);
 	if (macro_node == NULL) {
-		Throw_error("Macro not defined (or wrong signature).");
+		throw_error("Macro not defined (or wrong signature).");
 		parser_skip_remainder();
 	} else {
 		// make macro_node point to the macro struct
@@ -269,7 +269,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 					if (tree_hard_scan(&symbol_node, symbols_forest, symbol_scope, TRUE) == FALSE) {
 						// we expect it to exist in later passes, but in pass 1 it's an error:
 						if (pass.number == 1)
-							Throw_error("Macro parameter twice.");
+							throw_error("Macro parameter twice.");
 					}
 					symbol_node->body = arg_table[arg_count].symbol;	// CAUTION, object type may be NULL
 				} else {
@@ -301,7 +301,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 
 		// if needed, dump call stack
 		if (outer_msg_sum != pass.counters.warnings + pass.counters.errors)
-			Throw_warning("...called from here.");
+			throw_warning("...called from here.");	// FIXME - use DEBUGLEVEL_INFO instead!
 
 		parser_ensure_EOS();
 	}

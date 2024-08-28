@@ -250,7 +250,7 @@ static void enlarge_operator_stack(void)
 	//printf("Doubling op stack size to %d.\n", opstack_size);
 	op_stack = realloc(op_stack, opstack_size * sizeof(*op_stack));
 	if (op_stack == NULL)
-		Throw_serious_error(exception_no_memory_left);
+		throw_serious_error(exception_no_memory_left);
 }
 
 
@@ -261,7 +261,7 @@ static void enlarge_argument_stack(void)
 	//printf("Doubling arg stack size to %d.\n", argstack_size);
 	arg_stack = realloc(arg_stack, argstack_size * sizeof(*arg_stack));
 	if (arg_stack == NULL)
-		Throw_serious_error(exception_no_memory_left);
+		throw_serious_error(exception_no_memory_left);
 }
 
 
@@ -332,7 +332,7 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 	}
 	dynabuf_add_string(errormsg_dyna_buf, ").");
 	dynabuf_append(errormsg_dyna_buf, '\0');
-	Throw_error(errormsg_dyna_buf->buffer);
+	throw_error(errormsg_dyna_buf->buffer);
 }
 
 
@@ -367,7 +367,7 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 		if (arg->type == &type_number) {
 			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
 		} else {
-			Throw_error("Un-pseudopc operator '&' can only be applied to number symbols.");
+			throw_error("Un-pseudopc operator '&' can only be applied to number symbols.");
 		}
 	}
 	// if needed, output "value not defined" error
@@ -438,13 +438,13 @@ static void parse_quoted(char closing_quote)
 		// single character ////////////////////////
 		// too short?
 		if (GlobalDynaBuf->size == 0) {
-			Throw_error(exception_missing_string);
+			throw_error(exception_missing_string);
 			goto fail;
 		}
 
 		// too long?
 		if (GlobalDynaBuf->size != 1)
-			Throw_error("There's more than one character.");
+			throw_error("There's more than one character.");
 		// parse character
 		value = encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
 		PUSH_INT_ARG(value, 0, 0);	// no flags, no addr refs
@@ -482,11 +482,10 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		break;	// found illegal character
 	}
 	if (!digits) {
-		Throw_error("Binary literal without any digits.");
+		throw_error("Binary literal without any digits.");
 	}
 	if (digits & config.warn_bin_mask) {
-		if (pass.number == 1)
-			Throw_warning("Binary literal with strange number of digits.");
+		throw_finalpass_warning("Binary literal with strange number of digits.");
 	}
 	// set force bits
 	if (config.honor_leading_zeroes) {
@@ -534,7 +533,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 		break;	// found illegal character
 	}
 	if (!digits)
-		Throw_error("Hex literal without any digits.");
+		throw_error("Hex literal without any digits.");
 	// set force bits
 	if (config.honor_leading_zeroes) {
 		if (digits > 2) {
@@ -657,7 +656,7 @@ static void parse_function_call(void)
 	if (tree_easy_scan(function_tree, &node_body, function_dyna_buf)) {
 		PUSH_OP((struct op *) node_body);
 	} else {
-		Throw_error("Unknown function.");
+		throw_error("Unknown function.");
 		alu_state = STATE_ERROR;
 	}
 }
@@ -732,7 +731,7 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 //		// anonymous symbol
 //		"unpseudo"-ing anonymous symbols is not supported
 	} else {
-                Throw_error(exception_missing_string);	// FIXME - create some "expected octal value or symbol name" error instead!
+                throw_error(exception_missing_string);	// FIXME - create some "expected octal value or symbol name" error instead!
 		return 1;	// error
 	}
 	return 0;	// ok
@@ -784,7 +783,7 @@ static void handle_special_operator(struct expression *expression, enum op_id pr
 			alu_state = STATE_EXPECT_DYADIC_OP;
 		} else {
 			// unmatched bracket
-			Throw_error("Unterminated list.");
+			throw_error("Unterminated list.");
 			alu_state = STATE_ERROR;
 			// remove previous operator by overwriting with newest one...
 			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
@@ -798,7 +797,7 @@ static void handle_special_operator(struct expression *expression, enum op_id pr
 			alu_state = STATE_EXPECT_DYADIC_OP;
 		} else {
 			// unmatched bracket
-			Throw_error("Unterminated index spec.");
+			throw_error("Unterminated index spec.");
 			alu_state = STATE_ERROR;
 			// remove previous operator by overwriting with newest one...
 			PREVIOUS_OPERATOR = NEWEST_OPERATOR;
@@ -1053,7 +1052,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 			if (op_stack[op_sp - 1] == &ops_start_expression) {
 				push_dyadic_and_check(expression, &ops_terminating_char);
 			} else {
-				Throw_error(exception_syntax);
+				throw_error(exception_syntax);
 				alu_state = STATE_ERROR;
 			}
 			return FALSE;	// found delimiter
@@ -1131,8 +1130,7 @@ static void expect_dyadic_operator(struct expression *expression)
 		if (GetByte() == '=') {
 			GetByte();	// eat second '=' character
 		} else {
-			//if (pass.number == 1)
-			//	Throw_warning("old-style \"=\" comparison detected, please use \"==\" instead.");	ACTIVATE!
+			//throw_finalpass_warning("old-style \"=\" comparison detected, please use \"==\" instead.");	ACTIVATE!
 		}
 		goto push_dyadic_op;
 
@@ -1211,7 +1209,7 @@ static void expect_dyadic_operator(struct expression *expression)
 				goto push_dyadic_op;
 			}
 
-			Throw_error("Unknown operator.");
+			throw_error("Unknown operator.");
 			alu_state = STATE_ERROR;
 			//goto end;
 		} else {
@@ -1252,7 +1250,7 @@ static void unsupported_operation(const struct object *optional, const struct op
 	dynabuf_add_string(errormsg_dyna_buf, arg->type->name);
 	dynabuf_add_string(errormsg_dyna_buf, "\".");
 	dynabuf_append(errormsg_dyna_buf, '\0');
-	Throw_error(errormsg_dyna_buf->buffer);
+	throw_error(errormsg_dyna_buf->buffer);
 }
 
 
@@ -1430,7 +1428,7 @@ static void number_assign(struct object *self, const struct object *new_value, b
 		// symbol is already defined, so compare new and old values
 		// if values differ, complain and return
 		if (number_differs(self, new_value)) {
-			Throw_error(exception_symbol_defined);
+			throw_error(exception_symbol_defined);
 			return;
 		}
 		// values are the same, so only fiddle with flags
@@ -1458,7 +1456,7 @@ static void number_assign(struct object *self, const struct object *new_value, b
 static void list_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	if ((!accept_change) && list_differs(self, new_value)) {
-		Throw_error(exception_symbol_defined);
+		throw_error(exception_symbol_defined);
 		return;
 	}
 	*self = *new_value;
@@ -1469,7 +1467,7 @@ static void list_assign(struct object *self, const struct object *new_value, boo
 static void string_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	if ((!accept_change) && string_differs(self, new_value)) {
-		Throw_error(exception_symbol_defined);
+		throw_error(exception_symbol_defined);
 		return;
 	}
 	*self = *new_value;
@@ -1581,7 +1579,7 @@ static void float_ranged_fn(double (*fn)(double), struct object *self)
 	if ((self->u.number.val.fpval >= -1) && (self->u.number.val.fpval <= 1)) {
 		self->u.number.val.fpval = fn(self->u.number.val.fpval);
 	} else {
-		Throw_error("Argument out of range.");	// TODO - add number output to error message
+		throw_error("Argument out of range.");	// TODO - add number output to error message
 		self->u.number.val.fpval = 0;
 	}
 }
@@ -1796,8 +1794,7 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 		goto shared;
 
 	case OPID_EOR:
-		if (pass.number == 1)
-			Throw_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		throw_finalpass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");	// FIXME - change to error, at least for newest dialect!
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 	case OPID_AND:
@@ -1858,8 +1855,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		case OPID_EOR:
 		case OPID_XOR:
 			// convert other to int, warning user
-			if (pass.number == 1)
-				Throw_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
+			throw_finalpass_warning(exception_float_to_int);
 			/*FALLTHROUGH*/
 		case OPID_MODULO:
 		case OPID_SHIFTLEFT:
@@ -1892,7 +1888,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		if (other->u.number.val.intval >= 0) {
 			self->u.number.val.intval = my_pow(self->u.number.val.intval, other->u.number.val.intval);
 		} else {
-			Throw_error("Exponent is negative.");
+			throw_error("Exponent is negative.");
 			self->u.number.val.intval = 0;
 		}
 		break;
@@ -1911,7 +1907,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		if (other->u.number.val.intval) {
 			self->u.number.val.intval %= other->u.number.val.intval;
 		} else {
-			Throw_error(exception_div_by_zero);
+			throw_error(exception_div_by_zero);
 			self->u.number.val.intval = 0;
 		}
 		break;
@@ -1965,8 +1961,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
 	case OPID_EOR:
-		if (pass.number == 1)
-			Throw_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
+		throw_finalpass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");	// FIXME - change to error, at least for newest dialect!
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 		self->u.number.val.intval ^= other->u.number.val.intval;
@@ -2049,7 +2044,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		if (other->u.number.val.fpval) {
 			self->u.number.val.fpval /= other->u.number.val.fpval;
 		} else {
-			Throw_error(exception_div_by_zero);
+			throw_error(exception_div_by_zero);
 			self->u.number.val.fpval = 0;
 		}
 		break;
@@ -2057,7 +2052,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 		if (other->u.number.val.fpval) {
 			self->u.number.val.intval = self->u.number.val.fpval / other->u.number.val.fpval;	// fp becomes int!
 		} else {
-			Throw_error(exception_div_by_zero);
+			throw_error(exception_div_by_zero);
 			self->u.number.val.intval = 0;
 		}
 		self->u.number.ntype = NUMTYPE_INT;	// result is int
@@ -2067,8 +2062,7 @@ static void float_handle_dyadic_operator(struct object *self, const struct op *o
 	case OPID_OR:
 	case OPID_EOR:
 	case OPID_XOR:
-		if (pass.number == 1)
-			Throw_warning(exception_float_to_int);	// FIXME - warning is never seen if arguments are undefined in first pass!
+		throw_finalpass_warning(exception_float_to_int);
 		/*FALLTHROUGH*/
 	case OPID_MODULO:
 		float_to_int(self);
@@ -2163,7 +2157,7 @@ static int get_valid_index(int *target, int length, const struct object *self, c
 		return 1;
 	}
 	if (other->u.number.ntype == NUMTYPE_UNDEFINED) {
-		Throw_error("Index is undefined.");
+		throw_error("Index is undefined.");
 		return 1;
 	}
 	if (other->u.number.ntype == NUMTYPE_FLOAT)
@@ -2176,7 +2170,7 @@ static int get_valid_index(int *target, int length, const struct object *self, c
 	if (index < 0)
 		index += length;
 	if ((index < 0) || (index >= length)) {
-		Throw_error("Index out of range.");
+		throw_error("Index out of range.");
 		return 1;
 	}
 	*target = index;
@@ -2550,9 +2544,9 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 
 	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	if (expression.open_parentheses)
-		Throw_error(exception_paren_open);
+		throw_error(exception_paren_open);
 	if (expression.is_empty)
-		Throw_error(exception_no_value);
+		throw_error(exception_no_value);
 	if (expression.result.type == &type_number) {
 		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED)
 			*target = 0;
@@ -2566,7 +2560,7 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:
 		if (expression.result.u.string->length != 1) {
-			Throw_error(exception_lengthnot1);
+			throw_error(exception_lengthnot1);
 		} else {
 			// FIXME - throw a warning?
 		}
@@ -2574,7 +2568,7 @@ void ALU_any_int(intval_t *target)	// ACCEPT_UNDEFINED
 		*target = expression.result.u.number.val.intval;
 	} else {
 		*target = 0;
-		Throw_error(exception_not_number);
+		throw_error(exception_not_number);
 	}
 }
 
@@ -2604,12 +2598,12 @@ or
 throws errors even though the result is defined!
 */
 	if (expression.open_parentheses)
-		Throw_error(exception_paren_open);
+		throw_error(exception_paren_open);
 	if (expression.is_empty)
-		Throw_serious_error(exception_no_value);
+		throw_serious_error(exception_no_value);
 	if (expression.result.type == &type_number) {
 		if (expression.result.u.number.ntype == NUMTYPE_UNDEFINED) {
-			Throw_serious_error("Value not defined.");
+			throw_serious_error("Value not defined.");
 			expression.result.u.number.val.intval = 0;
 		} else if (expression.result.u.number.ntype == NUMTYPE_INT) {
 			// ok
@@ -2622,13 +2616,13 @@ throws errors even though the result is defined!
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:
 		if (expression.result.u.string->length != 1) {
-			Throw_error(exception_lengthnot1);
+			throw_error(exception_lengthnot1);
 		} else {
 			// FIXME - throw a warning?
 		}
 		string_to_byte(&(expression.result), 0);
 	} else {
-		Throw_serious_error(exception_not_number);
+		throw_serious_error(exception_not_number);
 	}
 	*intresult = expression.result.u.number;
 }
@@ -2655,20 +2649,20 @@ void ALU_addrmode_int(struct expression *expression, int paren)	// ACCEPT_UNDEFI
 		// accept single-char strings, to be more
 		// compatible with versions before 0.97:
 		if (expression->result.u.string->length != 1) {
-			Throw_error(exception_lengthnot1);
+			throw_error(exception_lengthnot1);
 		} else {
 			// FIXME - throw a warning?
 		}
 		string_to_byte(&(expression->result), 0);
 	} else {
-		Throw_error(exception_not_number);
+		throw_error(exception_not_number);
 	}
 	if (expression->open_parentheses > paren) {
 		expression->open_parentheses = 0;
-		Throw_error(exception_paren_open);
+		throw_error(exception_paren_open);
 	}
 	if (expression->is_empty)
-		Throw_error(exception_no_value);
+		throw_error(exception_no_value);
 }
 
 
@@ -2685,9 +2679,9 @@ void ALU_any_result(struct object *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 	parse_expression(&expression);	// FIXME - check return value and pass to caller!
 	*result = expression.result;
 	if (expression.open_parentheses)
-		Throw_error(exception_paren_open);
+		throw_error(exception_paren_open);
 	if (expression.is_empty)
-		Throw_error(exception_no_value);
+		throw_error(exception_no_value);
 }
 
 
@@ -2695,7 +2689,7 @@ void ALU_any_result(struct object *result)	// ACCEPT_UNDEFINED | ACCEPT_FLOAT
 
 maybe move
 	if (expression.is_empty)
-		Throw_error(exception_no_value);
+		throw_error(exception_no_value);
 to end of parse_expression()
 
 

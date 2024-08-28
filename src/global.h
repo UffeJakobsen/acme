@@ -110,15 +110,17 @@ struct pass {
 		int	undefineds;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
 		//int	needvalue;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
 		int	symbolchanges;	// count symbol changes (if nonzero, another pass is needed)
-		int	errors;
-		int	warnings;
-		// FIXME - add a counter for "errors not reported because pass flags
-		// said so", because then we can read the value after all symbol changes
-		// have finally settled and know if the next pass is a victory lap or an
-		// error output pass.
+		int	errors;		// if nonzero -> stop after this pass
+		int	warnings;	// this is needed for showing macro call stack
+		//int	suppressed_errors;	// FIXME - this is for
+		// "errors not reported because pass flags said so", because
+		// then we can read the value after all symbol changes have
+		// finally settled and know if the next pass is a victory lap or
+		// an error output pass.
 	} counters;
 	struct {
 		boolean	complain_about_undefined;	// will be FALSE until error pass is needed
+		boolean	is_final_pass;	// needed for warnings like "converted float to int for xor"
 		boolean	throw_segment_messages;	// atm only used in pass 1, should be used in _last_ pass!
 		boolean	generate_output;	// create output and/or report file
 	} flags;
@@ -211,29 +213,39 @@ extern bits parser_get_force_bit(void);
 // if the "optional alternative location" given is NULL, the current location is used
 extern void throw_message(enum debuglevel level, const char msg[], struct location *opt_alt_loc);
 
-// output a warning (something looks wrong, like "label name starts with shift-space character")
-#define Throw_warning(msg)	throw_message(DEBUGLEVEL_WARNING, msg, NULL)
+// output a warning (something looks wrong)
+extern void throw_warning(const char msg[]);
 
 // output an error (something is wrong, no output file will be generated).
 // the assembler will try to go on with the assembly, so the user gets to know
 // about more than one of his typos at a time.
-#define Throw_error(msg)	throw_message(DEBUGLEVEL_ERROR, msg, NULL)
+extern void throw_error(const char msg[]);
+
+// output a serious error (assembly stops, for example if outbuffer overruns).
+extern void throw_serious_error(const char msg[]);
+
+// output a warning, but only if we are in first pass, otherwise suppress
+// (only use this if using throw_finalpass_warning is impossible,
+// for example in cases where the code is skipped in later passes)
+extern void throw_pass1_warning(const char msg[]);
+
+// output a warning, but only if we are in final pass, otherwise suppress
+// (for example "converted float to int for XOR" -> must be done in
+// final pass because values might be undefined earlier!)
+extern void throw_finalpass_warning(const char msg[]);
 
 // throw "macro twice" error (FIXME - also use for "symbol twice"!)
 // first output a warning, then an error, this guarantees that ACME does not
 // reach the maximum error limit inbetween.
 extern void throw_redef_error(struct location *old_def, const char msg[]);
 
+// handle bugs
+extern void BUG(const char *msg, int code);
+
 // process error that might vanish if symbols change:
 // if current pass is an "error output" pass, actually throw error.
 // otherwise just increment counter to let mainloop know this pass wasn't successful.
-extern void throw_symbol_error(const char *msg);
-
-// output a serious error (assembly stops, for example if outbuffer overruns).
-#define Throw_serious_error(msg)	throw_message(DEBUGLEVEL_SERIOUS, msg, NULL)
-
-// handle bugs
-extern void BUG(const char *msg, int code);
+extern void countorthrow_value_error(const char *msg);
 
 // insert object (in case of list, will iterate/recurse until done)
 struct iter_context {

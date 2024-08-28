@@ -30,6 +30,7 @@
 #define PLATFORM_SETFILETYPE_TEXT(a)	RISCOS_set_filetype(a, 0xfff)
 
 // platform specific message output
+#define PLATFORM_INFO(a)		RISCOS_throwback(a, 0)
 #define PLATFORM_WARNING(a)		RISCOS_throwback(a, 0)
 #define PLATFORM_ERROR(a)		RISCOS_throwback(a, 1)
 #define PLATFORM_SERIOUS(a)		RISCOS_throwback(a, 2)

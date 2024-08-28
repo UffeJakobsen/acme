@@ -38,7 +38,7 @@ static void resize(struct dynabuf *db, size_t new_size)
 	//printf("Growing dynabuf to size %d.\n", new_size);
 	new_buf = realloc(db->buffer, new_size);
 	if (new_buf == NULL)
-		Throw_serious_error(exception_no_memory_left);
+		throw_serious_error(exception_no_memory_left);
 	db->reserved = new_size;
 	db->buffer = new_buf;
 }

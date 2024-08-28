@@ -130,7 +130,7 @@ const struct cpu_type *cputype_find(void)
 void vcpu_check_and_set_reg_length(boolean *var, boolean make_long)
 {
 	if (((cpu_current_type->flags & CPUFLAG_SUPPORTSLONGREGS) == 0) && make_long)
-		Throw_error("Chosen CPU does not support long registers.");
+		throw_error("Chosen CPU does not support long registers.");
 	else
 		*var = make_long;
 }

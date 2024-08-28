@@ -571,7 +571,7 @@ static int get_index(void)
 		NEXTANDSKIPSPACE();
 		return INDEX_Z;
 	}
-	Throw_error("Expected index register after comma.");
+	throw_error("Expected index register after comma.");
 	return INDEX_NONE;
 }
 
@@ -584,8 +584,7 @@ static void get_int_arg(struct number *result, boolean complain_about_indirect)
 	ALU_addrmode_int(&expression, 0);	// accept 0 parentheses still open (-> complain!)
 	if (expression.is_parenthesized && complain_about_indirect) {
 		// TODO - raise error and be done with it?
-		if (pass.number == 1)
-			Throw_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase? add to docs!
+		throw_finalpass_warning("There are unneeded parentheses, you know indirect addressing is impossible here, right?");	// FIXME - rephrase? add to docs!
 	}
 	*result = expression.result.u.number;
 }
@@ -652,11 +651,11 @@ static void check_oversize(bits size_bit, struct number *argument)
 		if (size_bit == NUMBER_FORCES_16) {
 			// check 16-bit argument for high byte zero
 			if ((argument->val.intval <= 255) && (argument->val.intval >= -128))
-				Throw_warning(exception_oversized_addrmode);
+				throw_finalpass_warning(exception_oversized_addrmode);
 		} else {
 			// check 24-bit argument for bank byte zero
 			if ((argument->val.intval <= 65535) && (argument->val.intval >= -32768))
-				Throw_warning(exception_oversized_addrmode);
+				throw_finalpass_warning(exception_oversized_addrmode);
 		}
 	}
 }
@@ -674,7 +673,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 {
 	// if there are no possible addressing modes, complain
 	if (addressing_modes == MAYBE______) {
-		Throw_error(exception_illegal_combination);
+		throw_error(exception_illegal_combination);
 		return 0;
 	}
 	// if a force bit postfix was given, act upon it
@@ -684,7 +683,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 			return force_bit;
 
 		// if not, complain
-		Throw_error("CPU does not support this postfix for this mnemonic.");
+		throw_error("CPU does not support this postfix for this mnemonic.");
 		return 0;
 	}
 
@@ -701,7 +700,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 		if (NUMBER_FORCES_24 & addressing_modes)
 			return NUMBER_FORCES_24;
 
-		Throw_error(exception_number_out_of_range);	// else error
+		throw_error(exception_number_out_of_range);	// else error
 		return 0;
 	}
 
@@ -744,7 +743,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	// Value is sure, so use its own size
 	// if value is negative, size cannot be chosen. Complain!
 	if (argument->val.intval < 0) {
-		throw_symbol_error("Negative value - cannot choose addressing mode.");
+		countorthrow_value_error("Negative value - cannot choose addressing mode.");
 		return 0;
 	}
 
@@ -766,7 +765,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	}
 
 	// Value is too big for all possible addressing modes
-	throw_symbol_error(exception_number_out_of_range);
+	countorthrow_value_error(exception_number_out_of_range);
 	return 0;
 }
 
@@ -777,8 +776,7 @@ static void group_only_implied_addressing(int opcode)
 	// TODO - accept argument and complain about it? error message should tell more than "garbage data at end of line"!
 	// for 65ce02 and 4502, warn about buggy decimal mode
 	if ((opcode == 0xf8) && (cpu_current_type->flags & CPUFLAG_DECIMALSUBTRACTBUGGY)) {
-		if (pass.number == 1)
-			Throw_warning("Found SED instruction for CPU with known decimal SBC bug.");
+		throw_finalpass_warning("Found SED instruction for CPU with known decimal SBC bug.");
 	}
 	output_byte(opcode);
 	parser_ensure_EOS();
@@ -790,7 +788,7 @@ static void not_in_bank(intval_t target)
 	char	buffer[60];	// 640K should be enough for anybody
 
 	sprintf(buffer, "Target not in bank (0x%lx).", (long) target);
-	throw_symbol_error(buffer);
+	countorthrow_value_error(buffer);
 }
 
 // helper function for branches with 8-bit offset (including bbr0..7/bbs0..7)
@@ -816,7 +814,7 @@ static void near_branch(int preoffset)
 				char	buffer[60];	// 640K should be enough for anybody
 
 				sprintf(buffer, "Target out of range (%ld; %ld too far).", (long) offset, (long) (offset < -128 ? -128 - offset : offset - 127));
-				throw_symbol_error(buffer);
+				countorthrow_value_error(buffer);
 			}
 		}
 	}
@@ -917,7 +915,7 @@ static void check_zp_wraparound(struct number *result)
 	if ((result->ntype == NUMTYPE_INT)
 	&& (result->val.intval == 0xff)
 	&& (cpu_current_type->flags & CPUFLAG_WARN_ABOUT_FF_PTR))
-		Throw_warning("Zeropage pointer wraps around from $ff to $00");
+		throw_finalpass_warning("Zeropage pointer wraps around from $ff to $00");
 }
 
 // The main accumulator stuff (ADC, AND, CMP, EOR, LDA, ORA, SBC, STA)
@@ -981,7 +979,7 @@ static void group_main(int index, bits flags)
 		make_instruction(force_bit, &result, accu_lindz8[index]);
 		break;
 	default:	// other combinations are illegal
-		Throw_error(exception_illegal_combination);
+		throw_error(exception_illegal_combination);
 	}
 }
 
@@ -997,7 +995,7 @@ static void group_misc(int index, bits immediate_mode)
 		if (misc_impl[index])
 			output_byte(misc_impl[index]);
 		else
-			Throw_error(exception_illegal_combination);
+			throw_error(exception_illegal_combination);
 		break;
 	case IMMEDIATE_ADDRESSING:	// #$ff or #$ffff (depending on index register length)
 		immediate_opcodes = imm_ops(&force_bit, misc_imm[index], immediate_mode);
@@ -1009,9 +1007,9 @@ static void group_misc(int index, bits immediate_mode)
 		&& (result.ntype == NUMTYPE_INT)
 		&& (result.val.intval != 0x00)) {
 			if (immediate_opcodes == 0x8b)
-				Throw_warning("Assembling unstable ANE #NONZERO instruction");
+				throw_finalpass_warning("Assembling unstable ANE #NONZERO instruction");
 			else if (immediate_opcodes == 0xab)
-				Throw_warning("Assembling unstable LXA #NONZERO instruction");
+				throw_finalpass_warning("Assembling unstable LXA #NONZERO instruction");
 		}
 		break;
 	case ABSOLUTE_ADDRESSING:	// $ff or  $ffff
@@ -1024,7 +1022,7 @@ static void group_misc(int index, bits immediate_mode)
 		make_instruction(force_bit, &result, misc_yabs[index]);
 		break;
 	default:	// other combinations are illegal
-		Throw_error(exception_illegal_combination);
+		throw_error(exception_illegal_combination);
 	}
 }
 
@@ -1096,7 +1094,7 @@ static void group_mvn_mvp(int opcode)
 	output_8(source.val.intval);
 	// sanity check
 	if (unmatched_hash)
-		Throw_error(exception_syntax);	// FIXME - maybe "Use ARG,ARG or #ARG,#ARG but do not mix and match"?
+		throw_error(exception_syntax);	// FIXME - maybe "Use ARG,ARG or #ARG,#ARG but do not mix and match"?
 	parser_ensure_EOS();
 }
 
@@ -1120,7 +1118,7 @@ static void group_prefix(int opcode)
 	char	buffer[100];	// 640K should be enough for anybody
 
 	sprintf(buffer, "The chosen CPU uses opcode 0x%02x as a prefix code, do not use this mnemonic!", opcode);
-	Throw_error(buffer);
+	throw_error(buffer);
 }
 
 // The jump instructions.
@@ -1139,7 +1137,7 @@ static void group_jump(int index)
 		if ((result.ntype == NUMTYPE_INT)
 		&& ((result.val.intval & 0xff) == 0xff)
 		&& (cpu_current_type->flags & CPUFLAG_INDIRECTJMPBUGGY))
-			Throw_warning("Assembling buggy JMP($xxff) instruction");
+			throw_finalpass_warning("Assembling buggy JMP($xxff) instruction");
 		break;
 	case X_INDEXED_INDIRECT_ADDRESSING:	// ($ffff,x)
 		make_instruction(force_bit, &result, jump_xind[index]);
@@ -1148,7 +1146,7 @@ static void group_jump(int index)
 		make_instruction(force_bit, &result, jump_lind[index]);
 		break;
 	default:	// other combinations are illegal
-		Throw_error(exception_illegal_combination);
+		throw_error(exception_illegal_combination);
 	}
 }
 

@@ -333,6 +333,7 @@ static void save_output_file(void)
 #define PF_COMPLAIN_ABOUT_UNDEFINEDS	(1u << 0)	// throw "Symbol not defined" errors
 #define PF_THROW_SEGMENT_MESSAGES	(1u << 1)	// throw segment warnings/errors
 #define PF_GENERATE_OUTPUT		(1u << 2)	// generate output and/or report file
+#define PF_IS_FINAL_PASS		(1u << 3)	// mostly for special warnings
 
 // perform a single pass
 static void perform_pass(bits passflags)
@@ -347,6 +348,7 @@ static void perform_pass(bits passflags)
 	pass.counters.errors		= 0;
 	pass.counters.warnings		= 0;
 	pass.flags.complain_about_undefined	= !!(passflags & PF_COMPLAIN_ABOUT_UNDEFINEDS);
+	pass.flags.is_final_pass		= !!(passflags & PF_IS_FINAL_PASS);
 	pass.flags.throw_segment_messages	= !!(passflags & PF_THROW_SEGMENT_MESSAGES);
 	pass.flags.generate_output		= !!(passflags & PF_GENERATE_OUTPUT);
 
@@ -439,19 +441,19 @@ static void do_actual_work(void)
 		}
 	}
 
-// last pass:
+// final pass:
 	// any errors left?
 	if (pass.counters.undefineds == 0) {	// FIXME - use pass.counters.needvalue instead!
 		// victory lap
 		if (config.process_verbosity >= 2)
 			puts("Extra pass to generate output.");
-		perform_pass(PF_GENERATE_OUTPUT);
+		perform_pass(PF_IS_FINAL_PASS | PF_GENERATE_OUTPUT);
 	} else {
 		// There are still errors (unsolvable by doing further passes),
 		// so perform additional pass to find and show them.
 		if (config.process_verbosity >= 2)
 			puts("Extra pass to display errors.");
-		perform_pass(PF_COMPLAIN_ABOUT_UNDEFINEDS);	// perform pass, but now show "value undefined"
+		perform_pass(PF_IS_FINAL_PASS | PF_COMPLAIN_ABOUT_UNDEFINEDS);	// perform pass, but now show "value undefined"
 		// FIXME - perform_pass() calls exit() when there were errors,
 		// so if controls returns here, call BUG()!
 		// (this can be triggered using ifdef/ifndef)

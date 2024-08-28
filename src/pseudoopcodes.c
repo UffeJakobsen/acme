@@ -57,7 +57,7 @@ static enum eos po_initmem(void)
 
 	// the "--initmem" cli arg and earlier calls have priority
 	if (config.mem_init_value != NO_VALUE_GIVEN) {
-		Throw_warning("Memory already initialised.");
+		throw_pass1_warning("Memory already initialised.");
 		return SKIP_REMAINDER;
 	}
 
@@ -67,7 +67,7 @@ static enum eos po_initmem(void)
 	// first pass)
 	ALU_defined_int(&intresult);
 	if ((intresult.val.intval > 255) || (intresult.val.intval < -128))
-		Throw_error(exception_number_out_of_8b_range);
+		throw_error(exception_number_out_of_8b_range);
 
 	// remember value
 	config.mem_init_value = intresult.val.intval & 0xff;
@@ -86,7 +86,7 @@ static enum eos po_to(void)
 
 	// the "--outfile" cli arg and earlier calls have priority
 	if (config.output_filename) {
-		Throw_warning("Output file name already chosen.");
+		throw_pass1_warning("Output file name already chosen.");
 		return SKIP_REMAINDER;
 	}
 
@@ -107,20 +107,20 @@ static enum eos po_to(void)
 
 		format = outputformat_find();
 		if (format == OUTFILE_FORMAT_UNSPECIFIED) {
-			Throw_error("Unknown output format.");
+			throw_error("Unknown output format.");
 			return SKIP_REMAINDER;
 		}
 	} else {
 		// no comma: complain unless user requested really old behaviour
 		if (config.dialect >= V0_86__DEPRECATE_REALPC)
-			Throw_warning("Used \"!to\" without file format indicator.");
+			throw_pass1_warning("Used \"!to\" without file format indicator.");
 		// default to cbm
 		format = OUTFILE_FORMAT_CBM;
 	}
 
 	// the "--format" cli arg has priority
 	if (config.outfile_format != OUTFILE_FORMAT_UNSPECIFIED) {
-		Throw_warning("Output file format already chosen.");
+		throw_pass1_warning("Output file format already chosen.");
 	} else {
 		config.outfile_format = format;
 	}
@@ -137,7 +137,7 @@ static enum eos po_symbollist(void)
 
 	// cli arg and earlier calls have priority
 	if (config.symbollist_filename) {
-		Throw_warning("Symbol list file name already chosen.");
+		throw_pass1_warning("Symbol list file name already chosen.");
 		return SKIP_REMAINDER;
 	}
 
@@ -163,8 +163,7 @@ static enum eos po_outfilestart(void)
 
 	if ((config.outfile_start != NO_VALUE_GIVEN)
 	|| (last_pass_number == pass.number)) {
-		if (pass.number == 1)
-			Throw_warning("Start of output file already chosen.");
+		throw_pass1_warning("Start of output file already chosen.");
 	} else {
 		last_pass_number = pass.number;
 		outbuf_set_outfile_start();
@@ -179,8 +178,7 @@ static enum eos po_outfilelimit(void)
 
 	if ((config.outfile_limit != NO_VALUE_GIVEN)
 	|| (last_pass_number == pass.number)) {
-		if (pass.number == 1)
-			Throw_warning("End of output file already chosen.");
+		throw_pass1_warning("End of output file already chosen.");
 	} else {
 		last_pass_number = pass.number;
 		outbuf_set_outfile_limit();
@@ -202,7 +200,7 @@ static enum eos po_xor(void)
 	old_value = output_get_xor();
 	ALU_any_int(&change);
 	if ((change > 255) || (change < -128)) {
-		Throw_error(exception_number_out_of_8b_range);
+		throw_error(exception_number_out_of_8b_range);
 		change = 0;
 	}
 	output_set_xor(old_value ^ change);
@@ -321,7 +319,7 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 		// if we're here, the current character is not a hex digit,
 		// which is only allowed outside of pairs:
 		if (digits == 1) {
-			Throw_error("Hex digits are not given in pairs.");
+			throw_error("Hex digits are not given in pairs.");
 			return SKIP_REMAINDER;	// error exit
 		}
 		switch (GotByte) {
@@ -332,7 +330,7 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 		case CHAR_EOS:
 			return AT_EOS_ANYWAY;	// normal exit
 		default:
-			Throw_error(exception_syntax);	// FIXME - include character in error message!
+			throw_error(exception_syntax);	// FIXME - include character in error message!
 			return SKIP_REMAINDER;	// error exit
 		}
 	}
@@ -343,11 +341,10 @@ static enum eos po_hex(void)	// now GotByte = illegal char
 static enum eos po_cbm(void)
 {
 	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
-		Throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
+		throw_error("\"!cbm\" is obsolete; use \"!ct pet\" instead.");
 	} else {
 		encoder_current = &encoder_pet;
-		if (pass.number == 1)
-			Throw_warning("\"!cbm\" is deprecated; use \"!ct pet\" instead.");
+		throw_finalpass_warning("\"!cbm\" is deprecated; use \"!ct pet\" instead.");
 	}
 	return ENSURE_EOS;
 }
@@ -371,7 +368,7 @@ static enum eos use_encoding_from_file(void)
 	if (stream) {
 		// try to load encoding table from given file
 		if (fread(local_table, sizeof(char), 256, stream) != 256)
-			Throw_error("Conversion table incomplete.");
+			throw_error("Conversion table incomplete.");
 		fclose(stream);
 	}
 
@@ -445,7 +442,7 @@ static enum eos po_convtab(void)
 		return use_encoding_from_file();
 	}
 
-	Throw_error("Unknown encoding.");
+	throw_error("Unknown encoding.");
 	return use_predefined_encoding(encoder_current);	// keep going
 }
 // insert string(s)
@@ -555,7 +552,7 @@ static enum eos po_binary(void)
 			// then parse it
 			ALU_defined_int(&size);
 			if (size.val.intval < 0)
-				Throw_serious_error(exception_negative_size);
+				throw_serious_error(exception_negative_size);
 		}
 		// more?
 		if (parser_accept_comma()) {
@@ -585,7 +582,7 @@ static enum eos po_binary(void)
 		}
 		// if more should have been read, warn and add padding
 		if (size.val.intval > 0) {
-			Throw_warning("Padding with zeroes.");
+			throw_warning("Padding with zeroes.");
 			do {
 				output_byte(0);
 			} while (--size.val.intval);
@@ -625,7 +622,7 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 
 	ALU_defined_int(&amount);	// FIXME - forbid addresses!
 	if (amount.val.intval < 0)
-		Throw_serious_error(exception_negative_size);	// TODO - allow this?
+		throw_serious_error(exception_negative_size);	// TODO - allow this?
 	else
 		output_skip(amount.val.intval);
 	return ENSURE_EOS;
@@ -656,7 +653,7 @@ static enum eos po_align(void)
 	// make sure PC is defined
 	programcounter_read(&pc);
 	if (pc.ntype == NUMTYPE_UNDEFINED) {
-		Throw_error(exception_pc_undefined);
+		throw_error(exception_pc_undefined);
 		return SKIP_REMAINDER;
 	}
 
@@ -671,11 +668,10 @@ static void old_offset_assembly(void)
 {
 	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
 		// now it's obsolete
-		Throw_error("\"!pseudopc/!realpc\" are obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
+		throw_error("\"!pseudopc/!realpc\" are obsolete; use \"!pseudopc {}\" instead.");	// FIXME - amend msg, tell user how to use old behaviour!
 	} else if (config.dialect >= V0_86__DEPRECATE_REALPC) {
 		// earlier it was deprecated
-		if (pass.number == 1)
-			Throw_warning("\"!pseudopc/!realpc\" are deprecated; use \"!pseudopc {}\" instead.");
+		throw_finalpass_warning("\"!pseudopc/!realpc\" are deprecated; use \"!pseudopc {}\" instead.");
 	} else {
 		// really old versions allowed it
 	}
@@ -703,13 +699,13 @@ static enum eos po_pseudopc(void)
 			skip '='
 			read segment name (quoted string!)
 		} else {
-			Throw_error("Unknown !pseudopc segment modifier.");
+			throw_error("Unknown !pseudopc segment modifier.");
 			return SKIP_REMAINDER;
 		}
 	}
 */
 	if (new_pc.val.intval < 0) {
-		Throw_error("Program counter cannot be negative.");
+		throw_error("Program counter cannot be negative.");
 		new_pc.val.intval = cpu_current_type->dummy_pc;
 	}
 	pseudopc_start(&new_pc);
@@ -756,7 +752,7 @@ static enum eos po_cpu(void)
 		if (new_cpu_type)
 			cpu_current_type = new_cpu_type;	// activate new cpu type
 		else
-			Throw_error("Unknown processor.");
+			throw_error("Unknown processor.");
 	}
 	// if there's a block, parse that and then restore old value
 	if (parse_optional_block())
@@ -808,7 +804,7 @@ static enum eos po_enum(void)	// now GotByte = illegal char
 
 	step.val.intval = 1;
 	ALU_defined_int(&step);
-Throw_serious_error("Not yet");	// FIXME
+throw_serious_error("Not yet");	// FIXME
 	return ENSURE_EOS;
 }
 #endif
@@ -879,10 +875,9 @@ static enum eos po_zone(void)
 static enum eos po_subzone(void)
 {
 	if (config.dialect >= V0_94_8__DISABLED_OBSOLETE) {
-		Throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
+		throw_error("\"!subzone {}\" is obsolete; use \"!zone {}\" instead.");
 	} else {
-		if (pass.number == 1)
-			Throw_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
+		throw_finalpass_warning("\"!subzone {}\" is deprecated; use \"!zone {}\" instead.");
 	}
 	// call "!zone" instead
 	return po_zone();
@@ -898,7 +893,7 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	// enter new nesting level
 	// quit program if recursion too deep
 	if (--sanity.source_recursions_left < 0)
-		Throw_serious_error("Too deeply nested. Recursive \"!source\"?");
+		throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 
 	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&flags))
@@ -937,7 +932,7 @@ static enum eos ifelse(enum ifmode mode)
 			ALU_defined_int(&ifresult);
 			condition_met = !!ifresult.val.intval;
 			if (GotByte != CHAR_SOB)
-				Throw_serious_error(exception_no_left_brace);
+				throw_serious_error(exception_no_left_brace);
 			break;
 		case IFMODE_IFDEF:
 			condition_met = check_ifdef_condition();
@@ -960,7 +955,7 @@ static enum eos ifelse(enum ifmode mode)
 		                parse_until_eob_or_eof();	// parse block
         		        // if block isn't correctly terminated, complain and exit
                 		if (GotByte != CHAR_EOB)
-                		        Throw_serious_error(exception_no_right_brace);
+                		        throw_serious_error(exception_no_right_brace);
 			} else {
 				return PARSE_REMAINDER;	// parse line (only for ifdef/ifndef)
 			}
@@ -977,7 +972,7 @@ static enum eos ifelse(enum ifmode mode)
 		if (mode == IFMODE_ELSE) {
 			// we could just return ENSURE_EOS, but checking here allows for better error message
 			if (GotByte != CHAR_EOS)
-				Throw_error("Expected end-of-statement after ELSE block.");
+				throw_error("Expected end-of-statement after ELSE block.");
 			return SKIP_REMAINDER;	// normal exit after ELSE {...}
 		}
 
@@ -991,7 +986,7 @@ static enum eos ifelse(enum ifmode mode)
 
 		// make sure it's "else"
 		if (strcmp(GlobalDynaBuf->buffer, "else")) {
-			Throw_error("Expected end-of-statement or ELSE keyword after '}'.");
+			throw_error("Expected end-of-statement or ELSE keyword after '}'.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 		// anything more?
@@ -1014,7 +1009,7 @@ static enum eos ifelse(enum ifmode mode)
 		} else if (strcmp(GlobalDynaBuf->buffer, "ifndef") == 0) {
 			mode = IFMODE_IFNDEF;
 		} else {
-			Throw_error("Expected '{' or IF/IFDEF/IFNDEF keyword after ELSE keyword.");
+			throw_error("Expected '{' or IF/IFDEF/IFNDEF keyword after ELSE keyword.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 	}
@@ -1067,16 +1062,14 @@ static enum eos po_for(void)	// now GotByte = illegal char
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
 			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX) {
-				if (pass.number == 1)
-					Throw_warning("Found new \"!for\" syntax.");
+				throw_finalpass_warning("Found new \"!for\" syntax.");
 			}
 			loop.u.counter.first = intresult.val.intval;	// use first argument
 			ALU_defined_int(&intresult);	// read second argument
 			// compare addr_ref counts and complain if not equal!
 			if (config.warn_on_type_mismatch
 			&& (intresult.addr_refs != loop.u.counter.addr_refs)) {
-				if (pass.number == 1)
-					Throw_warning("Wrong type for loop's END value - must match type of START value.");
+				throw_finalpass_warning("Wrong type for loop's END value - must match type of START value.");
 			}
 			// setup direction and total
 			if (loop.u.counter.first <= intresult.val.intval) {
@@ -1092,11 +1085,10 @@ static enum eos po_for(void)	// now GotByte = illegal char
 			// old counter syntax
 			loop.algorithm = FORALGO_OLDCOUNT;
 			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX) {
-				if (pass.number == 1)
-					Throw_warning("Found old \"!for\" syntax.");
+				throw_finalpass_warning("Found old \"!for\" syntax.");
 			}
 			if (intresult.val.intval < 0) {
-				Throw_serious_error("Loop count is negative.");
+				throw_serious_error("Loop count is negative.");
 			}
 			// count up
 			loop.u.counter.first = 1;
@@ -1108,11 +1100,11 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		loop.algorithm = FORALGO_ITERATE;
 		// check for "in" keyword
 		if ((GotByte != 'i') && (GotByte != 'I')) {
-			Throw_error(exception_want_IN_or_comma);
+			throw_error(exception_want_IN_or_comma);
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 /* checking for the first character explicitly here looks dumb, but actually
-solves a purpose: we're here because the check for comma failed, but maybe that
+serves a purpose: we're here because the check for comma failed, but maybe that
 was just a typo. if the current byte is '.' or '-' or whatever, then trying to
 read a keyword will result in "No string given" - which is confusing for the
 user if they did not even want to put a string there.
@@ -1121,23 +1113,23 @@ knowing there is an "i" also makes sure that parser_read_and_lower_keyword()
 does not fail. */
 		parser_read_and_lower_keyword();
 		if (strcmp(GlobalDynaBuf->buffer, "in") != 0) {
-			Throw_error(exception_want_IN_or_comma);
+			throw_error(exception_want_IN_or_comma);
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 		if (force_bit) {
-			Throw_error("Force bits can only be given to counters, not when iterating over string/list contents.");
+			throw_error("Force bits can only be given to counters, not when iterating over string/list contents.");
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 		ALU_any_result(&loop.u.iter.obj);	// get iterable
 		loop.iterations_left = loop.u.iter.obj.type->length(&loop.u.iter.obj);
 		if (loop.iterations_left < 0) {
-			Throw_error("Given object is not iterable.");
+			throw_error("Given object is not iterable.");
 			return SKIP_REMAINDER;	// FIXME - this ignores '{' and will then complain about '}'
 		}
 	}
 
 	if (GotByte != CHAR_SOB)
-		Throw_serious_error(exception_no_left_brace);
+		throw_serious_error(exception_no_left_brace);
 
 	input_block_getcopy(&loop.block);	// "body" must be freed afterward...
 	flow_forloop(&loop);
@@ -1158,7 +1150,7 @@ static enum eos po_do(void)	// now GotByte = illegal char
 	SKIPSPACE();
 	flow_store_doloop_condition(&loop.head_cond, CHAR_SOB);	// must be freed!
 	if (GotByte != CHAR_SOB)
-		Throw_serious_error(exception_no_left_brace);
+		throw_serious_error(exception_no_left_brace);
 
 	input_block_getcopy(&loop.block);	// "body" must be freed!
 	// now GotByte = '}'
@@ -1184,7 +1176,7 @@ static enum eos po_while(void)	// now GotByte = illegal char
 	SKIPSPACE();
 	flow_store_while_condition(&loop.head_cond);	// "body" must be freed!
 	if (GotByte != CHAR_SOB)
-		Throw_serious_error(exception_no_left_brace);
+		throw_serious_error(exception_no_left_brace);
 	// read block
 	input_block_getcopy(&loop.block);	// "body" must be freed!
 	// clear tail condition
@@ -1245,7 +1237,7 @@ static enum eos tracewatch(boolean enter_monitor)
 			} else if (strcmp(GlobalDynaBuf->buffer, "exec") == 0) {
 				flags |= TRACEWATCH_EXEC;
 			} else {
-				Throw_error("Unknown flag (known are: load, store, exec).");	// FIXME - add to docs!
+				throw_error("Unknown flag (known are: load, store, exec).");	// FIXME - add to docs!
 				return SKIP_REMAINDER;
 			}
 		} while (parser_accept_comma());
@@ -1501,7 +1493,7 @@ void pseudoopcode_parse(void)	// now GotByte = '!' (or '.' in case of --fullstop
 			// call function
 			then = fn();
 		} else {
-			Throw_error("Unknown pseudo opcode.");
+			throw_error("Unknown pseudo opcode.");
 		}
 	}
 	if (then == SKIP_REMAINDER)
@@ -1550,7 +1542,7 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			skip '='
 			read segment name (quoted string!)	*/
 		} else {
-			Throw_error("Unknown \"*=\" segment modifier.");
+			throw_error("Unknown \"*=\" segment modifier.");
 			goto fail;
 		}
 	}
@@ -1562,7 +1554,7 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			// current behaviour:
 			// setting pc does not disable pseudopc
 		} else if (config.dialect >= V0_93__SHORTER_SETPC_WARNING) {
-			Throw_warning("Offset assembly still active at end of segment.");
+			throw_warning("Offset assembly still active at end of segment.");
 			end_all_pseudopc();	// warning did not say it would
 			// disable pseudopc, but still did. nevertheless, there
 			// is something different to older versions: when the
@@ -1570,13 +1562,13 @@ void notreallypo_setpc(void)	// GotByte is '*'
 			// stuff happens! i see no reason to try to mimic that.
 		} else {
 			// prior to 0.93, setting pc disabled pseudopc with a warning:
-			Throw_warning("Offset assembly still active at end of segment. Switched it off.");
+			throw_warning("Offset assembly still active at end of segment. Switched it off.");
 			end_all_pseudopc();
 		}
 	}
 
 	if (intresult.val.intval < 0) {
-		Throw_error("Program counter cannot be negative.");
+		throw_error("Program counter cannot be negative.");
 		intresult.val.intval = cpu_current_type->dummy_pc;
 	}
 	programcounter_set(intresult.val.intval, segment_flags);

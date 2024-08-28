@@ -143,7 +143,7 @@ void *safe_malloc(size_t size)
 	void	*block	= malloc(size);
 
 	if (block == NULL)
-		Throw_serious_error(exception_no_memory_left);
+		throw_serious_error(exception_no_memory_left);
 
 	return block;
 }
@@ -197,7 +197,7 @@ extern void parser_set_nowarn_prefix(void)
 static int first_symbol_of_statement(void)
 {
 	if (statement_flags & SF_FOUND_SYMBOL) {
-		Throw_error("Unknown mnemonic");
+		throw_error("Unknown mnemonic");
 		parser_skip_remainder();
 		return FALSE;
 	}
@@ -216,8 +216,7 @@ static void set_label(scope_t scope, bits force_bit, bits powers)
 	struct object	result;
 
 	if ((statement_flags & SF_FOUND_BLANK) && config.warn_on_indented_labels) {
-		if (pass.number == 1)
-			Throw_warning("Label name not in leftmost column.");
+		throw_finalpass_warning("Label name not in leftmost column.");
 	}
 	symbol = symbol_find(scope);
 	result.type = &type_number;
@@ -288,8 +287,7 @@ static void parse_mnemo_or_global_symbol_def(void)
 	// 17 May 2014: now it works for UTF-8 as well.
 	if ((*GLOBALDYNABUF_CURRENT == (char) 0xa0)
 	|| ((GlobalDynaBuf->size >= 2) && (GLOBALDYNABUF_CURRENT[0] == (char) 0xc2) && (GLOBALDYNABUF_CURRENT[1] == (char) 0xa0))) {
-		if (pass.number == 1)
-			Throw_warning("Symbol name starts with a shift-space character.");
+		throw_finalpass_warning("Symbol name starts with a shift-space character.");
 	}
 	parse_symbol_definition(SCOPE_GLOBAL);
 }
@@ -399,7 +397,7 @@ void parse_until_eob_or_eof(void)
 					if (BYTE_STARTS_KEYWORD(GotByte)) {
 						parse_mnemo_or_global_symbol_def();
 					} else {
-						Throw_error(exception_syntax);	// FIXME - include char in error message!
+						throw_error(exception_syntax);	// FIXME - include char in error message!
 						parser_skip_remainder();
 					}
 				}
@@ -423,7 +421,7 @@ int parse_optional_block(void)
 
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOB)
-		Throw_serious_error(exception_no_right_brace);
+		throw_serious_error(exception_no_right_brace);
 	GetByte();
 	return TRUE;
 }
@@ -451,7 +449,7 @@ void parse_source_code_file(FILE *fd, const char *eternal_plat_filename)
 	// parse block and check end reason
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
-		Throw_error("Expected EOF, found '}' instead." );
+		throw_error("Expected EOF, found '}' instead." );
 
 	// restore outer input
 	inputchange_back(&icb);
@@ -476,7 +474,7 @@ bits parser_get_force_bit(void)
 		if (force_bit)
 			GetByte();
 		else
-			Throw_error("Illegal postfix.");
+			throw_error("Illegal postfix.");
 	}
 	SKIPSPACE();
 	return force_bit;
@@ -489,7 +487,7 @@ bits parser_get_force_bit(void)
 // errors. It shows the given message string, as well as the current
 // context: file name, line number, source type and source title.
 // if the "optional alternative location" given is NULL, the current location is used
-static void throw_msg(const char *message, const char *ansicolor, const char *type, struct location *opt_alt_loc)
+static void print_msg(const char *message, const char *ansicolor, const char *type, struct location *opt_alt_loc)
 {
 	const char	*resetcolor	= "\033[0m";
 	struct location	location;
@@ -531,14 +529,14 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		// output a serious error
 		// (assembly stops, for example if outbuffer overruns).
 		PLATFORM_SERIOUS(msg);
-		throw_msg(msg, "\033[1m\033[31m", "Serious error", opt_alt_loc);	// bold + red
+		print_msg(msg, "\033[1m\033[31m", "Serious error", opt_alt_loc);	// bold + red
 		//++pass.counters.errors;	// FIXME - needed when problem below is solved
 		exit(ACME_finalize(EXIT_FAILURE)); // FIXME - this inhibits output of macro call stack
 	case DEBUGLEVEL_ERROR:
 		// output an error
 		// (something is wrong, no output file will be generated).
 		PLATFORM_ERROR(msg);
-		throw_msg(msg, "\033[31m", "Error", opt_alt_loc);	// red
+		print_msg(msg, "\033[31m", "Error", opt_alt_loc);	// red
 		++pass.counters.errors;
 		if (pass.counters.errors >= config.max_errors)
 			exit(ACME_finalize(EXIT_FAILURE));
@@ -550,7 +548,7 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		if (in_nowarn_block || (statement_flags & SF_NOWARN_PREFIX))
 			break;
 		PLATFORM_WARNING(msg);
-		throw_msg(msg, "\033[33m", "Warning", opt_alt_loc);	// yellow
+		print_msg(msg, "\033[33m", "Warning", opt_alt_loc);	// yellow
 		++pass.counters.warnings;
 		// then check if warnings should be handled like errors:
 		if (config.all_warnings_are_errors) {
@@ -560,15 +558,53 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		}
 		break;
 	case DEBUGLEVEL_INFO:
-		throw_msg(msg, "\033[32m", "Info", opt_alt_loc);	// green
+		PLATFORM_INFO(msg);
+		print_msg(msg, "\033[32m", "Info", opt_alt_loc);	// green
 		break;
 	default:
 		// debug
-		throw_msg(msg, "\033[36m", "Debug", opt_alt_loc);	// cyan
+		print_msg(msg, "\033[36m", "Debug", opt_alt_loc);	// cyan
 		break;
 	}
 }
 
+// output a warning (something looks wrong)
+void throw_warning(const char msg[])
+{
+	throw_message(DEBUGLEVEL_WARNING, msg, NULL);
+}
+
+// output an error (something is wrong, no output file will be generated).
+// the assembler will try to go on with the assembly, so the user gets to know
+// about more than one of his typos at a time.
+void throw_error(const char msg[])
+{
+	throw_message(DEBUGLEVEL_ERROR, msg, NULL);
+}
+
+// output a serious error (assembly stops, for example if outbuffer overruns).
+extern void throw_serious_error(const char msg[])
+{
+	throw_message(DEBUGLEVEL_SERIOUS, msg, NULL);
+}
+
+// output a warning, but only if we are in first pass, otherwise suppress
+// (only use this if using throw_finalpass_warning is impossible,
+// for example in cases where the code is skipped in later passes)
+void throw_pass1_warning(const char msg[])
+{
+	if (pass.number == 1)
+		throw_warning(msg);
+}
+
+// output a warning, but only if we are in final pass, otherwise suppress
+// (for example "converted float to int for XOR" -> must be done in
+// final pass because values might be undefined earlier!)
+void throw_finalpass_warning(const char msg[])
+{
+	if (pass.flags.is_final_pass)
+		throw_warning(msg);
+}
 
 // throw "macro twice" error (FIXME - also use for "symbol twice"!)
 // first output a warning, then an error, this guarantees that ACME does not
@@ -592,30 +628,28 @@ void throw_redef_error(struct location *old_def, const char msg[])
 	section_now->type = buffered_section_type;
 	section_now->title = buffered_section_title;
 	// show error with location of current definition
-	Throw_error(msg);
+	throw_error(msg);
 }
-
-
-// process error that might vanish if symbols change:
-// if current pass is an "error output" pass, actually throw error.
-// otherwise just increment counter to let mainloop know this pass wasn't successful.
-void throw_symbol_error(const char *msg)
-{
-	// atm we just mimic the old behaviour. in future, do something like this:
-	//if (pass.is_error_pass)
-		Throw_error(msg);
-	//else
-		//++pass.symbol_errors;
-}
-
 
 // handle bugs
 // FIXME - use a local buffer and sprintf/snprintf to put error code into message!
 void BUG(const char *message, int code)
 {
-	Throw_warning("Bug in ACME, code follows");
+	throw_warning("Bug in ACME, code follows");
 	fprintf(stderr, "(0x%x:)", code);
-	Throw_serious_error(message);
+	throw_serious_error(message);
+}
+
+// process error that might vanish if symbols change:
+// if current pass is an "error output" pass, actually throw error.
+// otherwise just increment counter to let mainloop know this pass wasn't successful.
+void countorthrow_value_error(const char *msg)
+{
+	// atm we just mimic the old behaviour. in future, do something like this:
+	//if (pass.is_error_pass)
+		throw_error(msg);
+	//else
+		//++pass.counters.suppressed_errors;
 }
 
 
@@ -652,7 +686,7 @@ void output_object(struct object *object, struct iter_context *iter)
 			while (length--)
 				iter->fn(iter->stringxor ^ encoding_encode_char(*(read++)));
 		} else {
-			Throw_error("There's more than one character.");	// see alu.c for the original of this error
+			throw_error("There's more than one character.");	// see alu.c for the original of this error
 		}
 	} else {
 		BUG("IllegalObjectType", 0);
@@ -664,7 +698,7 @@ void output_object(struct object *object, struct iter_context *iter)
 void output_8(intval_t value)
 {
 	if ((value < -0x80) || (value > 0xff))
-		throw_symbol_error(exception_number_out_of_8b_range);
+		countorthrow_value_error(exception_number_out_of_8b_range);
 	output_byte(value);
 }
 
@@ -673,7 +707,7 @@ void output_8(intval_t value)
 void output_be16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
-		throw_symbol_error(exception_number_out_of_16b_range);
+		countorthrow_value_error(exception_number_out_of_16b_range);
 	output_byte(value >> 8);
 	output_byte(value);
 }
@@ -683,7 +717,7 @@ void output_be16(intval_t value)
 void output_le16(intval_t value)
 {
 	if ((value < -0x8000) || (value > 0xffff))
-		throw_symbol_error(exception_number_out_of_16b_range);
+		countorthrow_value_error(exception_number_out_of_16b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 }
@@ -693,7 +727,7 @@ void output_le16(intval_t value)
 void output_be24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
-		throw_symbol_error(exception_number_out_of_24b_range);
+		countorthrow_value_error(exception_number_out_of_24b_range);
 	output_byte(value >> 16);
 	output_byte(value >> 8);
 	output_byte(value);
@@ -704,7 +738,7 @@ void output_be24(intval_t value)
 void output_le24(intval_t value)
 {
 	if ((value < -0x800000) || (value > 0xffffff))
-		throw_symbol_error(exception_number_out_of_24b_range);
+		countorthrow_value_error(exception_number_out_of_24b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 	output_byte(value >> 16);
@@ -721,7 +755,7 @@ void output_le24(intval_t value)
 void output_be32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
-//		throw_symbol_error(exception_number_out_of_32b_range);
+//		countorthrow_value_error(exception_number_out_of_32b_range);
 	output_byte(value >> 24);
 	output_byte(value >> 16);
 	output_byte(value >> 8);
@@ -733,7 +767,7 @@ void output_be32(intval_t value)
 void output_le32(intval_t value)
 {
 //	if ((value < -0x80000000) || (value > 0xffffffff))
-//		throw_symbol_error(exception_number_out_of_32b_range);
+//		countorthrow_value_error(exception_number_out_of_32b_range);
 	output_byte(value);
 	output_byte(value >> 8);
 	output_byte(value >> 16);

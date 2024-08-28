@@ -105,7 +105,7 @@ static void border_crossed(int current_offset)
 	// so it can be suppressed until we are sure the program won't shrink any
 	// further:
 	if (current_offset >= OUTBUF_MAXSIZE)
-		Throw_serious_error("Reached memory limit.");
+		throw_serious_error("Reached memory limit.");
 	if (pass.flags.throw_segment_messages) {
 		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.", NULL);
 		find_segment_max(current_offset + 1);	// find new (next) limit
@@ -148,7 +148,7 @@ static void real_output(intval_t byte)
 // not happen again
 static void complain_and_use_dummy_pc(void)
 {
-	Throw_error(exception_pc_undefined);
+	throw_error(exception_pc_undefined);
 	programcounter_set(cpu_current_type->dummy_pc, 0);	// 0 = no flags
 }
 
@@ -287,7 +287,7 @@ void output_passinit(void)
 			out->needed_bufsize = 16;	// actually 1 would suffice...
 		}
 		if (out->needed_bufsize > OUTBUF_MAXSIZE) {
-			Throw_serious_error("Output buffer size exceeds maximum.");
+			throw_serious_error("Output buffer size exceeds maximum.");
 		}
 		//fprintf(stderr, "Allocating outbuf of size 0x%06x.\n", out->needed_bufsize);
 		out->buffer = safe_malloc(out->needed_bufsize);
@@ -404,9 +404,9 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	// calculate start of new segment
 	out->write_idx = out->write_idx + address_change;
 	if (out->write_idx < 0) {
-		Throw_serious_error("Tried to write to negative addresses.");
+		throw_serious_error("Tried to write to negative addresses.");
 	} else if (out->write_idx >= OUTBUF_MAXSIZE) {
-		Throw_serious_error("Reached memory limit.");
+		throw_serious_error("Reached memory limit.");
 	}
 	out->segm.start = out->write_idx;
 	out->segm.flags = segment_flags;
@@ -556,11 +556,11 @@ int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned 
 			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
 
 		if (context == NULL) {
-			Throw_error("Un-pseudopc operator '&' only works on addresses.");
+			throw_error("Un-pseudopc operator '&' only works on addresses.");
 			return 1;	// error
 		}
 		if (context == &outermost_pseudopc_context) {
-			Throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
+			throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
 			return 1;	// error
 		}
 		target->val.intval = target->val.intval - context->offset;	// remove offset
