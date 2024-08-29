@@ -1,4 +1,4 @@
-ACMEFLAGS	= -v0
+ACMEFLAGS	= -v0 --color
 FILES		:= $(wildcard *.a)
 FAILTESTS	= $(subst .a,.fail,$(FILES))
 SUCCTESTS	= $(subst .a,.succ,$(FILES))

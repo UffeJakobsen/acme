@@ -17,7 +17,7 @@ struct symbol {
 	boolean		has_been_read;	// to find out if actually used
 	boolean		has_been_reported;	// indicates "has been reported as undefined"
 	struct pseudopc	*pseudopc;	// for "unpseudopc"-Operator '&', may be NULL
-//TODO	struct location	definition;	// for "label twice" error
+	struct location	definition;	// for "label twice" error
 };
 
 

@@ -1,4 +1,4 @@
-ACMEFLAGS	= -v0
+ACMEFLAGS	= -v0 --color
 FILES	:= $(wildcard *.a)
 TESTS	= $(subst .a,.test,$(FILES))
 

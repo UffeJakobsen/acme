@@ -399,9 +399,9 @@ static void perform_pass(bits passflags)
 	}
 	// now increment pass number
 	// this must be done _after_ the pass because assignments done via
-	// "-DSYMBOL=VALUE" cli args must be handled as if they were done at the
-	// start of pass 1, so we cannot change that variable at the start of
-	// the pass.
+	// "-D SYMBOL=VALUE" cli args must be handled as if they were done at
+	// the start of pass 1, so we cannot change that variable at the start
+	// of the pass.
 	++pass.number;
 }
 
@@ -788,7 +788,7 @@ int main(int argc, const char *argv[])
 	if (argc == 1)
 		show_help_and_exit();
 	cliargs_init(argc, argv);
-	// init pass number because any assignments done via "-DSYMBOL=VALUE"
+	// init pass number because any assignments done via "-D SYMBOL=VALUE"
 	// cli args must be handled as if they happened at the start of pass 1:
 	pass.number = 1;
 	// init platform-specific stuff.

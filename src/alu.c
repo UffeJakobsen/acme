@@ -1405,7 +1405,7 @@ static boolean string_differs(const struct object *self, const struct object *ot
 
 // int/float:
 // assign new value
-static void number_assign(struct object *self, const struct object *new_value, boolean accept_change)
+static boolean number_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
 	bits	own_flags	= self->u.number.flags,
 		other_flags	= new_value->u.number.flags;
@@ -1427,10 +1427,9 @@ static void number_assign(struct object *self, const struct object *new_value, b
 	} else {
 		// symbol is already defined, so compare new and old values
 		// if values differ, complain and return
-		if (number_differs(self, new_value)) {
-			throw_error(exception_symbol_defined);
-			return;
-		}
+		if (number_differs(self, new_value))
+			return TRUE;	// -> throw "symbol already defined" error
+
 		// values are the same, so only fiddle with flags
 	}
 
@@ -1448,29 +1447,30 @@ static void number_assign(struct object *self, const struct object *new_value, b
 	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_EVER_UNDEFINED);
 
 	self->u.number.flags = own_flags;
+	return FALSE;
 }
 
 
 // list:
 // assign new value
-static void list_assign(struct object *self, const struct object *new_value, boolean accept_change)
+static boolean list_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
-	if ((!accept_change) && list_differs(self, new_value)) {
-		throw_error(exception_symbol_defined);
-		return;
-	}
+	if ((!accept_change) && list_differs(self, new_value))
+		return TRUE;	// -> throw "symbol already defined" error
+
 	*self = *new_value;
+	return FALSE;
 }
 
 // string:
 // assign new value
-static void string_assign(struct object *self, const struct object *new_value, boolean accept_change)
+static boolean string_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
-	if ((!accept_change) && string_differs(self, new_value)) {
-		throw_error(exception_symbol_defined);
-		return;
-	}
+	if ((!accept_change) && string_differs(self, new_value))
+		return TRUE;	// -> throw "symbol already defined" error
+
 	*self = *new_value;
+	return FALSE;
 }
 
 

@@ -123,6 +123,10 @@ struct symbol *symbol_find(scope_t scope)
 		symbol->has_been_read = FALSE;
 		symbol->has_been_reported = FALSE;
 		symbol->pseudopc = NULL;
+		// we must set "definition" fields to dummy data, because the object
+		// has been created, but not necessarily set to a defined value:
+		symbol->definition.plat_filename = NULL;
+		symbol->definition.line_number = 0;
 	} else {
 		symbol = node->body;
 	}
@@ -142,6 +146,8 @@ struct symbol *symbol_find(scope_t scope)
 //	CAUTION: actual incrementing of counter is then done directly without calls here!
 void symbol_set_object(struct symbol *symbol, struct object *new_value, bits powers)
 {
+	boolean	complain;
+
 	if (symbol->object.type == NULL) {
 		// symbol has no object assigned to it yet
 		symbol->object = *new_value;	// copy whole struct including type
@@ -154,22 +160,27 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 		// if too different, needs power (or complains)
 		if (symbol->object.type != new_value->type) {
 			if (!(powers & POWER_CHANGE_OBJTYPE))
-				throw_error(exception_symbol_defined);
-			// CAUTION: if above line throws error, we still go ahead and change type!
+				complain = TRUE;
+			// CAUTION: if line above triggers, we still go ahead and change type!
 			// this is to keep "!for" working, where the counter var is accessed.
 			symbol->object = *new_value;	// copy whole struct including type
 			// clear flag so caller can adjust force bits:
 			symbol->has_been_read = FALSE;	// it's basically a new symbol now
 		} else {
 			// symbol and new value have compatible types, so call handler:
-			symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
+			complain = symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
 		}
+		// if needed, throw "already defined" error with location of previous definition
+		if (complain)
+			throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
 	}
 	// if symbol is an address, give it a pseudopc context:
 	if ((symbol->object.type == &type_number)
 	&& (symbol->object.u.number.addr_refs == 1)) {
 		symbol->pseudopc = pseudopc_get_context();
 	}
+	// remember current location for "symbol twice" errors in future:
+	input_get_location(&symbol->definition);
 }
 
 
@@ -212,6 +223,8 @@ void symbol_define(intval_t value)
 	result.u.number.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL);
 	symbol->object = result;
+	symbol->definition.plat_filename = "\"-D SYMBOL=VALUE\"";
+	symbol->definition.line_number = 1;
 }
 
 

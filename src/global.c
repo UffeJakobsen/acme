@@ -627,12 +627,19 @@ void throw_redef_error(const char error_msg[], struct location *old_def, const c
 	// show error with current location
 	throw_error(error_msg);
 
+	// symbol structs do not necessarily have valid location data:
+	if (old_def->plat_filename == NULL)
+		return;
+
 	// CAUTION, ugly kluge: fiddle with section_now data to generate
 	// "earlier definition" section.
 	// buffer old section
 	buffered_section_type = section_now->type;
 	buffered_section_title = section_now->title;
 	// set new (fake) section
+	// FIXME - maybe store section in definition, just as location is stored?
+	// then we could use real data here instead of faking it, but it would
+	// take a bit more memory...
 	section_now->type = "earlier";
 	section_now->title = "section";
 	// show info message with location of earlier definition

@@ -22,7 +22,7 @@ typedef signed int	intval_t;	// at least 32 bits
 typedef unsigned int	uintval_t;	// at least 32 bits (only used for logical shift right)
 #define OUTBUF_MAXSIZE	0x1000000	// 16 MiB ought to be enough for anybody
 
-// struct to remember where macros were defined (FIXME - use for symbols as well!)
+// struct to remember where macros/symbols were defined
 struct location {
 	const char	*plat_filename;	// filename in platform style
 	int		line_number;
