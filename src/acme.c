@@ -434,10 +434,8 @@ static void do_actual_work(void)
 		undefs_before = pass.counters.undefineds;
 		perform_pass(0);
 		if (--sanity.passes_left < 0) {
-			// FIXME - exit with error
+			throw_serious_error("Exceeded maximum number of passes, please see docs.");
 			// ...or maybe do one additional pass where all errors are reported, including "not defined" and "value has changed".
-			//puts("Exceeded maximum number of passes, please check your sources.");
-			//break;
 		}
 	}
 
