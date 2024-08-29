@@ -1412,6 +1412,7 @@ static boolean number_assign(struct object *self, const struct object *new_value
 	// local copies of the flags are used because
 	//	self->...flags might get overwritten when copying struct over, and
 	//	new_value-> is const so shouldn't be touched.
+	boolean	redefined	= FALSE;
 
 	// accepting a different value is easily done by just forgetting the old one:
 	if (accept_change) {
@@ -1420,18 +1421,16 @@ static boolean number_assign(struct object *self, const struct object *new_value
 	}
 
 	// copy struct over?
-	if (self->u.number.ntype == NUMTYPE_UNDEFINED) {
-		// symbol is undefined OR redefinitions are allowed, so use new value:
-		*self = *new_value;	// copy type and flags/value/addr_refs
-		// flags will be fixed, see below
-	} else {
+	if (self->u.number.ntype != NUMTYPE_UNDEFINED) {
 		// symbol is already defined, so compare new and old values
-		// if values differ, complain and return
+		// if values differ, remember to tell caller
 		if (number_differs(self, new_value))
-			return TRUE;	// -> throw "symbol already defined" error
-
-		// values are the same, so only fiddle with flags
+			redefined = TRUE;	// -> throw "symbol already defined" error
 	}
+	// use new value:
+	*self = *new_value;	// copy type and flags/value/addr_refs
+
+	// now fix flags:
 
 	// if symbol has no force bits of its own, use the ones from new value:
 	if ((own_flags & NUMBER_FORCEBITS) == 0)
@@ -1447,7 +1446,7 @@ static boolean number_assign(struct object *self, const struct object *new_value
 	own_flags |= other_flags & (NUMBER_FITS_BYTE | NUMBER_EVER_UNDEFINED);
 
 	self->u.number.flags = own_flags;
-	return FALSE;
+	return redefined;
 }
 
 
@@ -1455,22 +1454,26 @@ static boolean number_assign(struct object *self, const struct object *new_value
 // assign new value
 static boolean list_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
+	boolean	redefined	= FALSE;
+
 	if ((!accept_change) && list_differs(self, new_value))
-		return TRUE;	// -> throw "symbol already defined" error
+		redefined = TRUE;	// -> throw "symbol already defined" error
 
 	*self = *new_value;
-	return FALSE;
+	return redefined;
 }
 
 // string:
 // assign new value
 static boolean string_assign(struct object *self, const struct object *new_value, boolean accept_change)
 {
+	boolean	redefined	= FALSE;
+
 	if ((!accept_change) && string_differs(self, new_value))
-		return TRUE;	// -> throw "symbol already defined" error
+		redefined = TRUE;	// -> throw "symbol already defined" error
 
 	*self = *new_value;
-	return FALSE;
+	return redefined;
 }
 
 

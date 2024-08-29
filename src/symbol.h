@@ -13,11 +13,16 @@
 
 struct symbol {
 	struct object	object;	// number/list/string
-	int		pass;	// pass of creation (for anon counters)
 	boolean		has_been_read;	// to find out if actually used
 	boolean		has_been_reported;	// indicates "has been reported as undefined"
 	struct pseudopc	*pseudopc;	// for "unpseudopc"-Operator '&', may be NULL
-	struct location	definition;	// for "label twice" error
+	struct location	definition;	// for info message after "symbol already defined" error
+	// the next field is used for two different purposes:
+	// forward anon counter symbols use this for "reset-to-0-in-each-pass",
+	// all other symbols use it to tell the difference between
+	// "symbol already defined" (same pass number) and
+	// "symbol redefined" (different pass numbers).
+	int		pass_number;
 };
 
 

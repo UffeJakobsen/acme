@@ -119,7 +119,6 @@ struct symbol *symbol_find(scope_t scope)
 		node->body = symbol;
 		// finish empty symbol item
 		symbol->object.type = NULL;	// no object yet (CAUTION!)
-		symbol->pass = pass.number;
 		symbol->has_been_read = FALSE;
 		symbol->has_been_reported = FALSE;
 		symbol->pseudopc = NULL;
@@ -127,6 +126,7 @@ struct symbol *symbol_find(scope_t scope)
 		// has been created, but not necessarily set to a defined value:
 		symbol->definition.plat_filename = NULL;
 		symbol->definition.line_number = 0;
+		symbol->pass_number = pass.number;
 	} else {
 		symbol = node->body;
 	}
@@ -146,7 +146,7 @@ struct symbol *symbol_find(scope_t scope)
 //	CAUTION: actual incrementing of counter is then done directly without calls here!
 void symbol_set_object(struct symbol *symbol, struct object *new_value, bits powers)
 {
-	boolean	complain;
+	boolean	redefined;
 
 	if (symbol->object.type == NULL) {
 		// symbol has no object assigned to it yet
@@ -160,7 +160,7 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 		// if too different, needs power (or complains)
 		if (symbol->object.type != new_value->type) {
 			if (!(powers & POWER_CHANGE_OBJTYPE))
-				complain = TRUE;
+				throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
 			// CAUTION: if line above triggers, we still go ahead and change type!
 			// this is to keep "!for" working, where the counter var is accessed.
 			symbol->object = *new_value;	// copy whole struct including type
@@ -168,19 +168,25 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 			symbol->has_been_read = FALSE;	// it's basically a new symbol now
 		} else {
 			// symbol and new value have compatible types, so call handler:
-			complain = symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
+			redefined = symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
+			if (redefined) {
+				// do we accept re-definitions without "!set"?
+				if ((config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) && (symbol->pass_number != pass.number)) {
+					++pass.counters.symbolchanges;
+				} else {
+					throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
+				}
+			}
 		}
-		// if needed, throw "already defined" error with location of previous definition
-		if (complain)
-			throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
 	}
 	// if symbol is an address, give it a pseudopc context:
 	if ((symbol->object.type == &type_number)
 	&& (symbol->object.u.number.addr_refs == 1)) {
 		symbol->pseudopc = pseudopc_get_context();
 	}
-	// remember current location for "symbol twice" errors in future:
+	// remember current location and pass number for "symbol twice" errors in future:
 	input_get_location(&symbol->definition);
+	symbol->pass_number = pass.number;
 }
 
 
@@ -281,11 +287,14 @@ void symbol_fix_forward_anon_name(boolean increment)
 		BUG("ForwardAnonCounterNotInt", 0);
 	}
 	// make sure it gets reset to zero in each new pass
-	if (counter_symbol->pass != pass.number) {
-		counter_symbol->pass = pass.number;
+	if (counter_symbol->pass_number != pass.number) {
+		counter_symbol->pass_number = pass.number;
 		counter_symbol->object.u.number.val.intval = 0;
 	}
+	// now use value
 	number = (unsigned long) counter_symbol->object.u.number.val.intval;
+	if (increment)
+		counter_symbol->object.u.number.val.intval++;
 	// now append to the name to make it unique
 	GlobalDynaBuf->size--;	// forget terminator, we want to append
 	do {
@@ -293,6 +302,4 @@ void symbol_fix_forward_anon_name(boolean increment)
 		number >>= 4;
 	} while (number);
 	dynabuf_append(GlobalDynaBuf, '\0');
-	if (increment)
-		counter_symbol->object.u.number.val.intval++;
 }
