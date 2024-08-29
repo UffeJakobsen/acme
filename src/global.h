@@ -235,9 +235,8 @@ extern void throw_pass1_warning(const char msg[]);
 extern void throw_finalpass_warning(const char msg[]);
 
 // throw "macro twice" error (FIXME - also use for "symbol twice"!)
-// first output a warning, then an error, this guarantees that ACME does not
-// reach the maximum error limit inbetween.
-extern void throw_redef_error(struct location *old_def, const char msg[]);
+// first output error as "error", then location of initial definition as "info"
+extern void throw_redef_error(const char error_msg[], struct location *old_def, const char info_msg[]);
 
 // handle bugs
 extern void BUG(const char *msg, int code);

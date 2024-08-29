@@ -162,7 +162,7 @@ void macro_parse_definition(void)	// Now GotByte = illegal char after "!macro"
 	// But if found, complain (macro twice).
 	if (search_for_macro(&macro_node, macro_scope, TRUE) == FALSE) {
 		original_macro = macro_node->body;
-		throw_redef_error(&(original_macro->definition), "Macro already defined.");
+		throw_redef_error("Macro already defined.", &(original_macro->definition), "Initial definition.");
 	}
 	// Create new macro struct and set it up. Finally we'll read the body.
 	new_macro = safe_malloc(sizeof(*new_macro));
@@ -301,7 +301,7 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 
 		// if needed, dump call stack
 		if (outer_msg_sum != pass.counters.warnings + pass.counters.errors)
-			throw_warning("...called from here.");	// FIXME - use DEBUGLEVEL_INFO instead!
+			throw_message(DEBUGLEVEL_INFO, "...called from here.", NULL);
 
 		parser_ensure_EOS();
 	}

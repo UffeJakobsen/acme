@@ -341,6 +341,14 @@ static void parse_forward_anon_def(void)
 }
 
 
+// status var to tell mainloop (actually "statement loop") to exit.
+// this is better than the error handler exiting directly, because
+// there are cases where an error message is followed by an info message
+// (like "macro redefined _here_" and "original definition _there_"),
+// and this way the program does not exit between the two.
+// FIXME - there is still the problem of not getting a dump of the macro call stack for the final error!
+static boolean	too_many_errors	= FALSE;
+
 // Parse block, beginning with next byte.
 // End reason (either CHAR_EOB or CHAR_EOF) can be found in GotByte afterwards
 // Has to be re-entrant.
@@ -404,6 +412,9 @@ void parse_until_eob_or_eof(void)
 			}
 		} while (GotByte != CHAR_EOS);	// until end-of-statement
 		output_end_statement();	// adjust program counter
+		// did the error handler decide to give up?
+		if (too_many_errors)
+			exit(ACME_finalize(EXIT_FAILURE));
 		// go on with next byte
 		GetByte();	//NEXTANDSKIPSPACE();
 	}
@@ -539,7 +550,7 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		print_msg(msg, "\033[31m", "Error", opt_alt_loc);	// red
 		++pass.counters.errors;
 		if (pass.counters.errors >= config.max_errors)
-			exit(ACME_finalize(EXIT_FAILURE));
+			too_many_errors = TRUE;	// this causes mainloop to exit
 		break;
 	case DEBUGLEVEL_WARNING:
 		// output a warning
@@ -554,7 +565,7 @@ void throw_message(enum debuglevel level, const char msg[], struct location *opt
 		if (config.all_warnings_are_errors) {
 			++pass.counters.errors;
 			if (pass.counters.errors >= config.max_errors)
-				exit(ACME_finalize(EXIT_FAILURE));
+				too_many_errors = TRUE;	// this causes mainloop to exit
 		}
 		break;
 	case DEBUGLEVEL_INFO:
@@ -607,12 +618,14 @@ void throw_finalpass_warning(const char msg[])
 }
 
 // throw "macro twice" error (FIXME - also use for "symbol twice"!)
-// first output a warning, then an error, this guarantees that ACME does not
-// reach the maximum error limit inbetween.
-void throw_redef_error(struct location *old_def, const char msg[])
+// first output error as "error", then location of initial definition as "info"
+void throw_redef_error(const char error_msg[], struct location *old_def, const char info_msg[])
 {
 	const char	*buffered_section_type;
 	char		*buffered_section_title;
+
+	// show error with current location
+	throw_error(error_msg);
 
 	// CAUTION, ugly kluge: fiddle with section_now data to generate
 	// "earlier definition" section.
@@ -621,14 +634,12 @@ void throw_redef_error(struct location *old_def, const char msg[])
 	buffered_section_title = section_now->title;
 	// set new (fake) section
 	section_now->type = "earlier";
-	section_now->title = "definition";
-	// show warning with location of earlier definition
-	throw_message(DEBUGLEVEL_WARNING, msg, old_def);	// FIXME - throw as info?
+	section_now->title = "section";
+	// show info message with location of earlier definition
+	throw_message(DEBUGLEVEL_INFO, info_msg, old_def);
 	// restore old section
 	section_now->type = buffered_section_type;
 	section_now->title = buffered_section_title;
-	// show error with location of current definition
-	throw_error(msg);
 }
 
 // handle bugs
