@@ -108,7 +108,12 @@ struct pass {
 	int	number;	// counts up from one
 	struct {
 		int	undefineds;	// counts undefined expression results (if this stops decreasing, next pass must list them as errors)
-		//int	needvalue;	// counts undefined expression results actually needed for output (when this hits zero, we're done)	FIXME - use
+		//int	needvalue;	// counts undefined expression results actually needed for output (when this hits zero, we're done)
+// okay, this "needvalue" idea is problematic: evaluating "dec(UNDEFINED)" gives
+// a defined result, namely an empty string. so the evaluation has to increment
+// *some* counter to make sure more passes are done. but it cannot increment the
+// "needvalue" counter because the expression parser does not know whether the
+// result is actually put into memory!
 		int	symbolchanges;	// count symbol changes (if nonzero, another pass is needed)
 		int	errors;		// if nonzero -> stop after this pass
 		int	warnings;	// this is needed for showing macro call stack
@@ -130,7 +135,6 @@ extern struct pass	pass;
 struct sanity {
 	int	macro_recursions_left;	// for macro calls
 	int	source_recursions_left;	// for "!src"
-	int	passes_left;
 };
 extern struct sanity	sanity;
 

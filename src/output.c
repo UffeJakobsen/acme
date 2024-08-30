@@ -137,8 +137,15 @@ static void real_output(intval_t byte)
 	if (report->fd)
 		report_binary(byte & 0xff);	// file for reporting
 	// write byte to output buffer
-	if (out->buffer)
+	if (out->buffer) {
+		if (out->write_idx >= out->needed_bufsize) {
+			throw_serious_error("Output buffer overrun.");
+			// FIXME - change this to BUG and add code to make sure it does not happen!
+			// or maybe at least enlarge the buffer by 16 bytes and place a canary in
+			// it so we can do a sanity check at the end!
+		}
 		out->buffer[out->write_idx] = (byte & 0xff) ^ out->xor;
+	}
 	// advance pointer
 	out->write_idx++;
 	++statement_size;	// count this byte

@@ -35,7 +35,7 @@
 // constants
 
 #define ERRORMSG_INITIALSIZE	256	// ad hoc
-#define FUNCTION_INITIALSIZE	8	// enough for "arctan"
+#define FUNCTION_INITIALSIZE	16	// enough for "is_string"
 #define HALF_INITIAL_STACK_SIZE	8
 static const char	exception_div_by_zero[]	= "Division by zero.";
 static const char	exception_no_value[]	= "No value given.";
@@ -75,6 +75,8 @@ enum op_id {
 	OPID_ISNUMBER,		//	is_number(v)
 	OPID_ISLIST,		//	is_list(v)
 	OPID_ISSTRING,		//	is_string(v)
+	OPID_DEC,		//	dec(v)
+	OPID_HEX,		//	hex(v)
 // add CHR function to create 1-byte string? or rather add \xAB escape sequence?
 	// dyadic operators:
 	OPID_POWEROF,		//	v^w
@@ -95,7 +97,7 @@ enum op_id {
 	OPID_NOTEQUAL,		//	v!=w	v<>w	v><w
 	OPID_AND,		//	v&w		v AND w
 	OPID_OR,		//	v|w		v OR w
-	OPID_EOR,		//	v EOR w		v XOR w		FIXME - remove
+	OPID_EOR,		//	v EOR w		v XOR w		deprecated!
 	OPID_XOR,		//	v XOR w
 	OPID_LIST_APPEND,	//			used internally when building list literal
 	OPID_ATINDEX,		//	v[w]
@@ -163,6 +165,8 @@ static struct op ops_len		= {42, OPGROUP_MONADIC, OPID_LEN,	"len()"	};
 static struct op ops_isnumber		= {42, OPGROUP_MONADIC, OPID_ISNUMBER,	"is_number()"	};
 static struct op ops_islist		= {42, OPGROUP_MONADIC, OPID_ISLIST,	"is_list()"	};
 static struct op ops_isstring		= {42, OPGROUP_MONADIC, OPID_ISSTRING,	"is_string()"	};
+static struct op ops_dec		= {42, OPGROUP_MONADIC, OPID_DEC,	"dec()"	};
+static struct op ops_hex		= {42, OPGROUP_MONADIC, OPID_HEX,	"hex()"	};
 
 
 // variables
@@ -209,6 +213,8 @@ static struct ronode	function_tree[]	= {
 	PREDEFNODE("is_number",	&ops_isnumber),
 	PREDEFNODE("is_list",	&ops_islist),
 	PREDEFNODE("is_string",	&ops_isstring),
+	PREDEFNODE("dec",	&ops_dec),
+	PREDEFNODE("hex",	&ops_hex),
 	PREDEFNODE("arcsin",	&ops_arcsin),
 	PREDEFNODE("arccos",	&ops_arccos),
 	PREDEFNODE("arctan",	&ops_arctan),
@@ -381,8 +387,8 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 }
 
 
-// Parse program counter ('*')
-static void parse_program_counter(unsigned int unpseudo_count)	// Now GotByte = "*"
+// parse program counter ('*')
+static void parse_program_counter(unsigned int unpseudo_count)	// now GotByte = "*"
 {
 	struct number	pc;
 	struct object	*arg;
@@ -449,7 +455,7 @@ static void parse_quoted(char closing_quote)
 		value = encoding_encode_char(GLOBALDYNABUF_CURRENT[0]);
 		PUSH_INT_ARG(value, 0, 0);	// no flags, no addr refs
 	}
-	// Now GotByte = char following closing quote (or CHAR_EOS on error)
+	// now GotByte = char following closing quote (or CHAR_EOS on error)
 	return;
 
 fail:
@@ -461,7 +467,7 @@ fail:
 // Parse binary value. Apart from '0' and '1', it also accepts the characters
 // '.' and '#', this is much more readable. The current value is stored as soon
 // as a character is read that is none of those given above.
-static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
+static void parse_binary_literal(void)	// now GotByte = "%" or "b"
 {
 	intval_t	value	= 0;
 	bits		flags	= 0;
@@ -500,14 +506,14 @@ static void parse_binary_literal(void)	// Now GotByte = "%" or "b"
 		}
 	}
 	PUSH_INT_ARG(value, flags, 0);
-	// Now GotByte = non-binary char
+	// now GotByte = non-binary char
 }
 
 
 // Parse hexadecimal value. It accepts "0" to "9", "a" to "f" and "A" to "F".
 // The current value is stored as soon as a character is read that is none of
 // those given above.
-static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
+static void parse_hex_literal(void)	// now GotByte = "$" or "x"
 {
 	char		byte;
 	int		digits	= -1;	// digit counter
@@ -552,7 +558,7 @@ static void parse_hex_literal(void)	// Now GotByte = "$" or "x"
 
 
 // parse fractional part of a floating-point value
-static void parse_frac_part(int integer_part)	// Now GotByte = first digit after decimal point
+static void parse_frac_part(int integer_part)	// now GotByte = first digit after decimal point
 {
 	double	denominator	= 1,
 		fpval		= integer_part;
@@ -582,7 +588,7 @@ static void parse_frac_part(int integer_part)	// Now GotByte = first digit after
 // point has been found, so don't expect "100000000000000000000" to work.
 // CAUTION: "100000000000000000000.0" won't work either, because when the
 // decimal point gets parsed, the integer value will have overflown already.
-static void parse_number_literal(void)	// Now GotByte = first digit
+static void parse_number_literal(void)	// now GotByte = first digit
 {
 	intval_t	intval	= (GotByte & 15);	// this works. it's ASCII.
 
@@ -611,13 +617,13 @@ static void parse_number_literal(void)	// Now GotByte = first digit
 	} else {
 		PUSH_INT_ARG(intval, 0, 0);
 	}
-	// Now GotByte = non-decimal char
+	// now GotByte = non-decimal char
 }
 
 
 // Parse octal value. It accepts "0" to "7". The current value is stored as
 // soon as a character is read that is none of those given above.
-static void parse_octal_literal(void)	// Now GotByte = first octal digit
+static void parse_octal_literal(void)	// now GotByte = first octal digit
 {
 	intval_t	value	= 0;
 	bits		flags	= 0;
@@ -645,8 +651,8 @@ static void parse_octal_literal(void)	// Now GotByte = first octal digit
 }
 
 
-// Parse function call (sin(), cos(), arctan(), ...)
-static void parse_function_call(void)
+// parse function call (sin(), cos(), arctan(), ...)
+static void parse_function_call(void)	// now GotByte = '('
 {
 	void	*node_body;
 
@@ -735,6 +741,18 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		return 1;	// error
 	}
 	return 0;	// ok
+}
+
+
+// helper function to tell user not to use the "EOR" operator anymore
+// this gets called from two places, depending on whether the result
+// would be defined or not - to make sure the user sees it.
+static void eor_is_obsolete(void)
+{
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE)
+		throw_error("the \"EOR\" operator is obsolete; use \"XOR\" instead.");
+	else
+		throw_finalpass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");
 }
 
 
@@ -870,7 +888,7 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 }
 
 
-// Expect argument or monadic operator (hopefully inlined)
+// expect argument or monadic operator (hopefully inlined)
 // returns TRUE if it ate any non-space (-> so expression isn't empty)
 // returns FALSE if first non-space is delimiter (-> end of expression)
 static boolean expect_argument_or_monadic_operator(struct expression *expression)
@@ -1011,16 +1029,16 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	default:	// all other characters
 		if ((GotByte >= '0') && (GotByte <= '9')) {
 			parse_number_literal();
-			// Now GotByte = non-decimal char
+			// now GotByte = non-decimal char
 			goto now_expect_dyadic_op;
 		}
 
 		if (BYTE_STARTS_KEYWORD(GotByte)) {
 			register int	length;
 
-			// Read global label (or "NOT")
+			// read global label (or "NOT")
 			length = parser_read_keyword();
-			// Now GotByte = illegal char
+			// now GotByte = illegal char
 			// Check for NOT. Okay, it's hardcoded,
 			// but so what? Sue me...
 			if ((length == 3)
@@ -1064,7 +1082,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 get_byte_and_push_monadic:
 		GetByte();
 		PUSH_OP(op);
-		// State doesn't change
+		// state doesn't change
 		break;
 
 now_expect_dyadic_op:
@@ -1078,7 +1096,7 @@ now_expect_dyadic_op:
 }
 
 
-// Expect dyadic operator (hopefully inlined)
+// expect dyadic operator (hopefully inlined)
 static void expect_dyadic_operator(struct expression *expression)
 {
 	void		*node_body;
@@ -1086,7 +1104,7 @@ static void expect_dyadic_operator(struct expression *expression)
 
 	SKIPSPACE();
 	switch (GotByte) {
-// Single-character dyadic operators
+// single-character dyadic operators
 	case '^':	// "to the power of"
 		op = &ops_powerof;
 		goto get_byte_and_push_dyadic;
@@ -1119,7 +1137,7 @@ static void expect_dyadic_operator(struct expression *expression)
 		op = &ops_or;
 		goto get_byte_and_push_dyadic;
 
-// This part is commented out because there is no XOR character defined
+// this part is commented out because there is no XOR character defined
 //	case ???:	// bitwise exclusive OR
 //		op = &ops_xor;
 //		goto get_byte_and_push_dyadic;
@@ -1143,7 +1161,7 @@ static void expect_dyadic_operator(struct expression *expression)
 		PUSH_OP(&ops_subexpr_bracket);
 		return;
 
-// Multi-character dyadic operators
+// multi-character dyadic operators
 	case '!':	// "!="
 		GetByte();	// eat '!'
 		if (parser_expect('=')) {
@@ -1202,7 +1220,7 @@ static void expect_dyadic_operator(struct expression *expression)
 		// check string versions of operators
 		if (BYTE_STARTS_KEYWORD(GotByte)) {
 			parser_read_and_lower_keyword();
-			// Now GotByte = illegal char
+			// now GotByte = illegal char
 			// search for tree item
 			if (tree_easy_scan(op_tree, &node_body, GlobalDynaBuf)) {
 				op = node_body;
@@ -1507,12 +1525,41 @@ static void undef_handle_monadic_operator(struct object *self, const struct op *
 		self->u.number.flags &= ~NUMBER_FORCEBITS;
 		self->u.number.addr_refs = 0;
 		break;
+	case OPID_DEC:
+	case OPID_HEX:
+		// undefined number results in empty string:
+		// (so program grows in later passes but does not shrink)
+		string_prepare_string(self, 0);	// replace self with zero-length string
+		// we just converted an undefined argument into a result that is
+		// defined, so the expression parser won't count it as undefined
+		// when returning to the caller. therefore, we count it ourself:
+		++pass.counters.undefineds;
+		break;
 // add new monadic operators here
 //	case OPID_:
 //		break;
 	default:
 		unsupported_operation(NULL, op, self);
 	}
+}
+
+// int:
+// helper function to replace int object with string version (either decimal or hexadecimal)
+// (also see number_print() further down which does something similar but not identical)
+#define NUMBUFSIZE	64	// large enough(tm) even for 64bit systems
+static void int_to_string(struct object *self, const char formatstring[])
+{
+	char	buffer[NUMBUFSIZE];
+	int	length;
+
+#if _BSD_SOURCE || _XOPEN_SOURCE >= 500 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
+	length = snprintf(buffer, NUMBUFSIZE, formatstring, (long) self->u.number.val.intval);
+#else
+	length = sprintf(buffer, formatstring, (long) self->u.number.val.intval);
+#endif
+	string_prepare_string(self, length);	// create string object and put on arg stack
+	// (the fn above has already put a terminator at the correct position)
+	memcpy(self->u.string->payload, buffer, length);
 }
 
 // prototype for int/float passing
@@ -1564,6 +1611,12 @@ static void int_handle_monadic_operator(struct object *self, const struct op *op
 		self->u.number.val.intval = ((self->u.number.val.intval) >> 16) & 255;
 		self->u.number.flags |= NUMBER_FITS_BYTE;
 		self->u.number.flags &= ~NUMBER_FORCEBITS;
+		break;
+	case OPID_DEC:
+		int_to_string(self, "%ld");	// decimal format
+		break;
+	case OPID_HEX:
+		int_to_string(self, "%lx");	// hexadecimal format
 		break;
 // add new monadic operators here
 //	case OPID_:
@@ -1797,7 +1850,7 @@ static void undef_handle_dyadic_operator(struct object *self, const struct op *o
 		goto shared;
 
 	case OPID_EOR:
-		throw_finalpass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");	// FIXME - change to error, at least for newest dialect!
+		eor_is_obsolete();
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 	case OPID_AND:
@@ -1964,7 +2017,7 @@ static void int_handle_dyadic_operator(struct object *self, const struct op *op,
 		refs = self->u.number.addr_refs + other->u.number.addr_refs;	// add address references
 		break;
 	case OPID_EOR:
-		throw_finalpass_warning("\"EOR\" is deprecated; use \"XOR\" instead.");	// FIXME - change to error, at least for newest dialect!
+		eor_is_obsolete();
 		/*FALLTHROUGH*/
 	case OPID_XOR:
 		self->u.number.val.intval ^= other->u.number.val.intval;
@@ -2311,7 +2364,7 @@ static void object_no_op(struct object *self)
 
 // int/float:
 // print value for user message
-#define NUMBUFSIZE	64	// large enough(tm) even for 64bit systems
+// (also see int_to_string() further up which does something similar but not identical)
 static void number_print(const struct object *self, struct dynabuf *db)
 {
 	char	buffer[NUMBUFSIZE];

@@ -417,7 +417,6 @@ static void do_actual_work(void)
 
 	sanity.macro_recursions_left	= config.sanity_limit;
 	sanity.source_recursions_left	= config.sanity_limit;
-	sanity.passes_left		= config.sanity_limit;
 
 	// init output system
 	output_init();
@@ -433,7 +432,7 @@ static void do_actual_work(void)
 	while ((pass.counters.undefineds && (pass.counters.undefineds < undefs_before)) || pass.counters.symbolchanges) {
 		undefs_before = pass.counters.undefineds;
 		perform_pass(0);
-		if (--sanity.passes_left < 0) {
+		if (pass.number > config.sanity_limit) {
 			throw_serious_error("Exceeded maximum number of passes, please see docs.");
 			// ...or maybe do one additional pass where all errors are reported, including "not defined" and "value has changed".
 		}

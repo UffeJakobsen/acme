@@ -66,8 +66,8 @@ struct object {
 	} u;
 };
 struct string {
-	int 	length;
-	int 	refs;	// FIXME - either use correctly or remove altogether!
+	int	length;
+	int	refs;	// FIXME - either use correctly or remove altogether!
 	char	payload[1];	// real structs are malloc'd to correct size
 };
 struct listitem {
