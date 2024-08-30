@@ -671,6 +671,8 @@ static void check_oversize(bits size_bit, struct number *argument)
 // TODO: add pointer arg for result, use return value to indicate error ONLY!
 static bits calc_arg_size(bits force_bit, struct number *argument, bits addressing_modes)
 {
+	intval_t	value;
+
 	// if there are no possible addressing modes, complain
 	if (addressing_modes == MAYBE______) {
 		throw_error(exception_illegal_combination);
@@ -690,7 +692,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	// mnemonic did not have a force bit postfix.
 	// if value has force bit, act upon it
 	if (argument->flags & NUMBER_FORCEBITS) {
-		// Value has force bit set, so return this or bigger size
+		// value has force bit set, so return this or bigger size
 		if (NUMBER_FORCES_8 & addressing_modes & argument->flags)
 			return NUMBER_FORCES_8;
 
@@ -709,12 +711,23 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 	if ((addressing_modes == NUMBER_FORCES_8)
 	|| (addressing_modes == NUMBER_FORCES_16)
 	|| (addressing_modes == NUMBER_FORCES_24)) {
-		return addressing_modes;	// There's only one, so use it
+		return addressing_modes;	// there's only one, so use it
 	}
 
-	// There's more than one addressing mode. Check whether value is sure
-	// if value is unsure, use default size
-	if (argument->flags & NUMBER_EVER_UNDEFINED) {
+	// there's more than one addressing mode, so check value:
+	// first get a local copy of the value because we might want to
+	// substitute a fake value
+	value = argument->val.intval;
+
+	// now decide which algorithm to use
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
+		// if value is undefined, treat it as if it were zero, to make sure
+		// the code below chooses the smallest possible addressing mode.
+		if (argument->ntype == NUMTYPE_UNDEFINED)
+			value = 0;
+	} else if (argument->flags & NUMBER_EVER_UNDEFINED) {
+		// old algo: if value is unsure, use default size
+
 		// if there is an 8-bit addressing mode *and* the value
 		// is sure to fit into 8 bits, use the 8-bit mode
 		if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE)) {
@@ -724,6 +737,7 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 		// if there is a 16-bit addressing, use that
 		// call helper function for "oversized addr mode" warning
 		if (NUMBER_FORCES_16 & addressing_modes) {
+			// FIXME - on 65816, this complains about "JMP $00xy", which is stupid:
 			check_oversize(NUMBER_FORCES_16, argument);
 			return NUMBER_FORCES_16;
 		}
@@ -742,19 +756,19 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 
 	// Value is sure, so use its own size
 	// if value is negative, size cannot be chosen. Complain!
-	if (argument->val.intval < 0) {
+	if (value < 0) {
 		countorthrow_value_error("Negative value - cannot choose addressing mode.");
 		return 0;
 	}
 
 	// Value is positive or zero. Check size ranges
 	// if there is an 8-bit addressing mode and value fits, use 8 bits
-	if ((addressing_modes & NUMBER_FORCES_8) && (argument->val.intval < 256)) {
+	if ((addressing_modes & NUMBER_FORCES_8) && (value < 256)) {
 		return NUMBER_FORCES_8;
 	}
 
 	// if there is a 16-bit addressing mode and value fits, use 16 bits
-	if ((addressing_modes & NUMBER_FORCES_16) && (argument->val.intval < 65536)) {
+	if ((addressing_modes & NUMBER_FORCES_16) && (value < 65536)) {
 		return NUMBER_FORCES_16;
 	}
 

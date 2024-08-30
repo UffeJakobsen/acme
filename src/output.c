@@ -463,7 +463,7 @@ void programcounter_read(struct number *target)
 	} else {
 		target->ntype = NUMTYPE_INT;
 	}
-	target->flags = 0;	// FIXME - if defined, check for FITS_BYTE etc.? use pc_flags?
+	target->flags = 0;
 	target->val.intval = program_counter;
 	target->addr_refs = 1;	// program counter is an address
 }
@@ -544,7 +544,6 @@ void pseudopc_start(struct number *new_pc)
 	new_context->offset = new_pc->val.intval - program_counter;	// remember offset
 	pseudopc_current_context = new_context;	// make new struct the current one
 	program_counter = new_pc->val.intval;	// set new pc
-	//new: pc_flags = new_pc->flags & (NUMBER_IS_DEFINED | NUMBER_EVER_UNDEFINED);
 }
 // end offset assembly
 void pseudopc_end(void)
