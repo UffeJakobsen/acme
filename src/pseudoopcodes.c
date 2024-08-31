@@ -57,7 +57,7 @@ static enum eos po_initmem(void)
 
 	// the "--initmem" cli arg and earlier calls have priority
 	if (config.mem_init_value != NO_VALUE_GIVEN) {
-		throw_pass1_warning("Memory already initialised.");
+		throw_warning("Memory already initialised.");
 		return SKIP_REMAINDER;
 	}
 
@@ -86,7 +86,7 @@ static enum eos po_to(void)
 
 	// the "--outfile" cli arg and earlier calls have priority
 	if (config.output_filename) {
-		throw_pass1_warning("Output file name already chosen.");
+		throw_warning("Output file name already chosen.");
 		return SKIP_REMAINDER;
 	}
 
@@ -113,14 +113,14 @@ static enum eos po_to(void)
 	} else {
 		// no comma: complain unless user requested really old behaviour
 		if (config.dialect >= V0_86__DEPRECATE_REALPC)
-			throw_pass1_warning("Used \"!to\" without file format indicator.");
+			throw_warning("Used \"!to\" without file format indicator.");
 		// default to cbm
 		format = OUTFILE_FORMAT_CBM;
 	}
 
 	// the "--format" cli arg has priority
 	if (config.outfile_format != OUTFILE_FORMAT_UNSPECIFIED) {
-		throw_pass1_warning("Output file format already chosen.");
+		throw_warning("Output file format already chosen.");
 	} else {
 		config.outfile_format = format;
 	}
@@ -137,7 +137,7 @@ static enum eos po_symbollist(void)
 
 	// cli arg and earlier calls have priority
 	if (config.symbollist_filename) {
-		throw_pass1_warning("Symbol list file name already chosen.");
+		throw_warning("Symbol list file name already chosen.");
 		return SKIP_REMAINDER;
 	}
 
