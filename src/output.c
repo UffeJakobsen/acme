@@ -411,7 +411,7 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	// calculate start of new segment
 	out->write_idx = out->write_idx + address_change;
 	if (out->write_idx < 0) {
-		throw_serious_error("Tried to write to negative addresses.");
+		throw_serious_error("Tried to write to negative address.");
 	} else if (out->write_idx >= OUTBUF_MAXSIZE) {
 		throw_serious_error("Reached memory limit.");
 	}

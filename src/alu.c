@@ -349,7 +349,7 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 //	FIXME - just split this up into two different buffers, "user name" and "internal name", that way the scope can be changed to a prefix as well!
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unpseudo_count)
+static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unpseudo_count, boolean check_pass_number)
 {
 	struct symbol	*symbol;
 	struct object	*arg;
@@ -365,6 +365,14 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 	} else {
 		// FIXME - add sanity check for UNDEFINED where EVER_UNDEFINED is false -> BUG()!
 		// (because the only way to have UNDEFINED is the block above, and EVER_UNDEFINED taints everything it touches)
+
+		// special kluge for anonymous backward labels:
+		// if they are referenced before they are defined, the last
+		// value of the previous pass would be used! so we check the
+		// pass number and if the value is from the previous pass, we
+		// delete it:
+		if (check_pass_number && (symbol->pass_number != pass.number))
+			symbol->object.u.number.ntype = NUMTYPE_UNDEFINED;
 	}
 	// first push on arg stack, so we have a local copy we can "unpseudo"
 	arg = &arg_stack[arg_sp++];
@@ -732,7 +740,7 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 		if (input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
 
-		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count);	// -1 to not count terminator
+		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count, FALSE);	// -1 to not count terminator, no pass number check
 //	} else if (...) {
 //		// anonymous symbol
 //		"unpseudo"-ing anonymous symbols is not supported
@@ -908,7 +916,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		} while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->local_scope, ugly_length_kluge, 0);	// no prefix, no unpseudo
+		get_symbol_value(section_now->local_scope, ugly_length_kluge, 0, FALSE);	// no prefix, no unpseudo, no pass number check
 		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -922,7 +930,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			dynabuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
+			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, 0, TRUE);	// no prefix, -1 to not count terminator, no unpseudo, check pass number
 			goto now_expect_dyadic_op;
 		}
 
@@ -1008,7 +1016,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 
 		// here we need to put '.' into GlobalDynaBuf even though we have already skipped it:
 		if (input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
-			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0, FALSE);	// -1 to not count terminator, no unpseudo, no pass number check
 			goto now_expect_dyadic_op;	// ok
 		}
 
@@ -1018,7 +1026,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		if (input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
-			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0);	// -1 to not count terminator, no unpseudo
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0, FALSE);	// -1 to not count terminator, no unpseudo, no pass number check
 			goto now_expect_dyadic_op;	// ok
 		}
 
@@ -1058,7 +1066,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0);	// no prefix, -1 to not count terminator, no unpseudo
+					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0, FALSE);	// no prefix, -1 to not count terminator, no unpseudo, no pass number check
 					goto now_expect_dyadic_op;
 				}
 			}

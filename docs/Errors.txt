@@ -350,9 +350,14 @@ Operation not supported: Cannot apply "OP" to "TYPE" and "TYPE".
     You tried to use an operator on the wrong type(s) of argument(s),
     like indexing a float or negating a string.
 
-Program counter is unset.
-    You didn't set the program counter, so ACME didn't know where to
-    start.
+Program counter cannot be negative.
+    You used "--setpc VALUE", "* = VALUE" or "!pseudopc VALUE" with a
+    negative number.
+
+Program counter undefined.
+    You tried to generate data before setting the program counter. Use
+    either "--setpc VALUE" on the command line or "* = VALUE" at the
+    start of your source code file.
 
 Quotes still open at end of line.
     You forgot the closing quotes.
@@ -510,6 +515,14 @@ Too deeply nested. Recursive "!source"?
     nesting at all is to find infinite recursions.
     The default limit is 64, this can be changed using the
     "--maxdepth" CLI switch.
+
+Tried to write to negative address.
+    This means that a new segment inside a !pseudopc block would be
+    placed before the start of the output buffer. Example:
+	* = $1000		; ok (we begin at $1000)
+	!pseudopc $8000 {	; ok (we pretend to be at $8000)
+		* = $5000	; error (we need to go back by $3000,
+	}			; which would mean going to -$2000!)
 
 Unexpected char when evaluating loop condition.
     There was a syntax error while evaluating the loop condition.
