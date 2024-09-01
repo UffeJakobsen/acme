@@ -117,7 +117,7 @@ struct pass {
 		int	symbolchanges;	// count symbol changes (if nonzero, another pass is needed)
 		int	errors;		// if nonzero -> stop after this pass
 		int	warnings;	// this is needed for showing macro call stack
-		//int	suppressed_errors;	// FIXME - this is for
+		int	suppressed_errors;	// this is for
 		// "errors not reported because pass flags said so", because
 		// then we can read the value after all symbol changes have
 		// finally settled and know if the next pass is a victory lap or
@@ -125,6 +125,7 @@ struct pass {
 	} counters;
 	struct {
 		boolean	complain_about_undefined;	// will be FALSE until error pass is needed
+		boolean	throw_all_errors;	// will be FALSE until error pass is needed
 		boolean	is_final_pass;	// needed for warnings like "converted float to int for xor"
 		boolean	throw_segment_messages;	// atm only used in pass 1, should be used in _last_ pass!
 		boolean	generate_output;	// create output and/or report file

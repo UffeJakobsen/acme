@@ -663,11 +663,17 @@ void BUG(const char *message, int code)
 // otherwise just increment counter to let mainloop know this pass wasn't successful.
 void countorthrow_value_error(const char *msg)
 {
-	// atm we just mimic the old behaviour. in future, do something like this:
-	//if (pass.is_error_pass)
+	boolean	complain;
+
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE)
+		complain = pass.flags.throw_all_errors;
+	else
+		complain = TRUE;	// mimic the old behavior
+
+	if (complain)
 		throw_error(msg);
-	//else
-		//++pass.counters.suppressed_errors;
+	else
+		++pass.counters.suppressed_errors;
 }
 
 
