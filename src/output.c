@@ -553,26 +553,34 @@ void pseudopc_end(void)
 	if (pseudopc_current_context == NULL)
 		BUG("PseudoPCContext", 0);
 }
-// un-pseudopc a label value by given number of levels
-// returns nonzero on error (if level too high)
-int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
+// un-pseudopc a value by given number of levels
+void pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels)
 {
+	switch (target->ntype) {
+	case NUMTYPE_UNDEFINED:
+		return;	// this might be an unresolved forward ref,
+		// which would have no context ptr.
+		// so we do nothing now and let later passes handle it.
+	case NUMTYPE_INT:
+		break;	// this is what we expect
+	case NUMTYPE_FLOAT:
+		throw_error("Un-pseudopc operator '&' does not work on floats.");
+		return;
+	default:
+		BUG("IllegalNumberType8", target->ntype);
+	}
+	if (context == NULL) {
+		throw_error("Un-pseudopc operator '&' only works on addresses.");
+		return;
+	}
 	while (levels--) {
-		if (target->ntype == NUMTYPE_UNDEFINED)
-			return 0;	// ok (no sense in trying to unpseudo this, and it might be an unresolved forward ref anyway)
-
-		if (context == NULL) {
-			throw_error("Un-pseudopc operator '&' only works on addresses.");
-			return 1;	// error
-		}
 		if (context == &outermost_pseudopc_context) {
 			throw_error("Un-pseudopc operator '&' has no !pseudopc context.");
-			return 1;	// error
+			return;
 		}
 		target->val.intval = target->val.intval - context->offset;	// remove offset
 		context = context->outer;
 	}
-	return 0;	// ok
 }
 // return pointer to current "pseudopc" struct
 // this gets called when parsing label definitions

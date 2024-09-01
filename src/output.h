@@ -72,9 +72,8 @@ extern void pseudopc_start(struct number *new_pc);
 // end offset assembly
 extern void pseudopc_end(void);
 
-// un-pseudopc a label value by given number of levels
-// returns nonzero on error (if level too high)
-extern int pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
+// un-pseudopc a value by given number of levels
+extern void pseudopc_unpseudo(struct number *target, struct pseudopc *context, unsigned int levels);
 
 // return pointer to current "pseudopc" struct
 // this gets called when parsing label definitions

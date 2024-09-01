@@ -349,7 +349,8 @@ static void is_not_defined(struct symbol *optional_symbol, char *name, size_t le
 //	FIXME - just split this up into two different buffers, "user name" and "internal name", that way the scope can be changed to a prefix as well!
 // This function is not allowed to change DynaBuf because that's where the
 // symbol name is stored!
-static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unpseudo_count, boolean check_pass_number)
+// returns pointer to symbol because the "unpseudopc" caller needs it
+static struct symbol *get_symbol_value(scope_t scope, size_t name_length, boolean check_pass_number)
 {
 	struct symbol	*symbol;
 	struct object	*arg;
@@ -377,26 +378,20 @@ static void get_symbol_value(scope_t scope, size_t name_length, unsigned int unp
 	// first push on arg stack, so we have a local copy we can "unpseudo"
 	arg = &arg_stack[arg_sp++];
 	*arg = symbol->object;
-	if (unpseudo_count) {
-		if (arg->type == &type_number) {
-			pseudopc_unpseudo(&arg->u.number, symbol->pseudopc, unpseudo_count);
-		} else {
-			throw_error("Un-pseudopc operator '&' can only be applied to number symbols.");
-		}
-	}
+
 	// if needed, output "value not defined" error
-	// FIXME - in case of unpseudo, error message should include the correct number of '&' characters
 //	if (!(arg->type->is_defined(arg)))
 // FIXME - now that lists with undefined items are "undefined", this fails in
 // case of "!if len(some_list) {", so check for undefined _numbers_ explicitly:
 	if ((arg->type == &type_number) && (arg->u.number.ntype == NUMTYPE_UNDEFINED))
 		is_not_defined(symbol, GLOBALDYNABUF_CURRENT, name_length);
 	// FIXME - if arg is list, increment ref count!
+	return symbol;	// only needed by "unpseudopc" caller
 }
 
 
 // parse program counter ('*')
-static void parse_program_counter(unsigned int unpseudo_count)	// now GotByte = "*"
+static void parse_program_counter(void)	// now GotByte = "*"
 {
 	struct number	pc;
 	struct object	*arg;
@@ -406,8 +401,6 @@ static void parse_program_counter(unsigned int unpseudo_count)	// now GotByte = 
 	// if needed, output "value not defined" error
 	if (pc.ntype == NUMTYPE_UNDEFINED)
 		is_not_defined(NULL, "*", 1);
-	if (unpseudo_count)
-		pseudopc_unpseudo(&pc, pseudopc_get_context(), unpseudo_count);
 	// push to arg stack
 	arg = &arg_stack[arg_sp++];
 	arg->type = &type_number;
@@ -715,11 +708,13 @@ static void list_append_list(struct listitem *selfhead, struct listitem *otherhe
 
 
 // helper function for "monadic &" (either octal value or "unpseudo" operator)
-// returns nonzero on error
+// returns nonzero on (syntax) error
 static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 {
 	unsigned int	unpseudo_count	= 1;
-	scope_t		scope;	// for "unpseudo symbol"
+	struct pseudopc	*context;
+	struct symbol	*symbol;
+	scope_t		scope;
 
 	// first count ampersand characters so we know how many layers to "unpseudo":
 	while (GetByte() == '&')
@@ -734,13 +729,19 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
 	// it's not an octal number, so it must be something to "unpseudo":
 	if (GotByte == '*') {
 		// program counter
-		parse_program_counter(unpseudo_count);
+		parse_program_counter();
+		context = pseudopc_get_context();
 	} else if (BYTE_STARTS_KEYWORD(GotByte) || (GotByte == LOCAL_PREFIX) || (GotByte == CHEAP_PREFIX)) {
 		// symbol
 		if (input_read_scope_and_symbol_name(&scope))	// now GotByte = illegal char
 			return 1;	// error (no string given)
 
-		get_symbol_value(scope, GlobalDynaBuf->size - 1, unpseudo_count, FALSE);	// -1 to not count terminator, no pass number check
+		symbol = get_symbol_value(scope, GlobalDynaBuf->size - 1, FALSE);	// -1 to not count terminator, no pass number check
+		if (symbol->object.type != &type_number) {
+			throw_error("Un-pseudopc operator '&' can only be applied to number symbols.");
+			return 0;	// "ok" (because the error above does not inhibit parsing)
+		}
+		context = symbol->pseudopc;
 //	} else if (...) {
 //		// anonymous symbol
 //		"unpseudo"-ing anonymous symbols is not supported
@@ -748,6 +749,8 @@ static int parse_octal_or_unpseudo(void)	// now GotByte = '&'
                 throw_error(exception_missing_string);	// FIXME - create some "expected octal value or symbol name" error instead!
 		return 1;	// error
 	}
+	// now process argument on arg stack (sp has been incremented)
+	pseudopc_unpseudo(&arg_stack[arg_sp - 1].u.number, context, unpseudo_count);
 	return 0;	// ok
 }
 
@@ -916,7 +919,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		} while (GetByte() == '+');
 		ugly_length_kluge = GlobalDynaBuf->size;	// FIXME - get rid of this!
 		symbol_fix_forward_anon_name(FALSE);	// FALSE: do not increment counter
-		get_symbol_value(section_now->local_scope, ugly_length_kluge, 0, FALSE);	// no prefix, no unpseudo, no pass number check
+		get_symbol_value(section_now->local_scope, ugly_length_kluge, FALSE);	// no prefix, no pass number check
 		goto now_expect_dyadic_op;
 
 	case '-':	// NEGATION operator or anonymous backward label
@@ -930,7 +933,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		SKIPSPACE();
 		if (BYTE_FOLLOWS_ANON(GotByte)) {
 			dynabuf_append(GlobalDynaBuf, '\0');
-			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, 0, TRUE);	// no prefix, -1 to not count terminator, no unpseudo, check pass number
+			get_symbol_value(section_now->local_scope, GlobalDynaBuf->size - 1, TRUE);	// no prefix, -1 to not count terminator, check pass number
 			goto now_expect_dyadic_op;
 		}
 
@@ -1001,7 +1004,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 		goto now_expect_dyadic_op;
 
 	case '*':	// Program counter
-		parse_program_counter(0);
+		parse_program_counter();
 		// Now GotByte = char after closing quote
 		goto now_expect_dyadic_op;
 
@@ -1016,7 +1019,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 
 		// here we need to put '.' into GlobalDynaBuf even though we have already skipped it:
 		if (input_read_scope_and_symbol_name_KLUGED(&scope) == 0) {	// now GotByte = illegal char
-			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0, FALSE);	// -1 to not count terminator, no unpseudo, no pass number check
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, FALSE);	// -1 to not count terminator, no pass number check
 			goto now_expect_dyadic_op;	// ok
 		}
 
@@ -1026,7 +1029,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 	case CHEAP_PREFIX:	// cheap local symbol
 		//printf("looking in cheap scope %d\n", section_now->cheap_scope);
 		if (input_read_scope_and_symbol_name(&scope) == 0) {	// now GotByte = illegal char
-			get_symbol_value(scope, GlobalDynaBuf->size - 1, 0, FALSE);	// -1 to not count terminator, no unpseudo, no pass number check
+			get_symbol_value(scope, GlobalDynaBuf->size - 1, FALSE);	// -1 to not count terminator, no pass number check
 			goto now_expect_dyadic_op;	// ok
 		}
 
@@ -1066,7 +1069,7 @@ static boolean expect_argument_or_monadic_operator(struct expression *expression
 // however, apart from that check above, function calls have nothing to do with
 // parentheses: "sin(x+y)" gets parsed just like "not(x+y)".
 				} else {
-					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, 0, FALSE);	// no prefix, -1 to not count terminator, no unpseudo, no pass number check
+					get_symbol_value(SCOPE_GLOBAL, GlobalDynaBuf->size - 1, FALSE);	// no prefix, -1 to not count terminator, no pass number check
 					goto now_expect_dyadic_op;
 				}
 			}
