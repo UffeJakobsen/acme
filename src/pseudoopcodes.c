@@ -651,7 +651,7 @@ static enum eos po_align(void)
 		fill = cpu_current_type->default_align_value;
 
 	// make sure PC is defined
-	programcounter_read(&pc);
+	programcounter_read_pc(&pc);
 	if (pc.ntype == NUMTYPE_UNDEFINED) {
 		throw_error(exception_pc_undefined);
 		return SKIP_REMAINDER;

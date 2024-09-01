@@ -49,8 +49,10 @@ extern void output_set_xor(char xor);
 // this will in turn set the outbuf index according to the current pseudopc offset.
 extern void programcounter_set(intval_t new_pc, bits segment_flags);
 
-// get program counter
-extern void programcounter_read(struct number *target);
+// get program counter value
+extern void programcounter_read_pc(struct number *target);
+// get program counter and check if defined
+extern void programcounter_read_asterisk(struct number *target);
 
 // get size of current statement (until now) - needed for "!bin" verbose output
 extern int output_get_statement_size(void);

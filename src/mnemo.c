@@ -812,7 +812,7 @@ static void near_branch(int preoffset)
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	programcounter_read(&pc);
+	programcounter_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
 	if ((pc.ntype == NUMTYPE_INT) && (target.ntype == NUMTYPE_INT)) {
@@ -847,7 +847,7 @@ static void far_branch(int preoffset)
 	struct number	target;
 	intval_t	offset	= 0;	// dummy value, to not throw more errors than necessary
 
-	programcounter_read(&pc);
+	programcounter_read_pc(&pc);
 	get_int_arg(&target, TRUE);
 	typesystem_want_addr(&target);
 	if ((pc.ntype == NUMTYPE_INT) && (target.ntype == NUMTYPE_INT)) {

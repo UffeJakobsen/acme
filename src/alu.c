@@ -313,18 +313,16 @@ static intval_t my_asr(intval_t left, intval_t right)
 // if wanted, throw "Value not defined" error
 // This function is not allowed to change DynaBuf because the symbol's name
 // might be stored there!
-static void is_not_defined(struct symbol *optional_symbol, char *name, size_t length)
+static void is_not_defined(struct symbol *symbol, char *name, size_t length)
 {
 	if (!pass.flags.complain_about_undefined)
 		return;
 
 	// only complain once per symbol
-	if (optional_symbol) {
-		if (optional_symbol->has_been_reported)
-			return;
+	if (symbol->has_been_reported)
+		return;
 
-		optional_symbol->has_been_reported = TRUE;
-	}
+	symbol->has_been_reported = TRUE;
 
 	dynabuf_clear(errormsg_dyna_buf);
 	dynabuf_add_string(errormsg_dyna_buf, "Symbol not defined (");
@@ -397,10 +395,7 @@ static void parse_program_counter(void)	// now GotByte = "*"
 	struct object	*arg;
 
 	GetByte();
-	programcounter_read(&pc);
-	// if needed, output "value not defined" error
-	if (pc.ntype == NUMTYPE_UNDEFINED)
-		is_not_defined(NULL, "*", 1);
+	programcounter_read_asterisk(&pc);
 	// push to arg stack
 	arg = &arg_stack[arg_sp++];
 	arg->type = &type_number;

@@ -454,8 +454,8 @@ void programcounter_set(intval_t new_pc, bits segment_flags)
 }
 
 
-// read program counter
-void programcounter_read(struct number *target)
+// get program counter value
+void programcounter_read_pc(struct number *target)
 {
 	// check whether ptr undefined
 	if (PC_NOT_SET) {
@@ -466,6 +466,25 @@ void programcounter_read(struct number *target)
 	target->flags = 0;
 	target->val.intval = program_counter;
 	target->addr_refs = 1;	// program counter is an address
+}
+// get program counter and check if defined
+void programcounter_read_asterisk(struct number *target)
+{
+	programcounter_read_pc(target);
+
+	// defined?
+	if (target->ntype != NUMTYPE_UNDEFINED)
+		return;
+
+	// either complain or count
+	if (pass.flags.complain_about_undefined)
+		throw_error("Symbol not defined (*).");
+	else
+		++pass.counters.undefineds;
+	// counting is not needed when called by expression parser, because that
+	// will count undefined _results_ on its own.
+	// but if this was called by implicit label definition, we want to count
+	// undefined pc to make sure "label" throws the same error as "label=*"
 }
 
 
