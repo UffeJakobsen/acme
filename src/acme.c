@@ -330,10 +330,9 @@ static void save_output_file(void)
 
 
 // definitions for pass flags:
-#define PF_IS_ERROR_PASS		(1u << 0)	// throw "Symbol not defined" and other errors that could be suppressed
-#define PF_THROW_SEGMENT_MESSAGES	(1u << 1)	// throw segment warnings/errors
+#define PF_IS_FINAL_PASS		(1u << 0)	// mostly for special warnings
+#define PF_IS_ERROR_PASS		(1u << 1)	// throw "Symbol not defined" and other errors that could be suppressed
 #define PF_GENERATE_OUTPUT		(1u << 2)	// generate output and/or report file
-#define PF_IS_FINAL_PASS		(1u << 3)	// mostly for special warnings
 
 // perform a single pass
 static void perform_pass(bits passflags)
@@ -351,7 +350,6 @@ static void perform_pass(bits passflags)
 	pass.flags.complain_about_undefined	= !!(passflags & PF_IS_ERROR_PASS);
 	pass.flags.throw_all_errors		= !!(passflags & PF_IS_ERROR_PASS);
 	pass.flags.is_final_pass		= !!(passflags & PF_IS_FINAL_PASS);
-	pass.flags.throw_segment_messages	= !!(passflags & PF_THROW_SEGMENT_MESSAGES);
 	pass.flags.generate_output		= !!(passflags & PF_GENERATE_OUTPUT);
 
 	if (config.process_verbosity >= 2)
@@ -424,7 +422,7 @@ static void do_actual_work(void)
 	output_init();
 
 // first pass:
-	perform_pass(PF_THROW_SEGMENT_MESSAGES);	// FIXME - check segments in all passes, but only throw errors/warnings in final pass!
+	perform_pass(0);
 	// pretend there has been a previous pass, with one more undefined result
 	undefs_before = pass.counters.undefineds + 1;
 
@@ -683,7 +681,7 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_IGNORE_ZEROES) == 0)
 		config.honor_leading_zeroes = FALSE;
 	else if (strcmp(string, OPTION_STRICT_SEGMENTS) == 0)
-		config.debuglevel_segmentprobs = DEBUGLEVEL_ERROR;
+		config.strict_segments = TRUE;
 	else if (strcmp(string, OPTION_STRICT) == 0)
 		config.all_warnings_are_errors = TRUE;
 	else if (strcmp(string, OPTION_DIALECT) == 0)
@@ -821,6 +819,9 @@ int main(int argc, const char *argv[])
 		fprintf(stderr, "%sStart address of output file exceeds end+1.\n", cliargs_error);
 		exit(EXIT_FAILURE);
 	}
+	// since version 0.98, "--strict-segments" are default:
+	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE)
+		config.strict_segments = TRUE;
 
 	// do the actual work
 	do_actual_work();

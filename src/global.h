@@ -85,7 +85,7 @@ struct config {
 	boolean		format_color;		// enabled by --color
 	FILE		*msg_stream;		// defaults to stderr, changed to stdout by --use-stdout
 	boolean		honor_leading_zeroes;	// TRUE, disabled by --ignore-zeroes
-	enum debuglevel	debuglevel_segmentprobs;	// WARNING, changed to ERROR by --strict-segments
+	boolean		strict_segments;	// FALSE, enabled by --strict-segments and V0.98
 	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum dialect	dialect;	// set by --dialect (and --test --test)
@@ -127,7 +127,6 @@ struct pass {
 		boolean	complain_about_undefined;	// will be FALSE until error pass is needed
 		boolean	throw_all_errors;	// will be FALSE until error pass is needed
 		boolean	is_final_pass;	// needed for warnings like "converted float to int for xor"
-		boolean	throw_segment_messages;	// atm only used in pass 1, should be used in _last_ pass!
 		boolean	generate_output;	// create output and/or report file
 	} flags;
 };

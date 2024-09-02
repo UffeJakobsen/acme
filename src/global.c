@@ -118,7 +118,7 @@ void config_default(struct config *conf)
 	conf->format_color		= FALSE;	// enabled by --color
 	conf->msg_stream		= stderr;	// set to stdout by --use-stdout
 	conf->honor_leading_zeroes	= TRUE;		// disabled by --ignore-zeroes
-	conf->debuglevel_segmentprobs	= DEBUGLEVEL_WARNING;	// changed to ERROR by --strict-segments		TODO - toggle default?
+	conf->strict_segments		= FALSE;	// enabled by --strict-segments and V0.98
 	conf->all_warnings_are_errors	= FALSE;	// enabled by --strict
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->dialect			= V__CURRENT_VERSION;	// changed by --dialect

@@ -10,13 +10,13 @@
 // 22 Sep 2015	Added big-endian output functions
 // 20 Apr 2019	Prepared for "make segment overlap warnings into errors" later on
 #include "output.h"
+#include <stdlib.h>	// for free()
 #include <string.h>	// for memset()
 #include "cpu.h"
 #include "global.h"
 
 
-// constants
-#define NO_SEGMENT_START	(-1)	// invalid value to signal "not in a segment"
+// types
 
 
 // structure for linked list of segment data
@@ -37,8 +37,8 @@ struct output {
 	intval_t	forced_start_idx;	// first index to go into output file
 	intval_t	forced_limit_idx;	// first index to not go into output file
 	struct {
-		intval_t	start;	// start of current segment (or NO_SEGMENT_START)
-		intval_t	max;	// highest address segment may use
+		intval_t	start;	// start of current segment (or NO_VALUE_GIVEN if none)
+		intval_t	max;	// highest address segment may use	FIXME - try to change max to limit (+1)
 		bits		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
 	} segm;
@@ -78,6 +78,16 @@ static void report_binary(char value)
 }
 
 
+// wrapper fn for segment problems -> either warning or error
+static void throwsegmentproblem(const char msg[])
+{
+	if (config.strict_segments)
+		countorthrow_value_error(msg);
+	else
+		throw_finalpass_warning(msg);
+}
+
+
 // set up new out->segment.max value according to the given address.
 // just find the next segment start and subtract 1.
 static void find_segment_max(intval_t new_pc)
@@ -87,7 +97,6 @@ static void find_segment_max(intval_t new_pc)
 	// search for smallest segment start address that
 	// is larger than given address
 	// use list head as sentinel
-// FIXME - if +1 overflows intval_t, we have an infinite loop!
 	out->segm.list_head.start = new_pc + 1;
 	while (test_segment->start <= new_pc)
 		test_segment = test_segment->next;
@@ -106,10 +115,10 @@ static void border_crossed(int current_offset)
 	// further:
 	if (current_offset >= OUTBUF_MAXSIZE)
 		throw_serious_error("Reached memory limit.");
-	if (pass.flags.throw_segment_messages) {
-		throw_message(config.debuglevel_segmentprobs, "Segment reached another one, overwriting it.", NULL);
-		find_segment_max(current_offset + 1);	// find new (next) limit
-	}
+	throwsegmentproblem("Segment reached another one, overwriting it.");	// FIXME - add segment name to msg!
+	find_segment_max(current_offset + 1);	// find new (next) limit
+	// FIXME - the line above adds 1 and the fn adds 1 -> one address of potential
+	// segment start is skipped!
 }
 
 
@@ -143,6 +152,7 @@ static void real_output(intval_t byte)
 			// FIXME - change this to BUG and add code to make sure it does not happen!
 			// or maybe at least enlarge the buffer by 16 bytes and place a canary in
 			// it so we can do a sanity check at the end!
+			// (but that only helps for sequential writes without holes...)
 		}
 		out->buffer[out->write_idx] = (byte & 0xff) ^ out->xor;
 	}
@@ -219,6 +229,10 @@ void outbuf_set_outfile_limit(void)
 
 
 // link segment data into segment ring
+// segments are sorted first by start address and then by length, example:
+// start $0400, length $0100
+// start $0401, length $0100
+// start $0401, length $0101
 static void link_segment(intval_t start, intval_t length)
 {
 	struct segment	*new_segment,
@@ -244,8 +258,6 @@ static void link_segment(intval_t start, intval_t length)
 
 
 // check whether given PC is inside segment.
-// only call in first pass, otherwise too many warnings might be thrown
-// FIXME - do it the other way round and only complain if there were no other errors!
 // FIXME - move this fn to its single caller!
 static void check_segment(intval_t new_pc)
 {
@@ -258,10 +270,9 @@ static void check_segment(intval_t new_pc)
 	while (test_segment->start <= new_pc) {
 		if ((test_segment->start + test_segment->length) > new_pc) {
 			// TODO - include overlap size in error message!
-			throw_message(config.debuglevel_segmentprobs, "Segment starts inside another one, overwriting it.", NULL);
-			return;
+			throwsegmentproblem("Segment starts inside another one, overwriting it.");
+			return;	// we found one problem, no need to go on looking for more
 		}
-
 		test_segment = test_segment->next;
 	}
 }
@@ -270,19 +281,33 @@ static void check_segment(intval_t new_pc)
 // called once on startup, inits structs
 void output_init(void)
 {
-	// init ring list of segments (FIXME - move to passinit)
+	// init ring list of segments
 	out->segm.list_head.next = &out->segm.list_head;
 	out->segm.list_head.prev = &out->segm.list_head;
 	// init the one field not initialized by output_passinit:
 	out->needed_bufsize = NO_VALUE_GIVEN;
 }
 
+// helper fn to clear segment list
+static void free_list(struct segment *list_head)
+{
+	struct segment	*next,
+			*tmp;
+
+	next = list_head->next;
+	while (next != list_head) {
+		tmp = next;
+		next = next->next;
+		free(tmp);
+	}
+	// re-init head element
+	list_head->next = list_head;
+	list_head->prev = list_head;
+}
 
 // called before each pass, clears segment list and disables output
 void output_passinit(void)
 {
-	//struct segment	*temp;
-
 	// init output struct:
 	if (pass.flags.generate_output) {
 		// we are supposed to actually generate correct output, so
@@ -316,20 +341,12 @@ void output_passinit(void)
 	out->forced_start_idx = NO_VALUE_GIVEN;
 	out->forced_limit_idx = NO_VALUE_GIVEN;
 	// not in a segment
-	out->segm.start = NO_SEGMENT_START;	// TODO - "no active segment" could be made a segment flag!
+	out->segm.start = NO_VALUE_GIVEN;	// TODO - "no active segment" could be made a segment flag!
 	out->segm.max = OUTBUF_MAXSIZE - 1;
 	out->segm.flags = 0;
-//FIXME - why clear ring list in every pass?
-// Because later pass shouldn't complain about overwriting the same segment from earlier pass!
-// Currently this does not happen because segment warnings are only generated in first pass.
-// FIXME - in future we want to _output_ the errors/warnings in the final pass only,
-// but we need to _check_ for them in every pass because only the results of the second-to-last
-// pass are important. so for the time being, keep this code:
-	// delete segment list (and free blocks)
-//	while ((temp = segment_list)) {
-//		segment_list = segment_list->next;
-//		free(temp);
-//	}
+	// clear list of segments, otherwise most segments would collide with
+	// their older selves from earlier passes:
+	free_list(&out->segm.list_head);
 	// no "encryption":
 	out->xor = 0;
 	// needed size of buffer will be calculated at end of pass, so
@@ -357,13 +374,8 @@ static void end_segment(void)
 {
 	intval_t	amount;
 
-	// only do in first or last pass
-	// FIXME - do the _checking_ in all passes, but only throw errors/warnings in final pass!
-	if (!pass.flags.throw_segment_messages)
-		return;
-
 	// if there is no segment, there is nothing to do
-	if (out->segm.start == NO_SEGMENT_START)
+	if (out->segm.start == NO_VALUE_GIVEN)
 		return;
 
 	// ignore "invisible" segments
@@ -378,26 +390,32 @@ static void end_segment(void)
 	// link to segment list
 	link_segment(out->segm.start, amount);
 	// announce
-	if (config.process_verbosity >= 2)
+	if (pass.flags.is_final_pass && (config.process_verbosity >= 2)) {
 		// TODO - change output to start, limit, size, name:
-		// TODO - output hex numbers as %04x? What about limit 0x10000?
-		printf("Segment size is %d (0x%x) bytes (0x%x - 0x%x exclusive).\n",
+		printf("Segment size is %d (0x%04x) bytes (0x%04x - 0x%04x exclusive).\n",
 			amount, amount, out->segm.start, out->write_idx);
+	}
 }
 
 
 // called after each pass, closes last code segment and calculates outbuffer size
 void output_endofpass(void)
 {
+	intval_t	bufsize;
+
 	// properly finalize previous segment (link to list, announce)
 	end_segment();
 
 	// calculate size of output buffer
 	if (out->highest_written >= out->lowest_written) {
-		out->needed_bufsize = out->highest_written + 1;
+		bufsize = out->highest_written + 1;
 	} else {
-		out->needed_bufsize = NO_VALUE_GIVEN;
+		bufsize = NO_VALUE_GIVEN;
 	}
+	// changing the size counts as a symbol change
+	if (out->needed_bufsize != bufsize)
+		++pass.counters.symbolchanges;
+	out->needed_bufsize = bufsize;
 	//fprintf(stderr, "Need outbuf size of 0x%04x bytes.\n", out->needed_bufsize);
 }
 
@@ -419,12 +437,10 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	out->segm.flags = segment_flags;
 	// allow "writing to buffer" (even though buffer does not really exist until final pass)
 	output_byte = real_output;
-	// in first/last pass, check for other segments and maybe issue warning
-	if (pass.flags.throw_segment_messages) {
-		if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
-			check_segment(out->segm.start);
-		find_segment_max(out->segm.start);
-	}
+	// check for other segments and maybe count/throw warning or error
+	if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
+		check_segment(out->segm.start);
+	find_segment_max(out->segm.start);
 }
 
 
