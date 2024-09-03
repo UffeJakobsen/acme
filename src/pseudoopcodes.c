@@ -23,6 +23,9 @@
 #include "typesystem.h"
 
 
+// TODO - make new, keyword-based argument parser for !bin, !fill and !align
+
+
 // different ways to handle end-of-statement:
 enum eos {
 	SKIP_REMAINDER,		// skip remainder of line - (after errors)

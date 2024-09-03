@@ -180,18 +180,17 @@ static void report_binary(char value)
 }
 
 
-//
-static void border_crossed(int current_offset)
+// complain about reaching another segment
+static void breached_limit(int offending_offset)
 {
 	// FIXME - find a way to make this a normal error instead of a serious one,
 	// so it can be suppressed until we are sure the program won't shrink any
 	// further:
-	if (current_offset >= OUTBUF_MAXSIZE)
+	if (offending_offset >= OUTBUF_MAXSIZE)
 		throw_serious_error("Reached memory limit.");
 	throwsegmentproblem("Segment reached another one, overwriting it.");	// FIXME - add segment name to msg!
-	out->segm.limit = segmentlist_findlimit(&out->segm.list_head, current_offset + 1);	// find new (next) limit
-	// FIXME - the line above adds 1 and the fn adds 1 ->
-	// one address of potential segment start is skipped!
+	// now that we breached the current limit, find the next one
+	out->segm.limit = segmentlist_findlimit(&out->segm.list_head, offending_offset);
 }
 
 
@@ -208,7 +207,7 @@ static void real_output(intval_t byte)
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
 	if (out->write_idx >= out->segm.limit)
-		border_crossed(out->write_idx);
+		breached_limit(out->write_idx);
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
 		out->lowest_written = out->write_idx;
@@ -270,8 +269,16 @@ void output_skip(int size)
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
+// FIXME - this checks whether the final "write that did not really happen"
+// is already in another segment. but it does not check any of those before, and
+// they could also have breached (small) segments. so either check all "writes"
+// or none of them! - atm I prefer "none", because "!skip" does not write...
 	if (out->write_idx + size - 1 >= out->segm.limit)
-		border_crossed(out->write_idx + size - 1);
+		breached_limit(out->write_idx + size - 1);
+
+// FIXME - the checks below do not make sense; why do we treat addresses that
+// were skipped as if they have been written to? if a source ends on "!skip 20",
+// why should those bytes be included in the file?
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
 		out->lowest_written = out->write_idx;
