@@ -16,7 +16,17 @@
 #include "global.h"
 
 
-// types
+// wrapper fn for segment problems -> either warning or error
+static void throwsegmentproblem(const char msg[])
+{
+	if (config.strict_segments)
+		countorthrow_value_error(msg);
+	else
+		throw_finalpass_warning(msg);
+}
+
+
+// segment list stuff:
 
 
 // structure for linked list of segment data
@@ -26,6 +36,98 @@ struct segment {
 	intval_t	start,
 			length;
 };
+
+// init head element of segment list
+static void segmentlist_headinit(struct segment *list_head)
+{
+	list_head->next = list_head;
+	list_head->prev = list_head;
+}
+
+// clear segment list
+static void segmentlist_release(struct segment *list_head)
+{
+	struct segment	*next,
+			*tmp;
+
+	next = list_head->next;
+	while (next != list_head) {
+		tmp = next;
+		next = next->next;
+		free(tmp);
+	}
+	// re-init head element
+	segmentlist_headinit(list_head);
+}
+
+// link segment data into segment list
+// segments are sorted first by start address and then by length, example:
+// start $0400, length $0100
+// start $0401, length $0100
+// start $0401, length $0101
+static void segmentlist_add(struct segment *list_head, intval_t start, intval_t length)
+{
+	struct segment	*new_segment,
+			*test_segment	= list_head->next;
+
+	// init new segment
+	new_segment = safe_malloc(sizeof(*new_segment));
+	new_segment->start = start;
+	new_segment->length = length;
+	// use ring head as sentinel
+	list_head->start = start;
+	list_head->length = length + 1;	// +1 to make sure sentinel exits loop
+	// walk ring to find correct spot
+	while ((test_segment->start < new_segment->start)
+	|| ((test_segment->start == new_segment->start) && (test_segment->length < new_segment->length)))
+		test_segment = test_segment->next;
+	// link into ring
+	new_segment->next = test_segment;
+	new_segment->prev = test_segment->prev;
+	new_segment->next->prev = new_segment;
+	new_segment->prev->next = new_segment;
+}
+
+// check whether given address is inside one of the segments
+static void segmentlist_check(struct segment *list_head, intval_t new_pc)
+{
+	struct segment	*test_segment	= list_head->next;
+
+	// use list head as sentinel
+	list_head->start = new_pc + 1;	// +1 to make sure sentinel exits loop
+	list_head->length = 1;
+	// search ring for matching entry
+	while (test_segment->start <= new_pc) {
+		if ((test_segment->start + test_segment->length) > new_pc) {
+			// TODO - include overlap size in error message!
+			throwsegmentproblem("Segment starts inside another one, overwriting it.");
+			return;	// we found one problem, no need to go on looking for more
+		}
+		test_segment = test_segment->next;
+	}
+}
+
+// return new segment limit value according to the given address.
+// just find the next segment start.
+static intval_t segmentlist_findlimit(struct segment *list_head, intval_t new_pc)
+{
+	struct segment	*test_segment	= list_head->next;
+
+	// search for smallest segment start address that
+	// is larger than given address
+	// use list head as sentinel
+	list_head->start = new_pc + 1;
+	while (test_segment->start <= new_pc)
+		test_segment = test_segment->next;
+	if (test_segment == list_head)
+		return OUTBUF_MAXSIZE;
+	else
+		return test_segment->start;	// next segment limits this one
+}
+
+
+// general output stuff:
+
 
 // structure for all output stuff:
 struct output {
@@ -38,7 +140,7 @@ struct output {
 	intval_t	forced_limit_idx;	// first index to not go into output file
 	struct {
 		intval_t	start;	// start of current segment (or NO_VALUE_GIVEN if none)
-		intval_t	max;	// highest address segment may use	FIXME - try to change max to limit (+1)
+		intval_t	limit;	// first address segment may NOT use
 		bits		flags;	// segment flags ("overlay" and "invisible", see header file)
 		struct segment	list_head;	// head element of doubly-linked ring list
 	} segm;
@@ -78,35 +180,6 @@ static void report_binary(char value)
 }
 
 
-// wrapper fn for segment problems -> either warning or error
-static void throwsegmentproblem(const char msg[])
-{
-	if (config.strict_segments)
-		countorthrow_value_error(msg);
-	else
-		throw_finalpass_warning(msg);
-}
-
-
-// set up new out->segment.max value according to the given address.
-// just find the next segment start and subtract 1.
-static void find_segment_max(intval_t new_pc)
-{
-	struct segment	*test_segment	= out->segm.list_head.next;
-
-	// search for smallest segment start address that
-	// is larger than given address
-	// use list head as sentinel
-	out->segm.list_head.start = new_pc + 1;
-	while (test_segment->start <= new_pc)
-		test_segment = test_segment->next;
-	if (test_segment == &out->segm.list_head)
-		out->segm.max = OUTBUF_MAXSIZE - 1;
-	else
-		out->segm.max = test_segment->start - 1;	// last free address available
-}
-
-
 //
 static void border_crossed(int current_offset)
 {
@@ -116,9 +189,9 @@ static void border_crossed(int current_offset)
 	if (current_offset >= OUTBUF_MAXSIZE)
 		throw_serious_error("Reached memory limit.");
 	throwsegmentproblem("Segment reached another one, overwriting it.");	// FIXME - add segment name to msg!
-	find_segment_max(current_offset + 1);	// find new (next) limit
-	// FIXME - the line above adds 1 and the fn adds 1 -> one address of potential
-	// segment start is skipped!
+	out->segm.limit = segmentlist_findlimit(&out->segm.list_head, current_offset + 1);	// find new (next) limit
+	// FIXME - the line above adds 1 and the fn adds 1 ->
+	// one address of potential segment start is skipped!
 }
 
 
@@ -134,7 +207,7 @@ static void real_output(intval_t byte)
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
-	if (out->write_idx > out->segm.max)
+	if (out->write_idx >= out->segm.limit)
 		border_crossed(out->write_idx);
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
@@ -197,7 +270,7 @@ void output_skip(int size)
 	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
-	if (out->write_idx + size - 1 > out->segm.max)
+	if (out->write_idx + size - 1 >= out->segm.limit)
 		border_crossed(out->write_idx + size - 1);
 	// new minimum address?
 	if (out->write_idx < out->lowest_written)
@@ -228,81 +301,13 @@ void outbuf_set_outfile_limit(void)
 }
 
 
-// link segment data into segment ring
-// segments are sorted first by start address and then by length, example:
-// start $0400, length $0100
-// start $0401, length $0100
-// start $0401, length $0101
-static void link_segment(intval_t start, intval_t length)
-{
-	struct segment	*new_segment,
-			*test_segment	= out->segm.list_head.next;
-
-	// init new segment
-	new_segment = safe_malloc(sizeof(*new_segment));
-	new_segment->start = start;
-	new_segment->length = length;
-	// use ring head as sentinel
-	out->segm.list_head.start = start;
-	out->segm.list_head.length = length + 1;	// +1 to make sure sentinel exits loop
-	// walk ring to find correct spot
-	while ((test_segment->start < new_segment->start)
-	|| ((test_segment->start == new_segment->start) && (test_segment->length < new_segment->length)))
-		test_segment = test_segment->next;
-	// link into ring
-	new_segment->next = test_segment;
-	new_segment->prev = test_segment->prev;
-	new_segment->next->prev = new_segment;
-	new_segment->prev->next = new_segment;
-}
-
-
-// check whether given PC is inside segment.
-// FIXME - move this fn to its single caller!
-static void check_segment(intval_t new_pc)
-{
-	struct segment	*test_segment	= out->segm.list_head.next;
-
-	// use list head as sentinel
-	out->segm.list_head.start = new_pc + 1;	// +1 to make sure sentinel exits loop
-	out->segm.list_head.length = 1;
-	// search ring for matching entry
-	while (test_segment->start <= new_pc) {
-		if ((test_segment->start + test_segment->length) > new_pc) {
-			// TODO - include overlap size in error message!
-			throwsegmentproblem("Segment starts inside another one, overwriting it.");
-			return;	// we found one problem, no need to go on looking for more
-		}
-		test_segment = test_segment->next;
-	}
-}
-
-
 // called once on startup, inits structs
 void output_init(void)
 {
 	// init ring list of segments
-	out->segm.list_head.next = &out->segm.list_head;
-	out->segm.list_head.prev = &out->segm.list_head;
+	segmentlist_headinit(&out->segm.list_head);
 	// init the one field not initialized by output_passinit:
 	out->needed_bufsize = NO_VALUE_GIVEN;
-}
-
-// helper fn to clear segment list
-static void free_list(struct segment *list_head)
-{
-	struct segment	*next,
-			*tmp;
-
-	next = list_head->next;
-	while (next != list_head) {
-		tmp = next;
-		next = next->next;
-		free(tmp);
-	}
-	// re-init head element
-	list_head->next = list_head;
-	list_head->prev = list_head;
 }
 
 // called before each pass, clears segment list and disables output
@@ -342,11 +347,11 @@ void output_passinit(void)
 	out->forced_limit_idx = NO_VALUE_GIVEN;
 	// not in a segment
 	out->segm.start = NO_VALUE_GIVEN;	// TODO - "no active segment" could be made a segment flag!
-	out->segm.max = OUTBUF_MAXSIZE - 1;
+	out->segm.limit = OUTBUF_MAXSIZE;
 	out->segm.flags = 0;
 	// clear list of segments, otherwise most segments would collide with
 	// their older selves from earlier passes:
-	free_list(&out->segm.list_head);
+	segmentlist_release(&out->segm.list_head);
 	// no "encryption":
 	out->xor = 0;
 	// needed size of buffer will be calculated at end of pass, so
@@ -388,7 +393,7 @@ static void end_segment(void)
 		return;
 
 	// link to segment list
-	link_segment(out->segm.start, amount);
+	segmentlist_add(&out->segm.list_head, out->segm.start, amount);
 	// announce
 	if (pass.flags.is_final_pass && (config.process_verbosity >= 2)) {
 		// TODO - change output to start, limit, size, name:
@@ -439,8 +444,8 @@ static void start_segment(intval_t address_change, bits segment_flags)
 	output_byte = real_output;
 	// check for other segments and maybe count/throw warning or error
 	if (!(segment_flags & SEGMENT_FLAG_OVERLAY))
-		check_segment(out->segm.start);
-	find_segment_max(out->segm.start);
+		segmentlist_check(&out->segm.list_head, out->segm.start);
+	out->segm.limit = segmentlist_findlimit(&out->segm.list_head, out->segm.start);
 }
 
 
