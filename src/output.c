@@ -203,7 +203,6 @@ void (*output_byte)(intval_t byte);
 // send low byte to output buffer and remember to later increase program counter
 static void real_output(intval_t byte)
 {
-	// CAUTION - there are two copies of these checks!
 	// TODO - add additional check for current segment's "limit" value
 	// did we reach next segment?
 	if (out->write_idx >= out->segm.limit)
@@ -266,25 +265,11 @@ void output_skip(int size)
 	if (PC_NOT_SET)
 		complain_and_use_dummy_pc();
 
-	// CAUTION - there are two copies of these checks!
-	// TODO - add additional check for current segment's "limit" value
-	// did we reach next segment?
-// FIXME - this checks whether the final "write that did not really happen"
-// is already in another segment. but it does not check any of those before, and
-// they could also have breached (small) segments. so either check all "writes"
-// or none of them! - atm I prefer "none", because "!skip" does not write...
-	if (out->write_idx + size - 1 >= out->segm.limit)
-		breached_limit(out->write_idx + size - 1);
+// removed all address checks because "skip" does not actually write!
+// if a source code starts/ends with "!skip 20", older versions included that
+// part in the output file, which is stupid and contradicts the fact that empty
+// segments at the start/end are not included either!
 
-// FIXME - the checks below do not make sense; why do we treat addresses that
-// were skipped as if they have been written to? if a source ends on "!skip 20",
-// why should those bytes be included in the file?
-	// new minimum address?
-	if (out->write_idx < out->lowest_written)
-		out->lowest_written = out->write_idx;
-	// new maximum address?
-	if (out->write_idx + size - 1 > out->highest_written)
-		out->highest_written = out->write_idx + size - 1;
 	// advance ptrs
 	out->write_idx += size;
 	statement_size += size;	// count bytes so PC will be adjusted correctly after this
