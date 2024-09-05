@@ -21,7 +21,6 @@
 // values for current_input.state
 enum inputstate {
 	INPUTSTATE_SOF,		// start of file (check for BOM and hashbang)
-	INPUTSTATE_BOMKLUGE,	// send second byte of non-BOM and then the byte read from file
 	INPUTSTATE_NORMAL,	// everything's fine
 	INPUTSTATE_AGAIN,	// re-process last byte
 	INPUTSTATE_SKIPBLANKS,	// shrink multiple spaces
@@ -31,6 +30,8 @@ enum inputstate {
 	INPUTSTATE_COMMENT,	// skip characters until newline or EOF
 	INPUTSTATE_EOB,		// send end-of-block after end-of-statement
 	INPUTSTATE_EOF,		// send end-of-file after end-of-statement
+	INPUTSTATE_BOMCHECK,	// first byte in file looks like first byte of BOM
+	INPUTSTATE_BOMFAIL,	// send second byte of non-BOM and then the byte read from file
 };
 
 
@@ -162,6 +163,13 @@ static void report_srcchar(int new_char)
 }
 
 
+// the byte order mark (Unicode code point 0xfeff) becomes 0xef 0xbb 0xbf when
+// encoded in UTF-8. though UTF-8 files no not need any byte order mark, some
+// text editors add it anyway. these definitions are used to ignore it instead
+// of treating it as a label:
+#define UTF8BOM_1ST	0xef
+#define UTF8BOM_2ND	0xbb
+#define UTF8BOM_3RD	0xbf
 // deliver source code from current file (!) in shortened high-level format
 static char get_processed_from_file(void)
 {
@@ -172,33 +180,10 @@ static char get_processed_from_file(void)
 		case INPUTSTATE_SOF:
 			// fetch first byte from the current source file
 			from_file = getc(current_input.u.fd);
-			// check for bogus/malformed BOM (0xef 0xbb 0xbf as UTF-8-encoded 0xfeff)
-			if (from_file == 0xef) {
-				// first byte looks like BOM, so check second:
-				from_file = getc(current_input.u.fd);
-				if (from_file == 0xbb) {
-					// first two bytes look like BOM, so check third:
-					from_file = getc(current_input.u.fd);
-					if (from_file == 0xbf) {
-						// found BOM, so ignore
-						current_input.state = INPUTSTATE_NORMAL;
-						break;
-					} else {
-						// third byte does not match, so return first byte and make sure the others are delivered later
-						IF_WANTED_REPORT_SRCCHAR(0xef);
-						IF_WANTED_REPORT_SRCCHAR(0xbb);
-						IF_WANTED_REPORT_SRCCHAR(from_file);
-						current_input.state = INPUTSTATE_BOMKLUGE;
-						return 0xef;
-					}
-				} else {
-					// second byte does not match, so return first byte and remember to re-process second:
-					IF_WANTED_REPORT_SRCCHAR(0xef);
-					IF_WANTED_REPORT_SRCCHAR(from_file);
-					current_input.state = INPUTSTATE_AGAIN;
-					return 0xef;
-				}
-				BUG("InputBOM", 0);
+			// check for first byte of UTF-8-encoded BOM
+			if (from_file == UTF8BOM_1ST) {
+				current_input.state = INPUTSTATE_BOMCHECK;
+				break;
 			}
 			IF_WANTED_REPORT_SRCCHAR(from_file);
 			// check for hashbang line and ignore
@@ -209,10 +194,6 @@ static char get_processed_from_file(void)
 			}
 			current_input.state = INPUTSTATE_AGAIN;
 			break;
-		case INPUTSTATE_BOMKLUGE:
-			// send second byte of non-BOM and then the byte read from file
-			current_input.state = INPUTSTATE_AGAIN;
-			return 0xbb;
 		case INPUTSTATE_NORMAL:
 			// fetch a fresh byte from the current source file
 			from_file = getc(current_input.u.fd);
@@ -335,6 +316,37 @@ static char get_processed_from_file(void)
 			// deliver EOF
 			current_input.state = INPUTSTATE_NORMAL;
 			return CHAR_EOF;	// end of file
+
+// two cases for BOM:
+		case INPUTSTATE_BOMCHECK:
+			// first byte matches BOM, so check second:
+			from_file = getc(current_input.u.fd);
+			if (from_file != UTF8BOM_2ND) {
+				// second byte does not match, so return first byte and remember to re-process second:
+				IF_WANTED_REPORT_SRCCHAR(UTF8BOM_1ST);
+				IF_WANTED_REPORT_SRCCHAR(from_file);
+				current_input.state = INPUTSTATE_AGAIN;
+				return UTF8BOM_1ST;
+			}
+			// first two bytes match BOM, so check third:
+			from_file = getc(current_input.u.fd);
+			if (from_file != UTF8BOM_3RD) {
+				// third byte does not match, so return first byte and make sure the others are delivered later:
+				IF_WANTED_REPORT_SRCCHAR(UTF8BOM_1ST);
+				IF_WANTED_REPORT_SRCCHAR(UTF8BOM_2ND);
+				IF_WANTED_REPORT_SRCCHAR(from_file);
+				current_input.state = INPUTSTATE_BOMFAIL;	// next time, deliver second byte
+				return UTF8BOM_1ST;
+			}
+			// found three-byte BOM, so ignore by starting normally with next byte:
+			current_input.state = INPUTSTATE_NORMAL;
+			break;
+
+		case INPUTSTATE_BOMFAIL:
+			// third byte did not match BOM. first byte has already been delivered.
+			// deliver second byte and remember to re-process third:
+			current_input.state = INPUTSTATE_AGAIN;	// next time, deliver byte last read
+			return UTF8BOM_2ND;
 
 		default:
 			BUG("StrangeInputMode", current_input.state);
