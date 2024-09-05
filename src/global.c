@@ -617,7 +617,7 @@ void throw_finalpass_warning(const char msg[])
 		throw_warning(msg);
 }
 
-// throw "macro twice" error (FIXME - also use for "symbol twice"!)
+// throw "macro twice"/"symbol twice" error
 // first output error as "error", then location of initial definition as "info"
 void throw_redef_error(const char error_msg[], struct location *old_def, const char info_msg[])
 {

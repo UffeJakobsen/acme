@@ -24,6 +24,15 @@
 
 
 // TODO - make new, keyword-based argument parser for !bin, !fill and !align
+// helper function to support switching from positional arguments to keyword arguments
+static boolean line_uses_keyword_arguments(void)
+{
+	// to be on the safe side, return FALSE if dialect < 0.98!
+	// read line to buffer, check if it begins with '[a-zA-Z]+='
+	// change input to RAM, return result
+	// ...and the caller needs to pass us some struct so it can change input back later on!
+	return FALSE;
+}
 
 
 // different ways to handle end-of-statement:
@@ -525,19 +534,54 @@ static enum eos po_scrxor(void)
 	return SKIP_REMAINDER;
 }
 
+// "backend" function for "!binary"
+static void include_file(FILE *stream, intval_t size, intval_t offset)
+{
+	int	byte,
+		amount;
+
+	// check whether including is a waste of time
+	// FIXME - future changes ("several-projects-at-once")
+	// may be incompatible with this!
+	if ((size >= 0) && (!pass.flags.generate_output)) {
+		output_skip(size);	// really including is useless anyway
+		return;
+	}
+
+	// really insert file
+	fseek(stream, offset, SEEK_SET);	// set read pointer
+	// read "size" bytes. if size is "NO_VALUE_GIVEN" (which is -1),
+	// decrementing it won't give zero, so we'll read until EOF,
+	// which is exactly what we want if no size was given:
+	while (size != 0) {
+		byte = getc(stream);
+		if (byte == EOF)
+			break;
+		output_byte(byte);
+		--size;
+	}
+	// if more should have been read, warn and add padding
+	if (size > 0) {
+		throw_warning("Padding with zeroes.");
+		do {
+			output_byte(0);
+		} while (--size);
+	}
+	// if verbose, produce some output
+	if (config.process_verbosity >= 2) {
+		amount = output_get_statement_size();
+		printf("Loaded %d (0x%04x) bytes from file offset %d (0x%04x).\n",
+			amount, amount, offset, offset);
+	}
+}
 // include binary file ("!binary" pseudo opcode)
-// FIXME - split this into "parser" and "worker" fn and move worker fn somewhere else.
 static enum eos po_binary(void)
 {
 	struct filespecflags	flags;
 	FILE		*stream;
-	int		byte;
-	struct number	size,
-			skip;
-	int		amount;
-
-	size.val.intval = -1;	// means "not given" => "until EOF"
-	skip.val.intval	= 0;
+	struct number	arg;
+	intval_t	size	= NO_VALUE_GIVEN,	// means "until EOF"
+			skip	= 0;
 
 	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&flags))
@@ -548,55 +592,36 @@ static enum eos po_binary(void)
 	if (stream == NULL)
 		return SKIP_REMAINDER;
 
-	// read optional arguments
+	// any more arguments?
 	if (parser_accept_comma()) {
-		// any size given?
-		if ((GotByte != ',') && (GotByte != CHAR_EOS)) {
-			// then parse it
-			ALU_defined_int(&size);
-			if (size.val.intval < 0)
-				throw_serious_error(exception_negative_size);
-		}
-		// more?
-		if (parser_accept_comma()) {
-			// any skip given?
-			if (GotByte != CHAR_EOS) {
-				// then parse it
-				ALU_defined_int(&skip);
+		if (line_uses_keyword_arguments()) {
+			// read keyword arguments
+			// TODO!
+			BUG("KeywordArgsNotYet", 0);
+		} else {
+			// read old-style, positional arguments:
+			if ((GotByte != ',') && (GotByte != CHAR_EOS)) {
+				// first arg is "size"
+				ALU_defined_int(&arg);
+				size = arg.val.intval;
+				// CAUTION: do not move this check elsewhere,
+				// because the default value -1 is ok!
+				if (size < 0)
+					throw_serious_error(exception_negative_size);
+			}
+			// more?
+			if (parser_accept_comma()) {
+				// second arg is "skip"
+				if (GotByte != CHAR_EOS) {
+					// then parse it
+					ALU_defined_int(&arg);
+					skip = arg.val.intval;
+				}
 			}
 		}
 	}
-	// check whether including is a waste of time
-	// FIXME - future changes ("several-projects-at-once")
-	// may be incompatible with this!
-	if ((size.val.intval >= 0) && (!pass.flags.generate_output)) {
-		output_skip(size.val.intval);	// really including is useless anyway
-	} else {
-		// really insert file
-		fseek(stream, skip.val.intval, SEEK_SET);	// set read pointer
-		// if "size" non-negative, read "size" bytes.
-		// otherwise, read until EOF.
-		while (size.val.intval != 0) {
-			byte = getc(stream);
-			if (byte == EOF)
-				break;
-			output_byte(byte);
-			--size.val.intval;
-		}
-		// if more should have been read, warn and add padding
-		if (size.val.intval > 0) {
-			throw_warning("Padding with zeroes.");
-			do {
-				output_byte(0);
-			} while (--size.val.intval);
-		}
-		// if verbose, produce some output
-		if (config.process_verbosity >= 2) {
-			amount = output_get_statement_size();
-			printf("Loaded %d (0x%04x) bytes from file offset %d (0x%04x).\n",
-				amount, amount, skip.val.intval, skip.val.intval);
-		}
-	}
+	// FIXME - add check for "skip" and complain if negative!
+	include_file(stream, size, skip);
 	fclose(stream);
 	return ENSURE_EOS;
 }
@@ -608,9 +633,17 @@ static enum eos po_fill(void)
 	struct number	sizeresult;
 	intval_t	fill	= FILLVALUE_FILL;
 
-	ALU_defined_int(&sizeresult);	// FIXME - forbid addresses!
-	if (parser_accept_comma())
-		ALU_any_int(&fill);	// FIXME - forbid addresses!
+	if (line_uses_keyword_arguments()) {
+		// read keyword arguments
+		// TODO!
+		BUG("KeywordArgsNotYet", 1);
+	} else {
+		// read old-style, positional arguments:
+		ALU_defined_int(&sizeresult);	// FIXME - forbid addresses!
+		if (parser_accept_comma())
+			ALU_any_int(&fill);	// FIXME - forbid addresses!
+	}
+
 	while (sizeresult.val.intval--)
 		output_8(fill);
 	return ENSURE_EOS;
@@ -633,25 +666,34 @@ static enum eos po_skip(void)	// now GotByte = illegal char
 
 
 // insert byte until PC fits condition
+// TODO:
+// now: "!align ANDVALUE, EQUALVALUE [,FILLVALUE]"
+// in future: use keyword arguments so "!align fillvalue=17, blocksize=64" is
+// possible (where blocksize must be a power of two)
 static enum eos po_align(void)
 {
-	struct number	andresult,
-			equalresult;
-	intval_t	fill;
+	struct number	arg;
+	intval_t	andresult,
+			equalresult,
+			fill	= cpu_current_type->default_align_value;
 	struct number	pc;
 
-	// TODO:
-	// now: "!align ANDVALUE, EQUALVALUE [,FILLVALUE]"
-	// in future: "!align BLOCKSIZE" where block size must be a power of two
-	ALU_defined_int(&andresult);	// FIXME - forbid addresses!
-	if (parser_expect(',')) {
-		// fn already does everything for us
+	if (line_uses_keyword_arguments()) {
+		// read keyword arguments
+		// TODO!
+		BUG("KeywordArgsNotYet", 2);
+	} else {
+		// read old-style, positional arguments:
+		ALU_defined_int(&arg);	// FIXME - forbid addresses!
+		andresult = arg.val.intval;
+		if (parser_expect(',')) {
+			// fn already does everything for us
+		}
+		ALU_defined_int(&arg);	// ...allow addresses (unlikely, but possible)
+		equalresult = arg.val.intval;
+		if (parser_accept_comma())
+			ALU_any_int(&fill);
 	}
-	ALU_defined_int(&equalresult);	// ...allow addresses (unlikely, but possible)
-	if (parser_accept_comma())
-		ALU_any_int(&fill);
-	else
-		fill = cpu_current_type->default_align_value;
 
 	// make sure PC is defined
 	programcounter_read_pc(&pc);
@@ -660,7 +702,7 @@ static enum eos po_align(void)
 		return SKIP_REMAINDER;
 	}
 
-	while ((pc.val.intval++ & andresult.val.intval) != equalresult.val.intval)
+	while ((pc.val.intval++ & andresult) != equalresult)
 		output_8(fill);
 	return ENSURE_EOS;
 }

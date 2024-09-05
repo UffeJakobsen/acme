@@ -238,7 +238,7 @@ extern void throw_pass1_warning(const char msg[]);
 // final pass because values might be undefined earlier!)
 extern void throw_finalpass_warning(const char msg[]);
 
-// throw "macro twice" error (FIXME - also use for "symbol twice"!)
+// throw "macro twice"/"symbol twice" error
 // first output error as "error", then location of initial definition as "info"
 extern void throw_redef_error(const char error_msg[], struct location *old_def, const char info_msg[]);
 

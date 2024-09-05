@@ -923,11 +923,10 @@ int input_read_input_filename(struct filespecflags *flags)
 			return 1;	// unterminated or escaping error
 
 		GetByte();	// eat terminator
-// new algo:
+// new algo: (FIXME)
 // it should be possible to construct the name of input file from symbols, so
 // build environments can define a name at one place and use it at another.
 // FIXME - use expression parser to read filename string!
-// see lines 416 and 1317 in pseudoopcodes.c for two more possible callers!
 	}
 
 	// check length, remember abs/rel, unescape, terminate, do platform conversion
