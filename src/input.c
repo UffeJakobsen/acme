@@ -20,7 +20,8 @@
 
 // values for current_input.state
 enum inputstate {
-	INPUTSTATE_SOF,		// start of file (check for hashbang)
+	INPUTSTATE_SOF,		// start of file (check for BOM and hashbang)
+	INPUTSTATE_BOMKLUGE,	// send second byte of non-BOM and then the byte read from file
 	INPUTSTATE_NORMAL,	// everything's fine
 	INPUTSTATE_AGAIN,	// re-process last byte
 	INPUTSTATE_SKIPBLANKS,	// shrink multiple spaces
@@ -161,7 +162,7 @@ static void report_srcchar(int new_char)
 }
 
 
-// Deliver source code from current file (!) in shortened high-level format
+// deliver source code from current file (!) in shortened high-level format
 static char get_processed_from_file(void)
 {
 	static int	from_file	= 0;
@@ -171,8 +172,35 @@ static char get_processed_from_file(void)
 		case INPUTSTATE_SOF:
 			// fetch first byte from the current source file
 			from_file = getc(current_input.u.fd);
+			// check for bogus/malformed BOM (0xef 0xbb 0xbf as UTF-8-encoded 0xfeff)
+			if (from_file == 0xef) {
+				// first byte looks like BOM, so check second:
+				from_file = getc(current_input.u.fd);
+				if (from_file == 0xbb) {
+					// first two bytes look like BOM, so check third:
+					from_file = getc(current_input.u.fd);
+					if (from_file == 0xbf) {
+						// found BOM, so ignore
+						current_input.state = INPUTSTATE_NORMAL;
+						break;
+					} else {
+						// third byte does not match, so return first byte and make sure the others are delivered later
+						IF_WANTED_REPORT_SRCCHAR(0xef);
+						IF_WANTED_REPORT_SRCCHAR(0xbb);
+						IF_WANTED_REPORT_SRCCHAR(from_file);
+						current_input.state = INPUTSTATE_BOMKLUGE;
+						return 0xef;
+					}
+				} else {
+					// second byte does not match, so return first byte and remember to re-process second:
+					IF_WANTED_REPORT_SRCCHAR(0xef);
+					IF_WANTED_REPORT_SRCCHAR(from_file);
+					current_input.state = INPUTSTATE_AGAIN;
+					return 0xef;
+				}
+				BUG("InputBOM", 0);
+			}
 			IF_WANTED_REPORT_SRCCHAR(from_file);
-			//TODO - check for bogus/malformed BOM (0xef 0xbb 0xbf as UTF-8-encoded 0xfeff) and ignore?
 			// check for hashbang line and ignore
 			if (from_file == '#') {
 				// remember to skip remainder of line
@@ -181,6 +209,10 @@ static char get_processed_from_file(void)
 			}
 			current_input.state = INPUTSTATE_AGAIN;
 			break;
+		case INPUTSTATE_BOMKLUGE:
+			// send second byte of non-BOM and then the byte read from file
+			current_input.state = INPUTSTATE_AGAIN;
+			return 0xbb;
 		case INPUTSTATE_NORMAL:
 			// fetch a fresh byte from the current source file
 			from_file = getc(current_input.u.fd);
