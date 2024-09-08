@@ -418,15 +418,8 @@ static void parse_quoted(char closing_quote)
 {
 	intval_t	value;
 
-	dynabuf_clear(GlobalDynaBuf);
-	if (input_quoted_to_dynabuf(closing_quote))
+	if (input_read_string(closing_quote))
 		goto fail;	// unterminated or escaping error
-
-	// eat closing quote
-	GetByte();
-	// now convert to unescaped version
-	if (input_unescape_dynabuf())
-		goto fail;	// escaping error
 
 	// without backslash escaping, both ' and " are used for single
 	// characters.

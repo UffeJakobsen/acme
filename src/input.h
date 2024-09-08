@@ -71,13 +71,13 @@ extern void parser_skip_remainder(void);
 // after mnemonics using implied addressing.
 extern void parser_ensure_EOS(void);
 
-// read string to dynabuf until closing quote is found
-// returns 1 on errors (unterminated, escaping error)
-extern int input_quoted_to_dynabuf(char closing_quote);
+// clear dynabuf, read string to it until closing quote is found, then process
+// backslash escapes (so size might shrink)
+// returns 1 on error (unterminated or escaping errors)
+extern int input_read_string(char closing_quote);
 
-// process backslash escapes in GlobalDynaBuf (so size might shrink)
-// returns 1 on errors (escaping errors)
-extern int input_unescape_dynabuf(void);
+// clear dynabuf, read remainder of statement into it, making sure to keep quoted stuff intact
+extern void input_read_statement(char terminator);
 
 // Skip block (starting with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,

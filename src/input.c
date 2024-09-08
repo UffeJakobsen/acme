@@ -459,7 +459,7 @@ fail:
 
 // This function delivers the next byte from the currently active byte source
 // in shortened high-level format. FIXME - use fn ptr?
-// When inside quotes, use input_quoted_to_dynabuf() instead!
+// do not use inside quotes!
 // CAUTION, symbol substitutions cause this fn to be called recursively!
 char GetByte(void)
 {
@@ -569,23 +569,6 @@ static void get_quoted_byte(void)
 		throw_error("Quotes still open at end of line.");
 }
 
-// skip remainder of statement, for example on error
-void parser_skip_remainder(void)
-{
-	// read characters until end-of-statement, but check for quotes,
-	// otherwise this might treat a quoted colon like EOS!
-	dynabuf_clear(GlobalDynaBuf);
-	while (GotByte != CHAR_EOS) {
-		// check for quotes
-		if ((GotByte == '"') || (GotByte == '\'')) {
-			if (input_quoted_to_dynabuf(GotByte))
-				break;	// error (CHAR_EOS before closing quote)
-		}
-		GetByte();
-	}
-	dynabuf_clear(GlobalDynaBuf);
-}
-
 // ensure that the remainder of the current statement is empty, for example
 // after mnemonics using implied addressing.
 void parser_ensure_EOS(void)	// now GotByte = first char to test
@@ -605,8 +588,8 @@ void parser_ensure_EOS(void)	// now GotByte = first char to test
 }
 
 // read string to dynabuf until closing quote is found
-// returns 1 on errors (unterminated, escaping error)
-int input_quoted_to_dynabuf(char closing_quote)
+// returns 1 on error (unterminated)
+static int quoted_to_dynabuf(char closing_quote)
 {
 	boolean	escaped	= FALSE;
 
@@ -617,14 +600,15 @@ int input_quoted_to_dynabuf(char closing_quote)
 			return 1;	// unterminated string constant; get_quoted_byte will have complained already
 
 		if (escaped) {
-			// previous byte was backslash, so do not check for terminator nor backslash
+			// previous byte was backslash, so do not check for closing quote nor backslash
 			escaped = FALSE;
-			// do not actually _convert_ escape sequences to their target byte, that is done by input_unescape_dynabuf() below!
+			// do not actually _convert_ escape sequences, that is
+			// done in input_read_string() below!
 			// TODO - but maybe check for illegal escape sequences?
 			// at the moment checking is only done when the string
 			// gets used for something...
 		} else {
-			// non-escaped: only terminator and backslash are of interest
+			// non-escaped: only closing quote and backslash are of interest
 			if (GotByte == closing_quote)
 				return 0;	// ok
 
@@ -635,19 +619,28 @@ int input_quoted_to_dynabuf(char closing_quote)
 	}
 }
 
-// process backslash escapes in GlobalDynaBuf (so size might shrink)
-// returns 1 on errors (escaping errors)
-// TODO - check: if this is only ever called directly after input_quoted_to_dynabuf, integrate that call here?
-int input_unescape_dynabuf(void)
+// clear dynabuf, read string to it until closing quote is found, then
+// process backslash escapes (so size might shrink)
+// returns 1 on error (unterminated or escaping error)
+int input_read_string(char closing_quote)
 {
-	int	read_index	= 0,
-		write_index	= 0;
+	int	read_index,
+		write_index;
 	char	byte;
 	boolean	escaped;
 
-	if (config.dialect < V0_97__BACKSLASH_ESCAPING)
-		return 0;	// ok
+	dynabuf_clear(GlobalDynaBuf);
+	if (quoted_to_dynabuf(closing_quote))
+		return 1;	// unterminated
 
+	// eat closing quote
+	GetByte();
+// now un-escape dynabuf contents:
+	if (config.dialect < V0_97__BACKSLASH_ESCAPING)
+		return 0;	// ok (no escaping anyway)
+
+	read_index = 0;
+	write_index = 0;
 	escaped = FALSE;
 	// CAUTION - contents of dynabuf are not terminated:
 	while (read_index < GlobalDynaBuf->size) {
@@ -690,6 +683,47 @@ int input_unescape_dynabuf(void)
 	return 0;	// ok
 }
 
+
+// skip remainder of statement, for example on error
+// FIXME - compare to fn below! merge?
+void parser_skip_remainder(void)
+{
+	// read characters until end-of-statement, but check for quotes,
+	// otherwise this might treat a quoted colon like EOS!
+	dynabuf_clear(GlobalDynaBuf);
+	while (GotByte != CHAR_EOS) {
+		// check for quotes
+		if ((GotByte == '"') || (GotByte == '\'')) {
+			if (quoted_to_dynabuf(GotByte))
+				break;	// error (CHAR_EOS before closing quote)
+		}
+		GetByte();
+	}
+	dynabuf_clear(GlobalDynaBuf);
+}
+
+// clear dynabuf, read remainder of statement into it, making sure to keep quoted stuff intact
+void input_read_statement(char terminator)
+{
+	int	err;
+
+	SKIPSPACE();
+	dynabuf_clear(GlobalDynaBuf);
+	while ((GotByte != terminator) && (GotByte != CHAR_EOS)) {
+		// append to GlobalDynaBuf and check for quotes
+		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
+		if ((GotByte == '"') || (GotByte == '\'')) {
+			err = quoted_to_dynabuf(GotByte);
+			// here GotByte changes, it might become CHAR_EOS
+			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add closing quotes (or CHAR_EOS) as well
+			if (err)
+				break;	// on error, exit before eating CHAR_EOS via GetByte()
+		}
+		GetByte();
+	}
+	dynabuf_append(GlobalDynaBuf, CHAR_EOS);	// ensure terminator
+}
+
 // Read block into GlobalDynabuf
 // (reading starts with next byte, so call directly after reading opening brace).
 // After calling this function, GotByte holds '}'. Unless EOF was found first,
@@ -716,7 +750,7 @@ static void block_to_dynabuf(void)
 
 		case '"':	// Quotes? Okay, read quoted stuff.
 		case '\'':
-			input_quoted_to_dynabuf(byte);
+			quoted_to_dynabuf(byte);
 			DYNABUF_APPEND(GlobalDynaBuf, GotByte);	// add closing quote
 			break;
 		case CHAR_SOB:
@@ -870,10 +904,6 @@ static int read_filename_shared_end(boolean *absolute)
 		return 1;	// error
 	}
 
-	// resolve backslash escapes
-	if (input_unescape_dynabuf())
-		return 1;	// escaping error
-
 	// terminate string
 	dynabuf_append(GlobalDynaBuf, '\0');
 	// add another zero byte to make sure the buffer is large enough so the
@@ -900,16 +930,14 @@ static int read_filename_shared_end(boolean *absolute)
 // parser_skip_remainder() then.
 int input_read_input_filename(struct filespecflags *flags)
 {
-	dynabuf_clear(GlobalDynaBuf);
 	SKIPSPACE();
 	if (GotByte == '<') {
 		// library access:
 		flags->uses_lib = TRUE;
 		// read file name string (must be a single string <literal>)
-		if (input_quoted_to_dynabuf('>'))
+		if (input_read_string('>'))
 			return 1;	// unterminated or escaping error
 
-		GetByte();	// eat '>' terminator
 	} else {
 		// "normal", non-library access:
 		flags->uses_lib = FALSE;
@@ -919,17 +947,16 @@ int input_read_input_filename(struct filespecflags *flags)
 			return 1;	// error
 		}
 		// read file name string
-		if (input_quoted_to_dynabuf('"'))
+		if (input_read_string('"'))
 			return 1;	// unterminated or escaping error
 
-		GetByte();	// eat terminator
 // new algo: (FIXME)
 // it should be possible to construct the name of input file from symbols, so
 // build environments can define a name at one place and use it at another.
 // FIXME - use expression parser to read filename string!
 	}
 
-	// check length, remember abs/rel, unescape, terminate, do platform conversion
+	// check length, remember abs/rel, terminate, do platform conversion
 	return read_filename_shared_end(&flags->absolute);
 }
 
@@ -1045,15 +1072,16 @@ int input_read_output_filename(void)
 		throw_error("File name quotes not found (\"\").");
 		return 1;	// error
 	}
-	dynabuf_clear(GlobalDynaBuf);
-	// read file name string (must be a single string literal! do not change this!)
-	if (input_quoted_to_dynabuf('"'))
+	// read file name string (must be a single string literal! do not call
+	// the expression parser instead; run-time-determined file names should
+	// only be possible for input files. dear reader, please do not abuse
+	// the symbol expansion mechanism for this purpose :D)
+	if (input_read_string('"'))
 		return 1;	// unterminated or escaping error
 
-	GetByte();	// eat terminator
-	// check length, remember abs/rel, unescape, terminate, do platform conversion:
+	// check length, remember abs/rel, terminate, do platform conversion:
 	if (read_filename_shared_end(&absolute))
-		return 1;	// empty string or escaping error
+		return 1;	// empty string
 
 	if (absolute) {
 		// keep file name as it is

@@ -470,23 +470,18 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 	// make given encoder the current one (for ALU-parsed values)
 	encoder_current = inner_encoder;
 	do {
-		// we need to keep the old string handler code, because if user selects
-		// older dialect, the new code will complain about string lengths > 1!
+		// we need to keep the old code for handling string literals,
+		// because if the user chooses a dialect < 0.97, the new code in
+		// the expression parser will complain about strings longer than
+		// one character -> string literals in old sources would stop to
+		// work!
+		// FIXME - there is another block like this, scan for ROOSTA!
 		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
 			// the old way of handling string literals:
 			int	offset;
 
-			dynabuf_clear(GlobalDynaBuf);
-			if (input_quoted_to_dynabuf('"'))
-				return SKIP_REMAINDER;	// unterminated or escaping error
-
-			// eat closing quote
-			GetByte();
-			// now convert to unescaped version
-			// FIXME - next call does nothing because wanted<escaping!
-			// FIXME - there is another block like this, scan for ROOSTA!
-			if (input_unescape_dynabuf())
-				return SKIP_REMAINDER;	// escaping error
+			if (input_read_string('"'))
+				return SKIP_REMAINDER;	// unterminated or escaping errors
 
 			// send characters
 			for (offset = 0; offset < GlobalDynaBuf->size; ++offset)
@@ -1363,23 +1358,20 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 	dynabuf_clear(user_message);
 	dynabuf_add_string(user_message, prefix);
 	do {
+		// we need to keep the old code for handling string literals,
+		// because if the user chooses a dialect < 0.97, the new code in
+		// the expression parser will complain about strings longer than
+		// one character -> string literals in old sources would stop to
+		// work!
+		// FIXME - there is another block like this, scan for ROOSTA!
 		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
-			dynabuf_clear(GlobalDynaBuf);
-			if (input_quoted_to_dynabuf('"'))
-				return SKIP_REMAINDER;	// unterminated or escaping error
-
-			// eat closing quote
-			GetByte();
-			// now convert to unescaped version
-			// FIXME - next call does nothing because wanted<escaping!
-			// FIXME - there is another block like this, scan for ROOSTA!
-			if (input_unescape_dynabuf())
-				return SKIP_REMAINDER;	// escaping error
+			if (input_read_string('"'))
+				return SKIP_REMAINDER;	// unterminated or escaping errors
 
 			dynabuf_append(GlobalDynaBuf, '\0');	// terminate string
 			dynabuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
 		} else {
-			// parse value
+			// handle everything else (also strings in newer dialects):
 			ALU_any_result(&object);
 			object.type->print(&object, user_message);
 		}
