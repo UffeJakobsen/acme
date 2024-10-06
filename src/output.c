@@ -219,6 +219,7 @@ static void real_output(intval_t byte)
 	// write byte to output buffer
 	if (out->buffer) {
 		if (out->write_idx >= out->needed_bufsize) {
+//fprintf(stderr, "write idx=0x%x, needed bufsize=0x%x\n", out->write_idx, out->needed_bufsize);
 			throw_serious_error("Output buffer overrun.");
 			// FIXME - change this to BUG and add code to make sure it does not happen!
 			// or maybe at least enlarge the buffer by 16 bytes and place a canary in

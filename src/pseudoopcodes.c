@@ -538,7 +538,8 @@ static void include_file(FILE *stream, intval_t size, intval_t offset)
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-	if ((size >= 0) && (!pass.flags.generate_output)) {
+// disabled this for now because of bug report (ticket #25):
+	if (0) {//(size >= 0) && (!pass.flags.generate_output)) {
 		output_skip(size);	// really including is useless anyway
 		return;
 	}
