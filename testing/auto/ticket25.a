@@ -1,0 +1,6 @@
+;ACME 0.97
+; regression test for bug introduced in r419 (fixed in r424, see ticket #25):
+	*=$1000
+		rts
+
+	!bin "/dev/null", 32000
