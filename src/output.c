@@ -250,8 +250,7 @@ static void no_output(intval_t byte)
 
 
 // skip over some bytes in output buffer without starting a new segment
-// (used by "!skip", and also called by "!binary" if really calling
-// output_byte would be a waste of time)
+// (used by "!skip")
 void output_skip(int size)
 {
 	if (size < 1) {

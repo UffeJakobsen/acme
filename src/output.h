@@ -29,8 +29,7 @@ extern void output_passinit(void);
 extern void output_endofpass(void);
 
 // skip over some bytes in output buffer without starting a new segment
-// (used by "!skip", and also called by "!binary" if really calling
-// output_byte would be a waste of time)
+// (used by "!skip")
 extern void output_skip(int size);
 
 // send low byte of arg to output buffer and advance pointer

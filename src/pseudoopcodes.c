@@ -538,9 +538,14 @@ static void include_file(FILE *stream, intval_t size, intval_t offset)
 	// check whether including is a waste of time
 	// FIXME - future changes ("several-projects-at-once")
 	// may be incompatible with this!
-// disabled this for now because of bug report (ticket #25):
-	if (0) {//(size >= 0) && (!pass.flags.generate_output)) {
-		output_skip(size);	// really including is useless anyway
+	if ((size >= 0) && (!pass.flags.generate_output)) {
+		// no need to read actual data from file, so use zeroes instead.
+		// do not call output_skip()! we want this area to be included
+		// when calculating outbuf size, even if at start/end!
+		while (size != 0) {
+			output_byte(0);
+			--size;
+		}
 		return;
 	}
 
