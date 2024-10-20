@@ -418,7 +418,7 @@ static void parse_quoted(char closing_quote)
 {
 	intval_t	value;
 
-	if (input_read_string(closing_quote))
+	if (input_read_string_literal(closing_quote))
 		goto fail;	// unterminated or escaping error
 
 	// without backslash escaping, both ' and " are used for single

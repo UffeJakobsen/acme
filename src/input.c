@@ -593,7 +593,7 @@ static int quoted_to_dynabuf(char closing_quote)
 {
 	boolean	escaped	= FALSE;
 
-	//dynabuf_clear(GlobalDynaBuf);	// do not clear, caller might want to append to existing contents (TODO - check!)
+	//dynabuf_clear(GlobalDynaBuf);	// do not clear, some callers want to append to existing contents!
 	for (;;) {
 		get_quoted_byte();
 		if (GotByte == CHAR_EOS)
@@ -603,7 +603,7 @@ static int quoted_to_dynabuf(char closing_quote)
 			// previous byte was backslash, so do not check for closing quote nor backslash
 			escaped = FALSE;
 			// do not actually _convert_ escape sequences, that is
-			// done in input_read_string() below!
+			// done in input_read_string_literal() below!
 			// TODO - but maybe check for illegal escape sequences?
 			// at the moment checking is only done when the string
 			// gets used for something...
@@ -622,7 +622,7 @@ static int quoted_to_dynabuf(char closing_quote)
 // clear dynabuf, read string to it until closing quote is found, then
 // process backslash escapes (so size might shrink)
 // returns 1 on error (unterminated or escaping error)
-int input_read_string(char closing_quote)
+int input_read_string_literal(char closing_quote)
 {
 	int	read_index,
 		write_index;
@@ -925,9 +925,10 @@ static int read_filename_shared_end(boolean *absolute)
 // flags for "library access" and "absolute path" will be set accordingly.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
-// Errors are handled and reported, but caller should call
-// parser_skip_remainder() then.
+// on success, returns zero. filename is in GlobalDynaBuf, caller should then
+//	call includepaths_open_ro().
+// on error, returns nonzero. errors are handled and reported, but caller should
+//	then call parser_skip_remainder().
 int input_read_input_filename(struct filespecflags *flags)
 {
 	SKIPSPACE();
@@ -935,7 +936,7 @@ int input_read_input_filename(struct filespecflags *flags)
 		// library access:
 		flags->uses_lib = TRUE;
 		// read file name string (must be a single string <literal>)
-		if (input_read_string('>'))
+		if (input_read_string_literal('>'))
 			return 1;	// unterminated or escaping error
 
 	} else {
@@ -947,7 +948,7 @@ int input_read_input_filename(struct filespecflags *flags)
 			return 1;	// error
 		}
 		// read file name string
-		if (input_read_string('"'))
+		if (input_read_string_literal('"'))
 			return 1;	// unterminated or escaping error
 
 // new algo: (FIXME)
@@ -1049,16 +1050,16 @@ static void default_path_to_pathbuf(void)
 	}
 }
 
-// try to read a file name for an output file.
+// try to read a file name for an output file ("!to" and "!sl" only).
 // library access by using <...> quoting is forbidden.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
-// Errors are handled and reported, but caller should call
-// parser_skip_remainder() then.
-//
-// this is only used for "!to" and "!sl", i.e. output file names. these
-// must be given as a literal string, and it should be kept this way.
+// on success, returns zero. filename is in GlobalDynaBuf, caller should then
+//	make a copy to pass it to fopen() later on.
+// on error, returns nonzero. errors are handled and reported, but caller should
+//	then call parser_skip_remainder().
+// FIXME - the name suggests this fn reads "the" output filename, but it only
+// reads "an" output filename: either symbollist or the real output file.
 int input_read_output_filename(void)
 {
 	boolean	absolute;
@@ -1072,11 +1073,12 @@ int input_read_output_filename(void)
 		throw_error("File name quotes not found (\"\").");
 		return 1;	// error
 	}
-	// read file name string (must be a single string literal! do not call
-	// the expression parser instead; run-time-determined file names should
-	// only be possible for input files. dear reader, please do not abuse
-	// the symbol expansion mechanism for this purpose :D)
-	if (input_read_string('"'))
+// in the past, output filenames had to be given as literals and could not be
+// created dynamically at runtime. because this "security feature" can now be
+// circumvented using the symbol expansion mechanism, it does not make sense to
+// keep it: it would only add complexity.
+// FIXME!
+	if (input_read_string_literal('"'))
 		return 1;	// unterminated or escaping error
 
 	// check length, remember abs/rel, terminate, do platform conversion:

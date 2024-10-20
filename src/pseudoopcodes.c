@@ -480,7 +480,7 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 			// the old way of handling string literals:
 			int	offset;
 
-			if (input_read_string('"'))
+			if (input_read_string_literal('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping errors
 
 			// send characters
@@ -1371,7 +1371,7 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 		// work!
 		// FIXME - there is another block like this, scan for ROOSTA!
 		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
-			if (input_read_string('"'))
+			if (input_read_string_literal('"'))
 				return SKIP_REMAINDER;	// unterminated or escaping errors
 
 			dynabuf_append(GlobalDynaBuf, '\0');	// terminate string

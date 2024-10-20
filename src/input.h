@@ -74,7 +74,7 @@ extern void parser_ensure_EOS(void);
 // clear dynabuf, read string to it until closing quote is found, then process
 // backslash escapes (so size might shrink)
 // returns 1 on error (unterminated or escaping errors)
-extern int input_read_string(char closing_quote);
+extern int input_read_string_literal(char closing_quote);
 
 // clear dynabuf, read remainder of statement into it, making sure to keep quoted stuff intact
 extern void input_read_statement(char terminator);
@@ -119,18 +119,20 @@ extern int parser_read_and_lower_keyword(void);
 // flags for "library access" and "absolute path" will be set accordingly.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
-// Errors are handled and reported, but caller should call
-// parser_skip_remainder() then.
+// on success, returns zero. filename is in GlobalDynaBuf, caller should then
+//	call includepaths_open_ro().
+// on error, returns nonzero. errors are handled and reported, but caller should
+//	then call parser_skip_remainder().
 extern int input_read_input_filename(struct filespecflags *flags);
 
 // try to read a file name for an output file ("!to" and "!sl" only).
 // library access by using <...> quoting is forbidden.
 // The file name given in the assembler source code is converted from
 // UNIX style to platform style.
-// Returns nonzero on error. Filename in GlobalDynaBuf.
-// Errors are handled and reported, but caller should call
-// parser_skip_remainder() then.
+// on success, returns zero. filename is in GlobalDynaBuf, caller should then
+//	make a copy to pass it to fopen() later on.
+// on error, returns nonzero. errors are handled and reported, but caller should
+//	then call parser_skip_remainder().
 // FIXME - the name suggests this fn reads "the" output filename, but it only
 // reads "an" output filename: either symbollist or the real output file.
 extern int input_read_output_filename(void);
