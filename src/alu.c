@@ -416,21 +416,27 @@ static void string_prepare_string(struct object *self, int len)
 // characters will be converted using the current encoding, strings are kept as-is.
 static void parse_quoted(char closing_quote)
 {
+	boolean		is_string;
 	intval_t	value;
 
 	if (input_read_string_literal(closing_quote))
 		goto fail;	// unterminated or escaping error
 
-	// without backslash escaping, both ' and " are used for single
-	// characters.
-	// with backslash escaping, ' is for characters and " is for strings:
-	if ((closing_quote == '"') && (config.dialect >= V0_97__BACKSLASH_ESCAPING)) {
-		// string //////////////////////////////////
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		// since version 0.97, 'x' means character code and "x" means string:
+		is_string = (closing_quote == '"');
+	} else {
+		// older versions did not support strings, both types of quotes were treated the same:
+		is_string = FALSE;
+	}
+
+	if (is_string) {
 		string_prepare_string(&arg_stack[arg_sp], GlobalDynaBuf->size);	// create string object and put on arg stack
 		memcpy(arg_stack[arg_sp].u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);	// copy payload
 		++arg_sp;
 	} else {
-		// single character ////////////////////////
+		// character code:
+
 		// too short?
 		if (GlobalDynaBuf->size == 0) {
 			throw_error(exception_missing_string);
@@ -846,9 +852,13 @@ static void push_dyadic_and_check(struct expression *expression, struct op *op)
 
 		// if priorities are the same, check associativity:
 		if ((PREVIOUS_OPERATOR->priority == NEWEST_OPERATOR->priority)
-		&& (NEWEST_OPERATOR->priority == PRIO_POWEROF)
-		&& (config.dialect >= V0_94_6__RIGHT_ASSOC_POWER))
-			return;
+		&& (NEWEST_OPERATOR->priority == PRIO_POWEROF)) {
+			if (config.dialect >= V0_94_6__RIGHT_ASSOC_POWER) {
+				return;	// since 0.94.6, "power of" operator is right-associative, so we cannot do the lefthand operation yet
+			} else {
+				// in older versions, it was left-associative, so we go on
+			}
+		}
 
 		// ok, so now perform operation indicated by previous operator!
 		switch (PREVIOUS_OPERATOR->group) {

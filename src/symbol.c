@@ -171,9 +171,15 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 			redefined = symbol->object.type->assign(&symbol->object, new_value, !!(powers & POWER_CHANGE_VALUE));
 			if (redefined) {
 				// do we accept re-definitions without "!set"?
-				if ((config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) && (symbol->pass_number != pass.number)) {
-					++pass.counters.symbolchanges;
+				if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
+					// since version 0.98 new passes can assign new values:
+					if (symbol->pass_number != pass.number) {
+						++pass.counters.symbolchanges;
+					} else {
+						throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
+					}
 				} else {
+					// older versions complained about _all_ re-definitions:
 					throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
 				}
 			}

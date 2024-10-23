@@ -666,9 +666,9 @@ void countorthrow_value_error(const char *msg)
 	boolean	complain;
 
 	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE)
-		complain = pass.flags.throw_all_errors;
+		complain = pass.flags.throw_all_errors;	// since 0.98, "value errors" are only thrown if pass flag is set
 	else
-		complain = TRUE;	// mimic the old behavior
+		complain = TRUE;	// in earlier versions they were always thrown
 
 	if (complain)
 		throw_error(msg);

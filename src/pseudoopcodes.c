@@ -124,8 +124,11 @@ static enum eos po_to(void)
 		}
 	} else {
 		// no comma: complain unless user requested really old behaviour
-		if (config.dialect >= V0_86__DEPRECATE_REALPC)
+		if (config.dialect >= V0_86__DEPRECATE_REALPC) {
 			throw_warning("Used \"!to\" without file format indicator.");
+		} else {
+			// older versions did not complain
+		}
 		// default to cbm
 		format = OUTFILE_FORMAT_CBM;
 	}
@@ -463,38 +466,42 @@ static enum eos encode_string(const struct encoder *inner_encoder, unsigned char
 	const struct encoder	*outer_encoder	= encoder_current;	// buffer encoder
 	struct iter_context	iter;
 	struct object		object;
+	int			offset;
 
 	iter.fn = output_8;
 	iter.accept_long_strings = TRUE;
 	iter.stringxor = xor;
-	// make given encoder the current one (for ALU-parsed values)
+	// make given encoder the current one (for ALU-parsed values of character codes)
 	encoder_current = inner_encoder;
-	do {
-		// we need to keep the old code for handling string literals,
-		// because if the user chooses a dialect < 0.97, the new code in
-		// the expression parser will complain about strings longer than
-		// one character -> string literals in old sources would stop to
-		// work!
-		// FIXME - there is another block like this, scan for ROOSTA!
-		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
-			// the old way of handling string literals:
-			int	offset;
-
-			if (input_read_string_literal('"'))
-				return SKIP_REMAINDER;	// unterminated or escaping errors
-
-			// send characters
-			for (offset = 0; offset < GlobalDynaBuf->size; ++offset)
-				output_8(xor ^ encoding_encode_char(GLOBALDYNABUF_CURRENT[offset]));
-		} else {
-			// handle everything else (also strings in newer dialects):
-			// parse value. no problems with single characters because the
-			// current encoding is temporarily set to the given one.
+	// algo depends on dialect:
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		// since v0.97 the expression parser supports strings, so we pass all args to it:
+		do {
 			ALU_any_result(&object);
 			output_object(&object, &iter);
-		}
-	} while (parser_accept_comma());
-	encoder_current = outer_encoder;	// reactivate buffered encoder
+		} while (parser_accept_comma());
+	} else {
+		// in older versions the expression parser complained about
+		// strings longer than one character, so we assumed everything
+		// starting with a doublequote is a string literal and handled
+		// those separately:
+		do {
+			if (GotByte == '"') {
+				// string literal
+				if (input_read_string_literal('"'))
+					break;	// unterminated
+				// send characters
+				for (offset = 0; offset < GlobalDynaBuf->size; ++offset)
+					output_8(xor ^ encoding_encode_char(GLOBALDYNABUF_CURRENT[offset]));
+			} else {
+				// everything else is passed to expression parser:
+				ALU_any_result(&object);
+				output_object(&object, &iter);
+			}
+		} while (parser_accept_comma());
+	}
+	// reactivate buffered encoder:
+	encoder_current = outer_encoder;
 	return ENSURE_EOS;
 }
 // insert text string (default format)
@@ -1107,7 +1114,10 @@ static enum eos po_for(void)	// now GotByte = illegal char
 		if (parser_accept_comma()) {
 			// new counter syntax
 			loop.algorithm = FORALGO_NEWCOUNT;
-			if (config.dialect < V0_94_12__NEW_FOR_SYNTAX) {
+			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX) {
+				// version 0.94.12 introduced the new syntax,
+			} else {
+				// so if user chooses an older dialect, warn about the new syntax:
 				throw_finalpass_warning("Found new \"!for\" syntax.");
 			}
 			loop.u.counter.first = intresult.val.intval;	// use first argument
@@ -1131,6 +1141,7 @@ static enum eos po_for(void)	// now GotByte = illegal char
 			// old counter syntax
 			loop.algorithm = FORALGO_OLDCOUNT;
 			if (config.dialect >= V0_94_12__NEW_FOR_SYNTAX) {
+				// version 0.94.12 introduced the new syntax, so warn when encountering the old one:
 				throw_finalpass_warning("Found old \"!for\" syntax.");
 			}
 			if (intresult.val.intval < 0) {
@@ -1363,25 +1374,32 @@ static enum eos throw_src_string(enum debuglevel level, const char prefix[])
 
 	dynabuf_clear(user_message);
 	dynabuf_add_string(user_message, prefix);
-	do {
-		// we need to keep the old code for handling string literals,
-		// because if the user chooses a dialect < 0.97, the new code in
-		// the expression parser will complain about strings longer than
-		// one character -> string literals in old sources would stop to
-		// work!
-		// FIXME - there is another block like this, scan for ROOSTA!
-		if ((GotByte == '"') && (config.dialect < V0_97__BACKSLASH_ESCAPING)) {
-			if (input_read_string_literal('"'))
-				return SKIP_REMAINDER;	// unterminated or escaping errors
-
-			dynabuf_append(GlobalDynaBuf, '\0');	// terminate string
-			dynabuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
-		} else {
-			// handle everything else (also strings in newer dialects):
+	// algo depends on dialect:
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		// since v0.97 the expression parser supports strings, so we pass all args to it:
+		do {
 			ALU_any_result(&object);
 			object.type->print(&object, user_message);
-		}
-	} while (parser_accept_comma());
+		} while (parser_accept_comma());
+	} else {
+		// in older versions the expression parser complained about
+		// strings longer than one character, so we assumed everything
+		// starting with a doublequote is a string literal and handled
+		// those separately:
+		do {
+			if (GotByte == '"') {
+				// string literal
+				if (input_read_string_literal('"'))
+					break;	// unterminated
+				dynabuf_append(GlobalDynaBuf, '\0');	// terminate string
+				dynabuf_add_string(user_message, GLOBALDYNABUF_CURRENT);	// add to message
+			} else {
+				// everything else is passed to expression parser:
+				ALU_any_result(&object);
+				object.type->print(&object, user_message);
+			}
+		} while (parser_accept_comma());
+	}
 	dynabuf_append(user_message, '\0');
 	throw_message(level, user_message->buffer, NULL);
 	return ENSURE_EOS;

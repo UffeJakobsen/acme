@@ -721,37 +721,39 @@ static bits calc_arg_size(bits force_bit, struct number *argument, bits addressi
 
 	// now decide which algorithm to use
 	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE) {
+		// since v0.98 we just do more passes to resolve sizes:
 		// if value is undefined, treat it as if it were zero, to make sure
 		// the code below chooses the smallest possible addressing mode.
 		if (argument->ntype == NUMTYPE_UNDEFINED)
 			value = 0;
-	} else if (argument->flags & NUMBER_EVER_UNDEFINED) {
-		// old algo: if value is unsure, use default size
+	} else {
+		// older versions used default size if size was ever unknown:
+		if (argument->flags & NUMBER_EVER_UNDEFINED) {
+			// if there is an 8-bit addressing mode *and* the value
+			// is sure to fit into 8 bits, use the 8-bit mode
+			if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE)) {
+				return NUMBER_FORCES_8;
+			}
 
-		// if there is an 8-bit addressing mode *and* the value
-		// is sure to fit into 8 bits, use the 8-bit mode
-		if ((addressing_modes & NUMBER_FORCES_8) && (argument->flags & NUMBER_FITS_BYTE)) {
+			// if there is a 16-bit addressing, use that
+			// call helper function for "oversized addr mode" warning
+			if (NUMBER_FORCES_16 & addressing_modes) {
+				// FIXME - on 65816, this complains about "JMP $00xy", which is stupid:
+				check_oversize(NUMBER_FORCES_16, argument);
+				return NUMBER_FORCES_16;
+			}
+
+			// if there is a 24-bit addressing, use that
+			// call helper function for "oversized addr mode" warning
+			if (NUMBER_FORCES_24 & addressing_modes) {
+				check_oversize(NUMBER_FORCES_24, argument);
+				return NUMBER_FORCES_24;
+			}
+
+			// otherwise, use 8-bit-addressing, which will raise an
+			// error later on if the value won't fit
 			return NUMBER_FORCES_8;
 		}
-
-		// if there is a 16-bit addressing, use that
-		// call helper function for "oversized addr mode" warning
-		if (NUMBER_FORCES_16 & addressing_modes) {
-			// FIXME - on 65816, this complains about "JMP $00xy", which is stupid:
-			check_oversize(NUMBER_FORCES_16, argument);
-			return NUMBER_FORCES_16;
-		}
-
-		// if there is a 24-bit addressing, use that
-		// call helper function for "oversized addr mode" warning
-		if (NUMBER_FORCES_24 & addressing_modes) {
-			check_oversize(NUMBER_FORCES_24, argument);
-			return NUMBER_FORCES_24;
-		}
-
-		// otherwise, use 8-bit-addressing, which will raise an
-		// error later on if the value won't fit
-		return NUMBER_FORCES_8;
 	}
 
 	// Value is sure, so use its own size

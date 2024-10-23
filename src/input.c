@@ -612,8 +612,13 @@ static int quoted_to_dynabuf(char closing_quote)
 			if (GotByte == closing_quote)
 				return 0;	// ok
 
-			if ((GotByte == '\\') && (config.dialect >= V0_97__BACKSLASH_ESCAPING))
-				escaped = TRUE;
+			if (GotByte == '\\') {
+				if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+					escaped = TRUE;	// since v0.97, backslashes are escape characters
+				} else {
+					// earlier versions did not care about backslashes
+				}
+			}
 		}
 		DYNABUF_APPEND(GlobalDynaBuf, GotByte);
 	}
@@ -635,10 +640,14 @@ int input_read_string_literal(char closing_quote)
 
 	// eat closing quote
 	GetByte();
-// now un-escape dynabuf contents:
-	if (config.dialect < V0_97__BACKSLASH_ESCAPING)
-		return 0;	// ok (no escaping anyway)
 
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		// since v0.97 we need to process backslashes (see below)
+	} else {
+		return 0;	// older versions did not support backslash escapes, so return "ok"
+	}
+
+	// now un-escape dynabuf contents:
 	read_index = 0;
 	write_index = 0;
 	escaped = FALSE;
