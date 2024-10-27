@@ -98,18 +98,17 @@ Label name not in leftmost column.
     support a command line option to switch off this warning
     ("-Wno-label-indent").
 
-Label name starts with a shift-space character.
-    The name of a global label starts with a shift-space character. It
-    is highly likely that this is a typing error, therefore this
-    warning is issued.
-
 Memory already initialised.
     The "!initmem" pseudo opcode was given more than once, or in
     addition to the "--initmem" command line option. Only use it once.
 
-Output file already chosen.
+Output file name already chosen.
     The "!to" pseudo opcode was given more than once, or in addition
     to the "--outfile" command line option. Only use it once.
+
+Output file format already chosen.
+    The "!to" pseudo opcode specified a file format, but a format had
+    already been chosen using the "--format" command line option.
 
 Segment reached another one, overwriting it.
     The program counter has just reached the start of another segment.
@@ -134,10 +133,15 @@ Symbol list file name already chosen.
     The "!sl" pseudo opcode was given more than once, or in addition
     to the "--symbollist" command line option. Only use it once.
 
-Used "!to" without file format indicator. Defaulting to "cbm".
-    Now that "!to" can be given a file format keyword (either "plain"
-    or "cbm"), using "cbm" as default seems inappropriate. It still
-    works though.
+Symbol name starts with a shift-space character.
+    The name of a global symbol starts with a shift-space character.
+    It is highly likely that this is a typing error, therefore this
+    warning is issued.
+
+Used "!to" without file format indicator.
+    Please specify the file format as a second argument to the "!to"
+    pseudo opcode. If not given, cbm format is used.
+    The file format can be overridden by the "--format" cli switch.
 
 Using oversized addressing mode.
     ACME just assembled an instruction using an addressing mode that
@@ -616,6 +620,10 @@ IllegalOperatorId
 IllegalOperatorGroup
     The expression parser found an operator that does not exist.
 
+IllegalOutformat1
+IllegalOutformat2
+    The output file format enum has an unexpected value.
+
 IllegalSymbolNameLength
     A sanity check on string lengths failed.
 
@@ -637,6 +645,9 @@ OperatorStackNotEmpty
 
 PartialEscapeSequence
     Buffered data ended on a backslash, which shouldn't be possible.
+
+PseudoPCContext
+    A pointer became NULL which shouldn't happen.
 
 SecondArgIsNotAnInt
     A sanity check failed: An argument should have been converted to
