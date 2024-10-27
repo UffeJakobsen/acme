@@ -929,6 +929,34 @@ static int read_filename_shared_end(boolean *absolute)
 	return 0;	// ok
 }
 
+// parse string and return in GlobalDynaBuf
+static int get_string(void)
+{
+	struct object	object;
+
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		// since v0.97 the expression parser supports string objects:
+		ALU_any_result(&object);
+		if (object.type == &type_string) {
+			dynabuf_clear(GlobalDynaBuf);
+			dynabuf_add_bytes(GlobalDynaBuf, object.u.string->payload, object.u.string->length);
+		} else {
+			throw_error("Expression did not return a string.");
+			return 1;
+		}
+	} else {
+		// in older versions, strings could only be given as literals:
+		if (GotByte != '"') {
+			throw_error("Quotes not found.");
+			return 1;
+		}
+		if (input_read_string_literal('"')) {
+			return 1;	// unterminated or escaping error
+		}
+	}
+	return 0;	// ok
+}
+
 // try to read a file name for an input file.
 // library access by using <...> quoting is allowed.
 // flags for "library access" and "absolute path" will be set accordingly.
@@ -942,30 +970,16 @@ int input_read_input_filename(struct filespecflags *flags)
 {
 	SKIPSPACE();
 	if (GotByte == '<') {
-		// library access:
+		// <path/to/file> means library access:
 		flags->uses_lib = TRUE;
-		// read file name string (must be a single string <literal>)
 		if (input_read_string_literal('>'))
 			return 1;	// unterminated or escaping error
-
 	} else {
-		// "normal", non-library access:
+		// "path/to/file" or SOME_STRING_SYMBOL means non-library access:
 		flags->uses_lib = FALSE;
-// old algo (do not merge with similar parts from "if" block!):
-		if (GotByte != '"') {
-			throw_error("File name quotes not found (\"\" or <>).");
-			return 1;	// error
-		}
-		// read file name string
-		if (input_read_string_literal('"'))
-			return 1;	// unterminated or escaping error
-
-// new algo: (FIXME)
-// it should be possible to construct the name of input file from symbols, so
-// build environments can define a name at one place and use it at another.
-// FIXME - use expression parser to read filename string!
+		if (get_string())
+			return 1;	// unterminated, escaping error or not a string
 	}
-
 	// check length, remember abs/rel, terminate, do platform conversion
 	return read_filename_shared_end(&flags->absolute);
 }
@@ -1075,20 +1089,17 @@ int input_read_output_filename(void)
 
 	SKIPSPACE();
 	if (GotByte == '<') {
+		// <path/to/file> means library access:
 		throw_error("Writing to library not supported.");
 		return 1;	// error
 	}
-	if (GotByte != '"') {
-		throw_error("File name quotes not found (\"\").");
-		return 1;	// error
-	}
+	// we expect "path/to/file" or SOME_STRING_SYMBOL:
 // in the past, output filenames had to be given as literals and could not be
 // created dynamically at runtime. because this "security feature" can now be
 // circumvented using the symbol expansion mechanism, it does not make sense to
-// keep it: it would only add complexity.
-// FIXME!
-	if (input_read_string_literal('"'))
-		return 1;	// unterminated or escaping error
+// keep it, it would only add complexity.
+	if (get_string())
+		return 1;	// unterminated, escaping error or not a string
 
 	// check length, remember abs/rel, terminate, do platform conversion:
 	if (read_filename_shared_end(&absolute))

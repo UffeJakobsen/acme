@@ -279,9 +279,17 @@ Expression did not return a number.
     An expression returned a string or a list but a number (integer or
     float) was expected.
 
-File name quotes not found ("" or <>).
-    File names have to be given in quotes. Either "" quoting for files
-    located in the current directory or <> quoting for library files.
+Expression did not return a string.
+    An expression returned a list or a number but a string was
+    expected (for example a file name).
+
+Quotes not found.
+    In older versions, file names could not be specified via symbols,
+    but had to be given as string literals in quotes:
+    Either as "path/to/file" for lookups in the current directory or
+    as <path/to/file> for lookups in the library.
+    So if the first character is neither '<' nor '"' this error was
+    generated.
 
 Force bits can only be given to counters, not when iterating over string/list contents.
     You used a force bit with a "!for" loop counter, but then used the
