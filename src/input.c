@@ -624,6 +624,29 @@ static int quoted_to_dynabuf(char closing_quote)
 	}
 }
 
+char GetNibbleValue(char nibble)
+{
+	if (nibble >= 'a' && nibble <= 'f') {
+		return 10 + nibble - 'a';
+	}
+	if (nibble >= 'A' && nibble <= 'F') {
+		return 10 + nibble - 'A';
+	}
+	if (nibble >= '0' && nibble <= '9') {
+		return nibble - '0';
+	}
+	throw_error("Invalid hex nibble value (expected 0-9/a-f)");
+	return 0;
+}
+
+char GetHexValue(int* read_index)
+{
+	char hi_nibble = GLOBALDYNABUF_CURRENT[(*read_index)++];
+	char lo_nibble = GLOBALDYNABUF_CURRENT[(*read_index)++];
+	return (GetNibbleValue(hi_nibble) << 4) + GetNibbleValue(lo_nibble);
+}
+
+
 // clear dynabuf, read string to it until closing quote is found, then
 // process backslash escapes (so size might shrink)
 // returns 1 on error (unterminated or escaping error)
@@ -672,6 +695,10 @@ int input_read_string_literal(char closing_quote)
 			case 'r':	// CR
 				byte = 13;
 				break;
+			case 'x': // hex value
+				byte = GetHexValue(&read_index);
+				break;
+
 			// TODO - 'a' to BEL? others?
 			default:
 				throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
