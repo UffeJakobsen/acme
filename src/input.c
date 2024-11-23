@@ -624,38 +624,41 @@ static int quoted_to_dynabuf(char closing_quote)
 	}
 }
 
-char GetNibbleValue(char nibble)
+// helper function to assemble a number from hex digits
+// returns 1 on error
+static int shift_hex_nibble(char *target, char digit)
 {
-	if (nibble >= 'a' && nibble <= 'f') {
-		return 10 + nibble - 'a';
+	if (digit >= '0' && digit <= '9') {
+		digit -= '0';
+	} else if (digit >= 'a' && digit <= 'f') {
+		digit = digit - 'a' + 10;
+	} else if (digit >= 'A' && digit <= 'F') {
+		digit = digit - 'A' + 10;
+	} else {
+		throw_error("Invalid hex digit after \\x, expected 0-9/a-f.");
+		return 1;	// error
 	}
-	if (nibble >= 'A' && nibble <= 'F') {
-		return 10 + nibble - 'A';
-	}
-	if (nibble >= '0' && nibble <= '9') {
-		return nibble - '0';
-	}
-	throw_error("Invalid hex nibble value (expected 0-9/a-f)");
-	return 0;
+	*target = (*target << 4) | digit;
+	return 0;	// ok
 }
 
-char GetHexValue(int* read_index)
-{
-	char hi_nibble = GLOBALDYNABUF_CURRENT[(*read_index)++];
-	char lo_nibble = GLOBALDYNABUF_CURRENT[(*read_index)++];
-	return (GetNibbleValue(hi_nibble) << 4) + GetNibbleValue(lo_nibble);
-}
-
-
+// state machine for backslash escaping:
+enum escape {
+	ESCAPE_NONE,		// un-escaped, i.e. normal
+	ESCAPE_BACKSLASH,	// after reading a backslash
+	ESCAPE_HEX1,		// after reading "\x", expecting first hex digit
+	ESCAPE_HEX2,		// after reading "\x", expecting second hex digit
+};
 // clear dynabuf, read string to it until closing quote is found, then
 // process backslash escapes (so size might shrink)
 // returns 1 on error (unterminated or escaping error)
 int input_read_string_literal(char closing_quote)
 {
-	int	read_index,
-		write_index;
-	char	byte;
-	boolean	escaped;
+	int		read_index,
+			write_index;
+	char		byte;
+	enum escape	escape_state;
+	char		hexbyte	= 0;
 
 	dynabuf_clear(GlobalDynaBuf);
 	if (quoted_to_dynabuf(closing_quote))
@@ -673,11 +676,20 @@ int input_read_string_literal(char closing_quote)
 	// now un-escape dynabuf contents:
 	read_index = 0;
 	write_index = 0;
-	escaped = FALSE;
+	escape_state = ESCAPE_NONE;
 	// CAUTION - contents of dynabuf are not terminated:
 	while (read_index < GlobalDynaBuf->size) {
 		byte = GLOBALDYNABUF_CURRENT[read_index++];
-		if (escaped) {
+		switch (escape_state) {
+		case ESCAPE_NONE:
+			if (byte == '\\') {
+				escape_state = ESCAPE_BACKSLASH;
+			} else {
+				GLOBALDYNABUF_CURRENT[write_index++] = byte;
+			}
+			break;
+		case ESCAPE_BACKSLASH:
+			escape_state = ESCAPE_NONE;	// default for all chars but 'x'!
 			switch (byte) {
 			case '\\':
 			case '\'':
@@ -695,26 +707,49 @@ int input_read_string_literal(char closing_quote)
 			case 'r':	// CR
 				byte = 13;
 				break;
-			case 'x': // hex value
-				byte = GetHexValue(&read_index);
+			case 'x':	// hex value
+				escape_state = ESCAPE_HEX1;	// now expect first hex digit
+				// now an "x" will be written, which will be overwritten later!
 				break;
-
 			// TODO - 'a' to BEL? others?
 			default:
 				throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
 			}
 			GLOBALDYNABUF_CURRENT[write_index++] = byte;
-			escaped = FALSE;
-		} else {
-			if (byte == '\\') {
-				escaped = TRUE;
+			break;
+		case ESCAPE_HEX1:
+			hexbyte = 0;
+			if (shift_hex_nibble(&hexbyte, byte)) {
+				escape_state = ESCAPE_NONE;	// error -> back to default state
 			} else {
-				GLOBALDYNABUF_CURRENT[write_index++] = byte;
+				escape_state = ESCAPE_HEX2;	// ok -> expect second hex digit
 			}
+			break;
+		case ESCAPE_HEX2:
+			if (shift_hex_nibble(&hexbyte, byte)) {
+				// error will have been thrown already
+			} else {
+				// parsing "\x" has written "x", so overwrite it:
+				GLOBALDYNABUF_CURRENT[write_index - 1] = hexbyte;
+			}
+			escape_state = ESCAPE_NONE;	// go back to default state
+			break;
+		default:
+			BUG("StrangeEscapeState1", escape_state);
 		}
 	}
-	if (escaped)
+	switch (escape_state) {
+	case ESCAPE_NONE:
+		break;
+	case ESCAPE_BACKSLASH:	// this should have been caught earlier
 		BUG("PartialEscapeSequence", 0);
+	case ESCAPE_HEX1:
+	case ESCAPE_HEX2:
+		throw_error("Expected two hex digits after \\x sequence.");	// TODO - add unexpected character to error message?
+		break;
+	default:
+		BUG("StrangeEscapeState2", escape_state);
+	}
 	GlobalDynaBuf->size = write_index;
 	return 0;	// ok
 }

@@ -275,6 +275,11 @@ Expected index register after comma.
     You used an addressing mode with a comma but did not supply a
     valid index register (like 'x') after it.
 
+Expected two hex digits after \x backslash sequence.
+    In string literals, the backslash sequence "\x" must be followed
+    by two hex digits. If the string ends before two hex digits have
+    been found, this error is generated.
+
 Exponent is negative.
     Using negative exponents only give sensible results when using
     floating point maths.
@@ -321,6 +326,11 @@ Index is undefined.
 
 Index out of range.
     The value for an indexing operation wasn't in the allowed range.
+
+Invalid hex digit after \x, expected 0-9/a-f.
+    In string literals, the backslash sequence "\x" must be followed
+    by two hex digits. If the next two chars are not [0-9a-fA-F], this
+    error will be generated.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME
@@ -652,6 +662,10 @@ PseudoPCContext
 SecondArgIsNotAnInt
     A sanity check failed: An argument should have been converted to
     integer but wasn't.
+
+StrangeEscapeState1
+StrangeEscapeState2
+    The state machine for backslash escaping reached a non-existing state.
 
 StrangeInputMode
     The input state machine has reached a state that does not exist.
