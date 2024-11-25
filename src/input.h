@@ -71,6 +71,10 @@ extern void parser_skip_remainder(void);
 // after mnemonics using implied addressing.
 extern void parser_ensure_EOS(void);
 
+// process backslash escapes in GlobalDynaBuf (so size might shrink)
+// returns 1 on escaping errors
+extern int unescape_dynabuf(void);
+
 // clear dynabuf, read string to it until closing quote is found, then process
 // backslash escapes (so size might shrink)
 // returns 1 on error (unterminated or escaping errors)

@@ -511,10 +511,18 @@ static void set_starting_cpu(const char cpu_name[])
 }
 
 
-static void could_not_parse(const char strange[])
+// helper function to complain about error in cli args, does not return
+static void exit__cli_arg_error(const char format[], const char arg[])
 {
-	fprintf(stderr, "%sCould not parse '%s'.\n", cliargs_error, strange);
+	fprintf(stderr, "%s", cliargs_error);
+	fprintf(stderr, format, arg);
+	fprintf(stderr, "\n");
 	exit(EXIT_FAILURE);
+}
+// exit with "Error in CLI arguments: ..." message
+void ACME_cli_args_error(const char msg[])
+{
+	exit__cli_arg_error("%s", msg);
 }
 
 
@@ -544,7 +552,7 @@ static signed long string_to_number(const char *string)
 	}
 	result = strtol(string, &end, base);
 	if (*end)
-		could_not_parse(end);
+		exit__cli_arg_error("Could not parse \"%s\" as number.", end);
 	return result;
 }
 // wrapper for fn above: complain about negative numbers
@@ -552,10 +560,8 @@ static signed long string_to_nonneg_number(const char *string)
 {
 	signed long	result	= string_to_number(string);
 
-	if (result < 0) {
-		fprintf(stderr, "%sInvalid value, number is negative: '%s'.\n", cliargs_error, string);
-		exit(EXIT_FAILURE);
-	}
+	if (result < 0)
+		exit__cli_arg_error("Invalid value, number is negative: \"%s\".", string);
 	return result;
 }
 
@@ -564,29 +570,64 @@ static signed long string_to_nonneg_number(const char *string)
 static void set_mem_contents(const char expression[])
 {
 	config.mem_init_value = string_to_number(expression);
-	if ((config.mem_init_value < -128) || (config.mem_init_value > 255)) {
-		fprintf(stderr, "%sInitmem value out of range (0-0xff).\n", cliargs_error);
-		exit(EXIT_FAILURE);
-	}
+	if ((config.mem_init_value < -128) || (config.mem_init_value > 255))
+		exit__cli_arg_error("%s", "Initmem value must be in 0..0xff range.");
 }
 
 
 // define symbol
+// FIXME - replace all this with a call to some kind of "hey parser, parse this string" function?
+// but then we would have to pass a "do backslash escapes even if older dialect selected" flag...
 static void define_symbol(const char definition[])
 {
 	const char	*walk	= definition;
-	signed long	value;
+	struct symbol	*symbol;
+	signed long	intvalue;
+	boolean		escaped;
 
-	// copy definition to GlobalDynaBuf until '=' reached	
+	// copy symbol name (everything up to the '=' char) to GlobalDynaBuf and add terminator:
 	dynabuf_clear(GlobalDynaBuf);
 	while ((*walk != '=') && (*walk != '\0'))
 		dynabuf_append(GlobalDynaBuf, *walk++);
-	if ((*walk == '\0') || (walk[1] == '\0'))
-		could_not_parse(definition);
-	// TODO - if first char is double quote, maybe interpret as string instead of number?
-	value = string_to_number(walk + 1);
 	dynabuf_append(GlobalDynaBuf, '\0');
-	symbol_define(value);
+	// use name to make symbol
+	symbol = symbol_for_cli_def();
+	// now we can clobber GlobalDynaBuf
+
+	// no '=' or nothing after? then complain and die:
+	if ((*walk == '\0') || (walk[1] == '\0'))
+		exit__cli_arg_error("\"%s\" does not have SYMBOL=VALUE format.", definition);
+	++walk;	// eat '='
+	// now check value type (at the moment only integers and strings are possible)
+	if (*walk == '"') {
+		// it starts with a doublequote, so it must be a string
+		++walk;	// eat '"'
+		dynabuf_clear(GlobalDynaBuf);
+		escaped	= FALSE;
+		for (;;) {
+			if (*walk == '\0')
+				exit__cli_arg_error("Closing quote not found after -D %s.", definition);
+			if (escaped) {
+				// previous byte was backslash, so do not check for closing quote nor backslash
+				escaped = FALSE;
+			} else {
+				// non-escaped: only closing quote and backslash are of interest
+				if (*walk == '"')
+					break;	// leave loop
+				if (*walk == '\\')
+					escaped = TRUE;
+			}
+			DYNABUF_APPEND(GlobalDynaBuf, *walk++);
+		}
+		if (walk[1] != '\0')
+			exit__cli_arg_error("Garbage after closing quote at -D %s.", definition);
+		unescape_dynabuf();
+		symbol_define_string(symbol);
+	} else {
+		// integer
+		intvalue = string_to_number(walk);
+		symbol_define_int(symbol, intvalue);
+	}
 }
 
 
@@ -605,7 +646,7 @@ struct dialect_info	dialects[]	= {
 	{V0_94_12__NEW_FOR_SYNTAX,	"0.94.12",	"new \"!for\" syntax"},
 	{V0_95_2__NEW_ANC_OPCODE,	"0.95.2",	"changed ANC#8 from 0x2b to 0x0b"},
 	{V0_97__BACKSLASH_ESCAPING,	"0.97",		"backslash escaping and strings"},
-//	{V0_98__PATHS_AND_SYMBOLCHANGE,	"0.98",		"paths are relative to current file"},
+	{V0_98__PATHS_AND_SYMBOLCHANGE,	"0.98",		"paths are relative to current file"},
 //	{V__CURRENT_VERSION,		"default",	"default"},
 	{V__FUTURE_VERSION,		"future",	"enable all experimental features"},
 	{0,				NULL,		NULL}	// NULLs terminate
@@ -758,8 +799,7 @@ static char short_option(const char *argument)
 				config.warn_on_type_mismatch = TRUE;
 				goto done;
 			} else {
-				fprintf(stderr, "%sUnknown warning level.\n", cliargs_error);
-				exit(EXIT_FAILURE);
+				exit__cli_arg_error("Unknown warning level \"%s\".", argument);
 			}
 			break;
 		default:	// unknown ones: program termination
@@ -794,34 +834,30 @@ int main(int argc, const char *argv[])
 	// this may read the library path from an environment variable.
 	PLATFORM_INIT;
 	// handle command line arguments
+	// (this will handle all "-D SYMBOL=VALUE" assignments)
 	cliargs_handle_options(short_option, long_option);
 	// generate list of files to process
 	cliargs_get_rest(&toplevel_src_count, &toplevel_sources_plat, "No top level sources given");
 
 	// now that we have processed all cli switches, check a few values for
 	// valid range:
-	if ((config.initial_pc != NO_VALUE_GIVEN) && (config.initial_pc >= OUTBUF_MAXSIZE)) {
-		fprintf(stderr, "%sProgram counter exceeds maximum outbuffer size.\n", cliargs_error);
-		exit(EXIT_FAILURE);
-	}
-	if ((config.outfile_start != NO_VALUE_GIVEN) && (config.outfile_start >= OUTBUF_MAXSIZE)) {
-		fprintf(stderr, "%sStart address of output file exceeds maximum outbuffer size.\n", cliargs_error);
-		exit(EXIT_FAILURE);
-	}
+	if ((config.initial_pc != NO_VALUE_GIVEN) && (config.initial_pc >= OUTBUF_MAXSIZE))
+		throw_error("Program counter exceeds maximum outbuffer size.");
+	if ((config.outfile_start != NO_VALUE_GIVEN) && (config.outfile_start >= OUTBUF_MAXSIZE))
+		throw_error("Start address of output file exceeds maximum outbuffer size.");
 	// "limit" is end+1 and therefore we need ">" instead of ">=":
-	if ((config.outfile_limit != NO_VALUE_GIVEN) && (config.outfile_limit > OUTBUF_MAXSIZE)) {
-		fprintf(stderr, "%sEnd+1 of output file exceeds maximum outbuffer size.\n", cliargs_error);
-		exit(EXIT_FAILURE);
-	}
+	if ((config.outfile_limit != NO_VALUE_GIVEN) && (config.outfile_limit > OUTBUF_MAXSIZE))
+		throw_error("End+1 of output file exceeds maximum outbuffer size.");
 	if ((config.outfile_start != NO_VALUE_GIVEN)
 	&& (config.outfile_limit != NO_VALUE_GIVEN)
-	&& (config.outfile_start >= config.outfile_limit)) {
-		fprintf(stderr, "%sStart address of output file exceeds end+1.\n", cliargs_error);
-		exit(EXIT_FAILURE);
-	}
+	&& (config.outfile_start >= config.outfile_limit))
+		throw_error("Start address of output file exceeds end+1.");
 	// since version 0.98, "--strict-segments" are default:
 	if (config.dialect >= V0_98__PATHS_AND_SYMBOLCHANGE)
 		config.strict_segments = TRUE;
+
+	// make throw_error() behave normally instead of exiting with "Error in CLI arguments: ..."
+	throw__done_with_cli_args();
 
 	// do the actual work
 	do_actual_work();

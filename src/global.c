@@ -527,10 +527,22 @@ static void print_msg(const char *message, const char *ansicolor, const char *ty
 	}
 }
 
+// flag, tells throw_error how to behave. set to FALSE by throw__done_with_cli_args().
+// this is needed because errors like "\xZZ is not a valid backslash sequence" are
+// handled by calling throw_error(), but they can happen
+//	- in cli args, using the "-D SYMBOL=VALUE" syntax, where we want to exit, and
+//	- in source codes, where we want a "file=F, line=N" output and go on!
+static boolean	error_is_in_cli_args	= TRUE;
+
 // generate debug/info/warning/error message
 // if the "optional alternative location" given is NULL, the current location is used
 void throw_message(enum debuglevel level, const char msg[], struct location *opt_alt_loc)
 {
+	// FIXME: we only expect normal errors in cli args, no warnings or
+	// other stuff, so enable this:
+	//if (error_is_in_cli_args)
+	//	BUG("damn");
+
 	// if level is taken from source, ensure valid value:
 	if (level < DEBUGLEVEL_SERIOUS)
 		level = DEBUGLEVEL_SERIOUS;
@@ -590,7 +602,10 @@ void throw_warning(const char msg[])
 // about more than one of his typos at a time.
 void throw_error(const char msg[])
 {
-	throw_message(DEBUGLEVEL_ERROR, msg, NULL);
+	if (error_is_in_cli_args)
+		ACME_cli_args_error(msg);	// does not return...
+	else
+		throw_message(DEBUGLEVEL_ERROR, msg, NULL);
 }
 
 // output a serious error (assembly stops, for example if outbuffer overruns).
@@ -647,6 +662,12 @@ void throw_redef_error(const char error_msg[], struct location *old_def, const c
 	// restore old section
 	section_now->type = buffered_section_type;
 	section_now->title = buffered_section_title;
+}
+
+// ugly kluge, switches throw_error() from cli args mode to normal mode
+void throw__done_with_cli_args(void)
+{
+	error_is_in_cli_args = FALSE;
 }
 
 // handle bugs

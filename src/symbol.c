@@ -9,6 +9,7 @@
 // 23 Nov 2014	Added label output in VICE format
 #include "symbol.h"
 #include <stdio.h>
+#include <string.h>	// for memcpy()
 #include "alu.h"
 #include "dynabuf.h"
 #include "global.h"
@@ -222,21 +223,33 @@ void symbol_set_force_bit(struct symbol *symbol, bits force_bit)
 }
 
 
-// set global symbol to integer value, no questions asked (for "-D" switch)
-// Name must be held in GlobalDynaBuf.
-void symbol_define(intval_t value)
+// create and return symbol for "-D" command line switch (with NULL type object, CAUTION!).
+// name must be held in GlobalDynaBuf
+extern struct symbol *symbol_for_cli_def(void)
 {
-	struct object	result;
 	struct symbol	*symbol;
 
-	result.type = &type_number;
-	result.u.number.ntype = NUMTYPE_INT;
-	result.u.number.flags = 0;
-	result.u.number.val.intval = value;
 	symbol = symbol_find(SCOPE_GLOBAL);
-	symbol->object = result;
 	symbol->definition.plat_filename = "\"-D SYMBOL=VALUE\"";
 	symbol->definition.line_number = 1;
+	return symbol;
+}
+// set symbol to integer value, no questions asked (for "-D" switch)
+// FIXME - remove and call int_create_byte instead?
+void symbol_define_int(struct symbol *symbol, intval_t value)
+{
+	symbol->object.type = &type_number;
+	symbol->object.u.number.ntype = NUMTYPE_INT;
+	symbol->object.u.number.flags = 0;
+	symbol->object.u.number.val.intval = value;
+	symbol->object.u.number.addr_refs = 0;
+}
+// set symbol to string value, no questions asked (for "-D" switch)
+// string value must be held in GlobalDynaBuf
+void symbol_define_string(struct symbol *symbol)
+{
+	string_prepare_string(&symbol->object, GlobalDynaBuf->size);
+	memcpy(symbol->object.u.string->payload, GLOBALDYNABUF_CURRENT, GlobalDynaBuf->size);
 }
 
 

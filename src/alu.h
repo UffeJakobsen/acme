@@ -52,6 +52,13 @@ struct expression {
 	// labels that are undefined, we can't simply get the addressing mode
 	// from looking at the parameter's value.	FIXME - rename to TAINTED :)
 
+
+// prototypes
+
+// make new string object
+// (exported because symbol.c calls this for strings given on command line)
+extern void string_prepare_string(struct object *self, int len);
+
 /*
 // FIXME - replace all the functions below with a single one using a "flags" arg!
 // its return value would then be "error"/"ok".

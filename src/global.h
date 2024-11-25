@@ -242,6 +242,9 @@ extern void throw_finalpass_warning(const char msg[]);
 // first output error as "error", then location of initial definition as "info"
 extern void throw_redef_error(const char error_msg[], struct location *old_def, const char info_msg[]);
 
+// ugly kluge, switches throw_error() from cli args mode to normal mode
+extern void throw__done_with_cli_args(void);
+
 // handle bugs
 extern void BUG(const char *msg, int code);
 

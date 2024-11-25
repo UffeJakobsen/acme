@@ -80,7 +80,7 @@ static void report_printline(int line_number)
 {
 	int	ii;
 	char	hex_address[HEXBUFSIZE];
-	char	hexdump[2 * REPORT_BINBUFSIZE + 2];	// +2 for '.' and terminator
+	char	hexdump[2 * REPORT_BINBUFSIZE + 2 + 1];	// +2 for '.' and terminator, +1 to suppress compiler warning
 
 	// suppress empty lines
 	if (report->bin_used == 0) {
@@ -649,34 +649,17 @@ enum escape {
 	ESCAPE_HEX1,		// after reading "\x", expecting first hex digit
 	ESCAPE_HEX2,		// after reading "\x", expecting second hex digit
 };
-// clear dynabuf, read string to it until closing quote is found, then
-// process backslash escapes (so size might shrink)
-// returns 1 on error (unterminated or escaping error)
-int input_read_string_literal(char closing_quote)
+// process backslash escapes in GlobalDynaBuf (so size might shrink)
+// returns 1 on excaping errors
+int unescape_dynabuf(void)
 {
-	int		read_index,
-			write_index;
+	int		read_index	= 0,
+			write_index	= 0;
 	char		byte;
-	enum escape	escape_state;
-	char		hexbyte	= 0;
+	enum escape	escape_state	= ESCAPE_NONE;
+	char		hexbyte		= 0;
+	int		err		= 0;
 
-	dynabuf_clear(GlobalDynaBuf);
-	if (quoted_to_dynabuf(closing_quote))
-		return 1;	// unterminated
-
-	// eat closing quote
-	GetByte();
-
-	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
-		// since v0.97 we need to process backslashes (see below)
-	} else {
-		return 0;	// older versions did not support backslash escapes, so return "ok"
-	}
-
-	// now un-escape dynabuf contents:
-	read_index = 0;
-	write_index = 0;
-	escape_state = ESCAPE_NONE;
 	// CAUTION - contents of dynabuf are not terminated:
 	while (read_index < GlobalDynaBuf->size) {
 		byte = GLOBALDYNABUF_CURRENT[read_index++];
@@ -714,6 +697,7 @@ int input_read_string_literal(char closing_quote)
 			// TODO - 'a' to BEL? others?
 			default:
 				throw_error("Unsupported backslash sequence.");	// TODO - add unexpected character to error message?
+				err = 1;
 			}
 			GLOBALDYNABUF_CURRENT[write_index++] = byte;
 			break;
@@ -721,13 +705,14 @@ int input_read_string_literal(char closing_quote)
 			hexbyte = 0;
 			if (shift_hex_nibble(&hexbyte, byte)) {
 				escape_state = ESCAPE_NONE;	// error -> back to default state
+				err = 1;
 			} else {
 				escape_state = ESCAPE_HEX2;	// ok -> expect second hex digit
 			}
 			break;
 		case ESCAPE_HEX2:
 			if (shift_hex_nibble(&hexbyte, byte)) {
-				// error will have been thrown already
+				err = 1;
 			} else {
 				// parsing "\x" has written "x", so overwrite it:
 				GLOBALDYNABUF_CURRENT[write_index - 1] = hexbyte;
@@ -738,6 +723,7 @@ int input_read_string_literal(char closing_quote)
 			BUG("StrangeEscapeState1", escape_state);
 		}
 	}
+	GlobalDynaBuf->size = write_index;
 	switch (escape_state) {
 	case ESCAPE_NONE:
 		break;
@@ -746,12 +732,33 @@ int input_read_string_literal(char closing_quote)
 	case ESCAPE_HEX1:
 	case ESCAPE_HEX2:
 		throw_error("Expected two hex digits after \\x sequence.");	// TODO - add unexpected character to error message?
+		err = 1;
 		break;
 	default:
 		BUG("StrangeEscapeState2", escape_state);
 	}
-	GlobalDynaBuf->size = write_index;
-	return 0;	// ok
+	return err;
+}
+
+
+// clear dynabuf, read string to it until closing quote is found, then
+// process backslash escapes (so size might shrink)
+// returns 1 on error (unterminated or escaping error)
+int input_read_string_literal(char closing_quote)
+{
+	dynabuf_clear(GlobalDynaBuf);
+	if (quoted_to_dynabuf(closing_quote))
+		return 1;	// unterminated
+
+	// eat closing quote
+	GetByte();
+
+	// since v0.97 we need to process backslashes:
+	if (config.dialect >= V0_97__BACKSLASH_ESCAPING) {
+		return unescape_dynabuf();
+	} else {
+		return 0;	// older versions did not support backslash escapes, so return "ok"
+	}
 }
 
 

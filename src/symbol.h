@@ -49,9 +49,14 @@ extern void symbol_set_object(struct symbol *symbol, struct object *new_obj, bit
 // set force bit of symbol. trying to change to a different one will raise error.
 extern void symbol_set_force_bit(struct symbol *symbol, bits force_bit);
 
-// set global symbol to value, no questions asked (for "-D" switch)
-// name must be held in GlobalDynaBuf.
-extern void symbol_define(intval_t value);
+// create and return symbol for "-D" command line switch (with NULL type object, CAUTION!).
+// name must be held in GlobalDynaBuf
+extern struct symbol *symbol_for_cli_def(void);
+// set symbol to integer value, no questions asked (for "-D" switch)
+extern void symbol_define_int(struct symbol *symbol, intval_t value);
+// set symbol to string value, no questions asked (for "-D" switch)
+// string value must be held in GlobalDynaBuf
+extern void symbol_define_string(struct symbol *symbol);
 
 // dump global symbols to file
 extern void symbols_list(FILE *fd);

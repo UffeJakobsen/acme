@@ -404,7 +404,8 @@ static void parse_program_counter(void)	// now GotByte = "*"
 
 
 // make new string object
-static void string_prepare_string(struct object *self, int len)
+// (exported because symbol.c calls this for strings given on command line)
+void string_prepare_string(struct object *self, int len)
 {
 	self->type = &type_string;
 	self->u.string = safe_malloc(sizeof(*(self->u.string)) + len);
@@ -1285,6 +1286,7 @@ static void unsupported_operation(const struct object *optional, const struct op
 
 // int:
 // create byte-sized int object (for comparison results, converted characters, ...)
+// FIXME - as this does not set the FITS_BYTE flag, why "byte-sized"?! why not int_create_int?
 static void int_create_byte(struct object *self, intval_t byte)
 {
 	self->type = &type_number;
