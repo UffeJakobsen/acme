@@ -9,8 +9,8 @@
 
 #define RELEASE		"0.97"		// update before release	FIXME
 #define CODENAME	"Zem"		// update before release
-#define CHANGE_DATE	"23 Nov"	// update before release	FIXME
-#define CHANGE_YEAR	"2024"		// update before release
+#define CHANGE_DATE	"4 May"	// update before release	FIXME
+#define CHANGE_YEAR	"2025"		// update before release
 //#define HOME_PAGE	"http://home.pages.de/~mac_bacon/smorbrod/acme/"
 #define HOME_PAGE	"http://sourceforge.net/p/acme-crossass/"	// FIXME
 
