@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Mnemonics stuff
@@ -61,12 +61,13 @@
 #define MAYBE___2__	NUMBER_FORCES_16
 #define MAYBE_____3	NUMBER_FORCES_24
 
-// The mnemonics are split up into groups, each group has its own function to be dealt with:
+// The mnemonics are split up into groups, each group has its own handler function:
 enum mnemogroup {
 	GROUP_ACCU,		// main accumulator stuff, plus PEI		Byte value = table index
-	GROUP_MISC,		// read-modify-write and others			Byte value = table index
+	GROUP_MISC,		// RMWs, LDX/LDY/STX/STY/CPX/CPY, ...		Byte value = table index
 	GROUP_ALLJUMPS,		// the jump instructions			Byte value = table index
 	GROUP_IMPLIEDONLY,	// mnemonics using only implied addressing	Byte value = opcode
+	GROUP_IMMEDIATEONLY,	// mnemonics using only immediate addressing	Byte value = opcode
 	GROUP_RELATIVE8,	// short branch instructions			Byte value = opcode
 	GROUP_BITBRANCH,	// bbr0..7 and bbs0..7				Byte value = opcode
 	GROUP_REL16_2,		// 16bit relative to pc+2			Byte value = opcode
@@ -78,8 +79,6 @@ enum mnemogroup {
 // TODO: make sure groups like IMPLIEDONLY and ZPONLY output
 // "Mnemonic does not support this addressing mode" instead of
 // "Garbage data at end of statement".
-// TODO: maybe add GROUP_IMMEDIATEONLY?
-//	(for RTN, REP, SEP, ANC, ALR, ARR, SBX, LXA, ANE, SAC, SIR)
 
 // save some space
 #define SCB	static const unsigned char
@@ -114,13 +113,13 @@ SCB accu_lindz8[] = {      0,      0,       0,      0,   0x12,      0,      0,  
 // mnemotable), the assembler finds out the column to use here. The row
 // depends on the used addressing mode. A zero entry in these tables means
 // that the combination of mnemonic and addressing mode is illegal.
-//                |                             6502                              |                                 6502/65c02/65ce02/m65                                  |         65c02         |                         65ce02                        |               65816               |                                          NMOS 6502 undocumented opcodes                                         |    C64DTV2    |
-enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDXmBITQ,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeLDZ,IDXePHW,IDXeROW,IDXeRTN,IDX16COP,IDX16REP,IDX16SEP,IDX16PEA,IDXuANCa,IDXuANCb,IDXuALR,IDXuARR,IDXuSBX,IDXuNOP,IDXuDOP,IDXuTOP,IDXuLXA,IDXuANE,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY,IDX_SAC,IDX_SIR};
-SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,       0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,       0,       0,      0,      0,      0,   0xea,   0x80,   0x0c,      0,      0,      0,      0,      0,      0,      0,      0};	// implied/accu
-SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,   0xa3,   0xf4,      0,   0x62, /*2?*/0,    0xc2,    0xe2,       0,    0x0b,    0x2b,   0x4b,   0x6b,   0xcb,   0x80,   0x80,      0,   0xab,   0x8b,      0,      0,      0,      0,   0x32,   0x42};	// #$ff     #$ffff
-SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24,  0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4, 0xab00, 0xfc00, 0xeb00,      0,    0x02,       0,       0,  0xf400,       0,       0,      0,      0,      0, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0,      0,      0,      0,      0};	// $ff      $ffff
-SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,       0,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0, 0xbb00,      0,      0,      0,       0,       0,       0,       0,       0,       0,      0,      0,      0, 0x1c14,   0x14, 0x1c00,      0,      0,      0,      0,      0, 0x9c00,      0,      0};	// $ff,x    $ffff,x
-SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,       0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,       0,       0,       0,       0,      0,      0,      0,      0,      0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0,      0,      0};	// $ff,y    $ffff,y
+//                |                             6502                              |                                 6502/65c02/65ce02/m65                                  |         65c02         |                     65ce02                    |      65816      |            NMOS 6502 undocumented opcodes             |
+enum {             IDX_ASL,IDX_ROL,IDX_LSR,IDX_ROR,IDX_LDY,IDX_LDX,IDX_CPY,IDX_CPX,IDX_BIT,IDXcBIT,IDXmBITQ,IDX_STX,IDXeSTX,IDX_STY,IDXeSTY,IDX_DEC,IDXcDEC,IDX_INC,IDXcINC,IDXcTSB,IDXcTRB,IDXcSTZ,IDXeASR,IDXeASW,IDXeCPZ,IDXeLDZ,IDXePHW,IDXeROW,IDX16COP,IDX16PEA,IDXuNOP,IDXuDOP,IDXuTOP,IDXuLAS,IDXuTAS,IDXuSHX,IDXuSHY};
+SCB misc_impl[] = {   0x0a,   0x2a,   0x4a,   0x6a,      0,      0,      0,      0,      0,      0,       0,      0,      0,      0,      0,      0,   0x3a,      0,   0x1a,      0,      0,      0,   0x43,      0,      0,      0,      0,      0,       0,       0,   0xea,   0x80,   0x0c,      0,      0,      0,      0};	// implied/accu
+SCB misc_imm[]  = {      0,      0,      0,      0,   0xa0,   0xa2,   0xc0,   0xe0,      0,   0x89,       0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,   0xc2,   0xa3,   0xf4,      0, /*2?*/0,       0,   0x80,   0x80,      0,      0,      0,      0,      0};	// #$ff     #$ffff
+SCS misc_abs[]  = { 0x0e06, 0x2e26, 0x4e46, 0x6e66, 0xaca4, 0xaea6, 0xccc4, 0xece4, 0x2c24, 0x2c24,  0x2c24, 0x8e86, 0x8e86, 0x8c84, 0x8c84, 0xcec6, 0xcec6, 0xeee6, 0xeee6, 0x0c04, 0x1c14, 0x9c64,   0x44, 0xcb00, 0xdcd4, 0xab00, 0xfc00, 0xeb00,    0x02,  0xf400, 0x0c04,   0x04, 0x0c00,      0,      0,      0,      0};	// $ff      $ffff
+SCS misc_xabs[] = { 0x1e16, 0x3e36, 0x5e56, 0x7e76, 0xbcb4,      0,      0,      0,      0, 0x3c34,       0,      0,      0,   0x94, 0x8b94, 0xded6, 0xded6, 0xfef6, 0xfef6,      0,      0, 0x9e74,   0x54,      0,      0, 0xbb00,      0,      0,       0,       0, 0x1c14,   0x14, 0x1c00,      0,      0,      0, 0x9c00};	// $ff,x    $ffff,x
+SCS misc_yabs[] = {      0,      0,      0,      0,      0, 0xbeb6,      0,      0,      0,      0,       0,   0x96, 0x9b96,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,      0,       0,       0,      0,      0,      0, 0xbb00, 0x9b00, 0x9e00,      0};	// $ff,y    $ffff,y
 
 // Code tables for group GROUP_ALLJUMPS:
 // These tables are needed for finding out the correct code when the mnemonic
@@ -246,15 +245,15 @@ static struct ronode	mnemo_6502undoc1_tree[]	= {
 	PREDEFNODE("sha", MERGE(GROUP_ACCU, IDXuSHA)),	// {addr} = A & X & {H+1} (aka AXA/AHX)
 	PREDEFNODE("shx", MERGE(GROUP_MISC, IDXuSHX)),	// {addr} = X & {H+1} (aka XAS/SXA)
 	PREDEFNODE("shy", MERGE(GROUP_MISC, IDXuSHY)),	// {addr} = Y & {H+1} (aka SAY/SYA)
-	PREDEFNODE("alr", MERGE(GROUP_MISC, IDXuALR)),	// A = A & arg, then LSR (aka ASR)
-	PREDEFNODE("asr", MERGE(GROUP_MISC, IDXuALR)),	// A = A & arg, then LSR (aka ALR)
-	PREDEFNODE("arr", MERGE(GROUP_MISC, IDXuARR)),	// A = A & arg, then ROR
-	PREDEFNODE("sbx", MERGE(GROUP_MISC, IDXuSBX)),	// X = (A & X) - arg (aka AXS/SAX)
 	PREDEFNODE("nop", MERGE(GROUP_MISC, IDXuNOP)),	// combines documented $ea and the undocumented dop/top below
 	PREDEFNODE("dop", MERGE(GROUP_MISC, IDXuDOP)),	// "double nop" (skip next byte)
 	PREDEFNODE("top", MERGE(GROUP_MISC, IDXuTOP)),	// "triple nop" (skip next word)
-	PREDEFNODE("ane", MERGE(GROUP_MISC, IDXuANE)),	// A = (A | ??) & X & arg (aka XAA/AXM)
-	PREDEFNODE("lxa", MERGE(GROUP_MISC, IDXuLXA)),	// A,X = (A | ??) & arg (aka LAX/ATX/OAL)
+	PREDEFNODE("alr", MERGE(GROUP_IMMEDIATEONLY, 0x4b)),	// A = A & arg, then LSR (aka ASR)
+	PREDEFNODE("asr", MERGE(GROUP_IMMEDIATEONLY, 0x4b)),	// A = A & arg, then LSR (aka ALR)
+	PREDEFNODE("arr", MERGE(GROUP_IMMEDIATEONLY, 0x6b)),	// A = A & arg, then ROR
+	PREDEFNODE("ane", MERGE(GROUP_IMMEDIATEONLY, 0x8b)),	// A = (A | ??) & X & arg (aka XAA/AXM)
+	PREDEFNODE("lxa", MERGE(GROUP_IMMEDIATEONLY, 0xab)),	// A,X = (A | ??) & arg (aka LAX/ATX/OAL)
+	PREDEFNODE("sbx", MERGE(GROUP_IMMEDIATEONLY, 0xcb)),	// X = (A & X) - arg (aka AXS/SAX)
 	PREDEF_END("jam", MERGE(GROUP_IMPLIEDONLY, 0x02)),	// jam/crash/kill/halt-and-catch-fire
 	//    ^^^^ this marks the last element
 };
@@ -263,13 +262,13 @@ static struct ronode	mnemo_6502undoc1_tree[]	= {
 // (currently ANC only, maybe more will get moved)
 static struct ronode	mnemo_6502undoc2a_tree[]	= {
 	PREDEF_START,
-	PREDEF_END("anc", MERGE(GROUP_MISC, IDXuANCa)),	// A = A & arg, then C=N (aka ANA)
+	PREDEF_END("anc", MERGE(GROUP_IMMEDIATEONLY, 0x0b)),	// A = A & arg, then C=N (aka ANA)
 	//    ^^^^ this marks the last element
 };
 // same tree with different ANC opcode, for "--dialect" < 0.95.2:
 static struct ronode	mnemo_6502undoc2b_tree[]	= {
 	PREDEF_START,
-	PREDEF_END("anc", MERGE(GROUP_MISC, IDXuANCb)),	// A = A & arg, then C=N (aka ANB)
+	PREDEF_END("anc", MERGE(GROUP_IMMEDIATEONLY, 0x2b)),	// A = A & arg, then C=N (aka ANB)
 	//    ^^^^ this marks the last element
 };
 
@@ -277,8 +276,8 @@ static struct ronode	mnemo_6502undoc2b_tree[]	= {
 static struct ronode	mnemo_c64dtv2_tree[]	= {
 	PREDEF_START,
 	PREDEFNODE("bra", MERGE(GROUP_RELATIVE8, 0x12)),	// branch always
-	PREDEFNODE("sac", MERGE(GROUP_MISC, IDX_SAC)),	// set accumulator mapping
-	PREDEF_END("sir", MERGE(GROUP_MISC, IDX_SIR)),	// set index register mapping
+	PREDEFNODE("sac", MERGE(GROUP_IMMEDIATEONLY, 0x32)),	// set accumulator mapping
+	PREDEF_END("sir", MERGE(GROUP_IMMEDIATEONLY, 0x42)),	// set index register mapping
 	//    ^^^^ this marks the last element
 };
 
@@ -385,9 +384,9 @@ static struct ronode	mnemo_65816_tree[]	= {
 	PREDEFNODE("per", MERGE(GROUP_REL16_3,	0x62)),
 	PREDEFNODE("brl", MERGE(GROUP_REL16_3,	0x82)),
 	PREDEFNODE("cop", MERGE(GROUP_MISC,	IDX16COP)),
-	PREDEFNODE("rep", MERGE(GROUP_MISC,	IDX16REP)),
-	PREDEFNODE("sep", MERGE(GROUP_MISC,	IDX16SEP)),
 	PREDEFNODE("pea", MERGE(GROUP_MISC,	IDX16PEA)),
+	PREDEFNODE("rep", MERGE(GROUP_IMMEDIATEONLY,	0xc2)),
+	PREDEFNODE("sep", MERGE(GROUP_IMMEDIATEONLY,	0xe2)),
 	PREDEFNODE("phd", MERGE(GROUP_IMPLIEDONLY,	0x0b)),
 	PREDEFNODE("tcs", MERGE(GROUP_IMPLIEDONLY,	0x1b)),
 	PREDEFNODE("pld", MERGE(GROUP_IMPLIEDONLY,	0x2b)),
@@ -446,7 +445,7 @@ static struct ronode	mnemo_65ce02_tree[]	= {
 	PREDEFNODE("ldz", MERGE(GROUP_MISC,	IDXeLDZ)),
 	PREDEFNODE("phw", MERGE(GROUP_MISC,	IDXePHW | IM_FORCE16)),	// when using immediate addressing, arg is 16 bit
 	PREDEFNODE("row", MERGE(GROUP_MISC,	IDXeROW)),
-	PREDEFNODE("rtn", MERGE(GROUP_MISC,	IDXeRTN)),
+	PREDEFNODE("rtn", MERGE(GROUP_IMMEDIATEONLY, 0x62)),
 	PREDEFNODE("cle", MERGE(GROUP_IMPLIEDONLY, 0x02)),
 	PREDEFNODE("see", MERGE(GROUP_IMPLIEDONLY, 0x03)),
 	PREDEFNODE("inz", MERGE(GROUP_IMPLIEDONLY, 0x1b)),
@@ -1018,15 +1017,6 @@ static void group_misc(int index, bits immediate_mode)
 		// CAUTION - do not incorporate the line above into the line
 		// below - "force_bit" might be undefined (depends on compiler).
 		make_instruction(force_bit, &result, immediate_opcodes);
-		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
-		if ((cpu_current_type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
-		&& (result.ntype == NUMTYPE_INT)
-		&& (result.val.intval != 0x00)) {
-			if (immediate_opcodes == 0x8b)
-				throw_finalpass_warning("Assembling unstable ANE #NONZERO instruction");
-			else if (immediate_opcodes == 0xab)
-				throw_finalpass_warning("Assembling unstable LXA #NONZERO instruction");
-		}
 		break;
 	case ABSOLUTE_ADDRESSING:	// $ff or  $ffff
 		make_instruction(force_bit, &result, misc_abs[index]);
@@ -1038,6 +1028,30 @@ static void group_misc(int index, bits immediate_mode)
 		make_instruction(force_bit, &result, misc_yabs[index]);
 		break;
 	default:	// other combinations are illegal
+		throw_error(exception_illegal_combination);
+	}
+}
+
+// handler for mnemonics where only immediate addressing is allowed
+// (RTN, REP, SEP, ANC, ALR, ARR, SBX, LXA, ANE, SAC, SIR)
+static void group_only_immediate_addressing(int opcode)
+{
+	struct number	result;
+	bits		force_bit	= parser_get_force_bit();	// skips spaces after
+
+	if (get_addr_mode(&result) == IMMEDIATE_ADDRESSING) {
+		// #$ff
+		make_instruction(force_bit, &result, opcode);
+		// warn about unstable ANE/LXA (undocumented opcode of NMOS 6502)?
+		if ((cpu_current_type->flags & CPUFLAG_8B_AND_AB_NEED_0_ARG)
+		&& (result.ntype == NUMTYPE_INT)
+		&& (result.val.intval != 0x00)) {
+			if (opcode == 0x8b)
+				throw_finalpass_warning("Assembling unstable ANE #NONZERO instruction");
+			else if (opcode == 0xab)
+				throw_finalpass_warning("Assembling unstable LXA #NONZERO instruction");
+		}
+	} else {
 		throw_error(exception_illegal_combination);
 	}
 }
@@ -1115,6 +1129,7 @@ static void group_mvn_mvp(int opcode)
 }
 
 // "rmb0..7" and "smb0..7"
+// FIXME - complain about wrong addressing modes instead of just saying "garbage data at end of statement"!
 static void group_only_zp(int opcode)
 {
 	//bits		force_bit	= parser_get_force_bit();	// skips spaces after	// TODO - accept postfix and complain about it?
@@ -1195,6 +1210,9 @@ static boolean check_mnemo_tree(struct ronode *tree, struct dynabuf *dyna_buf)
 		break;
 	case GROUP_IMPLIEDONLY:	// mnemonics with only implied addressing
 		group_only_implied_addressing(code);
+		break;
+	case GROUP_IMMEDIATEONLY:	// mnemonics with only immediate addressing
+		group_only_immediate_addressing(code);
 		break;
 	case GROUP_RELATIVE8:	// short relative
 		group_std_branches(code);
