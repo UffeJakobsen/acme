@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff (in this case, for DOS, OS/2 and Windows)
@@ -17,7 +17,7 @@
 #define ALTERNATIVE_DIR_SEP	'\\'	// dummy
 
 // string containing the prefix for accessing files from the library tree
-#define PLATFORM_LIBPREFIX	platform_lib_prefix
+#define PLATFORM_LIBPREFIX	NULL
 #define PLATFORM_NEEDS_ENV_VAR	1	// library access needs "ACME" environment variable
 
 // setting file types of created files

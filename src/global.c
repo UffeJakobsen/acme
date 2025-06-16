@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Global stuff - things that are needed by several modules
@@ -123,6 +123,7 @@ void config_default(struct config *conf)
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->dialect			= V__CURRENT_VERSION;	// changed by --dialect
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
+	conf->platform_lib_prefix	= PLATFORM_LIBPREFIX;
 	conf->initial_cpu_type		= NULL;
 	conf->symbollist_filename	= NULL;
 	conf->vicelabels_filename	= NULL;

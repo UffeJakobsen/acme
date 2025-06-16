@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Platform specific stuff
@@ -34,11 +34,9 @@
 
 #include <stdlib.h>	// for getenv()
 #include "dynabuf.h"
+#include "global.h"	// for config
 
-// path of library tree, taken from env var
-char	*platform_lib_prefix	= NULL;
-
-// function to setup pointer above
+// function to setup pointer to library tree from env var
 void platform_read_env_var(void)
 {
 	char	*env_var;
@@ -51,7 +49,7 @@ void platform_read_env_var(void)
 		// copy environment variable to global dynamic buffer
 		dynabuf_add_string(GlobalDynaBuf, env_var);
 		dynabuf_append(GlobalDynaBuf, '\0');	// add terminator
-		platform_lib_prefix = dynabuf_get_copy(GlobalDynaBuf);
+		config.platform_lib_prefix = dynabuf_get_copy(GlobalDynaBuf);
 	}
 }
 

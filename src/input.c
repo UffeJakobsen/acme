@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Input stuff
@@ -1101,14 +1101,11 @@ static	STRUCT_DYNABUF_REF(pathbuf, 256);	// to combine search path and file spec
 // copy platform-specific library search path into pathbuf:
 static void library_path_to_pathbuf(void)
 {
-	char	*lib_prefix;	// depends on platform
-
 	dynabuf_clear(pathbuf);
-	lib_prefix = PLATFORM_LIBPREFIX;
-	if ((PLATFORM_NEEDS_ENV_VAR) && (lib_prefix == NULL)) {
+	if ((PLATFORM_NEEDS_ENV_VAR) && (config.platform_lib_prefix == NULL)) {
 		throw_error("\"ACME\" environment variable not found.");
 	} else {
-		dynabuf_add_string(pathbuf, lib_prefix);
+		dynabuf_add_string(pathbuf, config.platform_lib_prefix);
 	}
 }
 

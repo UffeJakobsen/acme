@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_IGNORE_ZEROES	"ignore-zeroes"
 #define OPTION_STRICT_SEGMENTS	"strict-segments"
 #define OPTION_STRICT		"strict"
+#define OPTION_LIBPATH		"libpath"
 #define OPTION_DIALECT		"dialect"
 #define OPTION_DEBUGLEVEL	"debuglevel"
 #define OPTION_TEST		"test"
@@ -133,6 +134,7 @@ static void show_help_and_exit(void)
 "  -vDIGIT                   set verbosity level\n"
 "  -D SYMBOL=VALUE           define global symbol\n"
 "  -I PATH/TO/DIR            add search path for input files\n"
+"      --" OPTION_LIBPATH " PATH/TO/DIR set path to ACME library\n"
 // TODO: replace these:
 "  -W" OPTIONWNO_LABEL_INDENT "         suppress warnings about indented labels\n"
 "  -W" OPTIONWNO_OLD_FOR "              (old, use \"--dialect 0.94.8\" instead)\n"
@@ -725,6 +727,8 @@ static const char *long_option(const char *string)
 		config.strict_segments = TRUE;
 	else if (strcmp(string, OPTION_STRICT) == 0)
 		config.all_warnings_are_errors = TRUE;
+	else if (strcmp(string, OPTION_LIBPATH) == 0)
+		config.platform_lib_prefix = cliargs_safe_get_next("path to library");
 	else if (strcmp(string, OPTION_DIALECT) == 0)
 		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
 	else if (strcmp(string, OPTION_DEBUGLEVEL) == 0)
