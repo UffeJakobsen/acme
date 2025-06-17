@@ -22,8 +22,8 @@ Purpose:	Insert 8-bit values.
 Parameters:	EXPRESSION: Any formula the value parser accepts.
 		"list" objects will be treated as if all their items
 		were given separately.
-Aliases:	"!08", "!by", "!byte"
-Examples:	!08 127, symbol, -128	; output some values
+Aliases:	"!by", "!byt", "!byte", "!08"
+Examples:	!8 127, symbol, -128	; output some values
 		!by 14, $3d, %0110, &304, <*, 'c'
 		!byte 3 - 4, symbol1 XOR symbol2, 2 ^ tz, (3+4)*7
 		!byte [2, 3, 5, 7], other_list	; iterate over items
@@ -227,7 +227,7 @@ Parameters:	STRING_VALUE: Can be either a string given in double
 		quotes or any formula the value parser accepts.
 		Please note that formula results won't be converted,
 		but single characters involved in calculations will.
-Aliases:	"!tx"
+Aliases:	"!tx", "!txt"
 Examples:	!text "Loading...", Char_NewLine, "Filename:", 0
 		!tx "Offset character is ", offset - 1 + 'a', 0
 

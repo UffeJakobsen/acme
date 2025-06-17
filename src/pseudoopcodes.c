@@ -1463,9 +1463,11 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("sl",		po_symbollist),
 	PREDEFNODE("symbollist",	po_symbollist),
 	PREDEFNODE("outfilestart",	po_outfilestart),
+	PREDEFNODE("outfilestop",	po_outfilelimit),
 	PREDEFNODE("outfilelimit",	po_outfilelimit),
 	PREDEFNODE("xor",		po_xor),
 	PREDEFNODE("by",		po_byte),
+	PREDEFNODE("byt",		po_byte),
 	PREDEFNODE("byte",		po_byte),
 	PREDEFNODE("8",			po_byte),
 	PREDEFNODE("08",		po_byte),	// legacy alias, don't ask...
