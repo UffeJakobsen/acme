@@ -20,8 +20,9 @@
 #define ALTERNATIVE_DIR_SEP	':'
 
 // string containing the prefix for accessing files from the library tree
+// (use "--libpath" cli switch to override)
 #define PLATFORM_LIBPREFIX	"ACME_Lib:"
-#define PLATFORM_NEEDS_ENV_VAR	0	// no "ACME" environment variable needed
+#define PLATFORM_USE_ENV_VAR	0	// no "ACME" environment variable needed/supported
 
 // setting file types of created files
 #define PLATFORM_SETFILETYPE_APPLE(a)	RISCOS_set_filetype(a, 0xffd)	// FIXME - wrong value!

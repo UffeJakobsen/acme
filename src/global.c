@@ -122,6 +122,7 @@ void config_default(struct config *conf)
 	conf->all_warnings_are_errors	= FALSE;	// enabled by --strict
 	conf->test_new_features		= FALSE;	// enabled by --test
 	conf->dialect			= V__CURRENT_VERSION;	// changed by --dialect
+	conf->politeness		= 0;		// changed by --please
 	conf->debuglevel		= DEBUGLEVEL_DEBUG;	// changed by --debuglevel, used by "!debug"
 	conf->platform_lib_prefix	= PLATFORM_LIBPREFIX;
 	conf->initial_cpu_type		= NULL;
@@ -600,7 +601,7 @@ void throw_warning(const char msg[])
 
 // output an error (something is wrong, no output file will be generated).
 // the assembler will try to go on with the assembly, so the user gets to know
-// about more than one of his typos at a time.
+// about more than one of their typos at a time.
 void throw_error(const char msg[])
 {
 	if (error_is_in_cli_args)

@@ -42,8 +42,11 @@
 // longer than the input string!
 extern void platform_convert_path(boolean *is_absolute, char *p);
 
+// set or change library path
+extern void platform_set_lib_path(const char new_path[]);
+
 // stuff shared by some, but not all platforms:
-#if PLATFORM_NEEDS_ENV_VAR
+#if PLATFORM_USE_ENV_VAR
 
 // function to setup pointer to library tree from env var
 extern void platform_read_env_var(void);

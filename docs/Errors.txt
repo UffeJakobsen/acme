@@ -184,11 +184,6 @@ Zeropage pointer wraps around from $ff to $00
 Section:   Errors during assembly
 ----------------------------------------------------------------------
 
-"ACME" environment variable not found.
-    This will be shown if the source code references any files from
-    the library, but the library location variable wasn't set. This
-    can only be given on systems using the said variable.
-
 "!cbm" is obsolete; use "!ct pet" instead.
     This is given when the now obsolete "!cbm" pseudo opcode is
     encountered.
@@ -331,6 +326,14 @@ Invalid hex digit after \x, expected 0-9/a-f.
     In string literals, the backslash sequence "\x" must be followed
     by two hex digits. If the next two chars are not [0-9a-fA-F], this
     error will be generated.
+
+Library path not set. Use --libpath or create an environment variable.
+    This will be shown if the source code references a file from the
+    library but ACME does not know where the library is located.
+    If the ACME binary was compiled with a default path, you will not
+    see this error.
+    See the file "Lib.txt" in this directory for info on how to setup
+    the library path.
 
 Macro already defined.
     Macros can only be defined once. If you define a macro twice, ACME

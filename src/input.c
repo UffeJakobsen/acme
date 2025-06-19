@@ -1104,9 +1104,9 @@ static void library_path_to_pathbuf(void)
 	dynabuf_clear(pathbuf);
 	// CAUTION: the second part of the condition below implies the first part,
 	// so the first part seems useless. but the first part allows for the
-	// compiler removing the check completely on some platforms.
-	if ((PLATFORM_NEEDS_ENV_VAR) && (config.platform_lib_prefix == NULL)) {
-		throw_error("\"ACME\" environment variable not found.");	// FIXME - change to sth like "library path not set, use --libpath or set ACME env var"
+	// compiler to remove the check completely on some platforms.
+	if ((PLATFORM_USE_ENV_VAR) && (config.platform_lib_prefix == NULL)) {
+		throw_error("Library path not set. Use --libpath or create an environment variable.");
 	} else {
 		dynabuf_add_string(pathbuf, config.platform_lib_prefix);
 	}

@@ -17,8 +17,13 @@
 #define ALTERNATIVE_DIR_SEP	'/'	// dummy
 
 // string containing the prefix for accessing files from the library tree
-#define PLATFORM_LIBPREFIX	NULL	// TODO: package maintainers could use sth like "/usr/share/acme/lib/" here (and put the library files there)
-#define PLATFORM_NEEDS_ENV_VAR	1	// library access needs "ACME" environment variable
+// (use "--libpath" cli switch or "ACME" environment variable to set this)
+#define PLATFORM_LIBPREFIX	NULL
+#define PLATFORM_USE_ENV_VAR	1	// library access needs "ACME" environment variable
+// if you are building an "ACME" package for a linux or bsd distribution, you
+// could put the library files at /usr/share/acme/lib/ and use that path instead
+// of "NULL" above. the user then only needs the "ACME" environment variable if
+// they want to override the default path given here.
 
 // setting the created files' types
 #define PLATFORM_SETFILETYPE_APPLE(a)

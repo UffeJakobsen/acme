@@ -69,6 +69,7 @@ static const char	arg_vicelabels[]	= "VICE labels filename";
 #define OPTION_STRICT		"strict"
 #define OPTION_LIBPATH		"libpath"
 #define OPTION_DIALECT		"dialect"
+#define OPTION_PLEASE		"please"
 #define OPTION_DEBUGLEVEL	"debuglevel"
 #define OPTION_TEST		"test"
 // options for "-W"
@@ -728,9 +729,11 @@ static const char *long_option(const char *string)
 	else if (strcmp(string, OPTION_STRICT) == 0)
 		config.all_warnings_are_errors = TRUE;
 	else if (strcmp(string, OPTION_LIBPATH) == 0)
-		config.platform_lib_prefix = cliargs_safe_get_next("path to library");
+		platform_set_lib_path(cliargs_safe_get_next("path to library"));
 	else if (strcmp(string, OPTION_DIALECT) == 0)
 		set_dialect(cliargs_get_next());	// NULL is ok (handled like unknown)
+	else if (strcmp(string, OPTION_PLEASE) == 0)
+		++config.politeness;
 	else if (strcmp(string, OPTION_DEBUGLEVEL) == 0)
 		config.debuglevel = string_to_number(cliargs_safe_get_next("debug level"));
 	else if (strcmp(string, OPTION_TEST) == 0) {

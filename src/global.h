@@ -89,6 +89,7 @@ struct config {
 	boolean		all_warnings_are_errors;	// FALSE, enabled by --strict
 	boolean		test_new_features;	// FALSE, enabled by --test
 	enum dialect	dialect;	// set by --dialect (and --test --test)
+	int		politeness;	// incremented by --please
 	int		debuglevel;	// set by --debuglevel, used by "!debug"
 	const char	*platform_lib_prefix;	// default value depends on platform
 	const struct cpu_type	*initial_cpu_type;
@@ -223,7 +224,7 @@ extern void throw_warning(const char msg[]);
 
 // output an error (something is wrong, no output file will be generated).
 // the assembler will try to go on with the assembly, so the user gets to know
-// about more than one of his typos at a time.
+// about more than one of their typos at a time.
 extern void throw_error(const char msg[]);
 
 // output a serious error (assembly stops, for example if outbuffer overruns).

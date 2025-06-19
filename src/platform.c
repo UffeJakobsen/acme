@@ -4,6 +4,7 @@
 //
 // Platform specific stuff
 #include "platform.h"
+#include "global.h"	// for config
 
 
 // Amiga
@@ -29,19 +30,30 @@
 #endif
 
 
+// set or change library path
+void platform_set_lib_path(const char new_path[])
+{
+	if (config.platform_lib_prefix) {
+		// this is mostly for debugging so people can check if their env var setup works:
+		printf("Changing library path from \"%s\" to \"%s\".\n", config.platform_lib_prefix, new_path);
+		fflush(stdout);	// force output before any subsequent errors
+	}
+	config.platform_lib_prefix = new_path;
+}
+
+
 // stuff shared by some, but not all platforms:
-#if PLATFORM_NEEDS_ENV_VAR
+#if PLATFORM_USE_ENV_VAR
 
 #include <stdlib.h>	// for getenv()
 #include "dynabuf.h"
-#include "global.h"	// for config
 
 // function to setup pointer to library tree from env var
 void platform_read_env_var(void)
 {
 	char	*env_var;
 
-	// Find out the path of ACME's library
+	// find out the path of ACME's library
 	env_var = getenv("ACME");
 	// if environment variable was found, make a copy
 	if (env_var) {
@@ -49,7 +61,7 @@ void platform_read_env_var(void)
 		// copy environment variable to global dynamic buffer
 		dynabuf_add_string(GlobalDynaBuf, env_var);
 		dynabuf_append(GlobalDynaBuf, '\0');	// add terminator
-		config.platform_lib_prefix = dynabuf_get_copy(GlobalDynaBuf);
+		platform_set_lib_path(dynabuf_get_copy(GlobalDynaBuf));
 	}
 }
 
