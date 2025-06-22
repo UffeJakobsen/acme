@@ -1,0 +1,20 @@
+;ACME 0.97
+
+	; this macro calls itself ten times with a decreased "depth" value
+	!macro dos @depth {
+		!if @depth > 0 {
+			!for @i, 0, 9 {
+				+dos @depth - 1
+			}
+		}
+	}
+
+;	+dos 0	; returns immediately
+;	+dos 1	; returns immediately
+;	+dos 2	; returns immediately
+;	+dos 3	; returns immediately
+;	+dos 4	; returns immediately
+;	+dos 5	; takes <1s
+	+dos 6	; takes a few seconds
+;	+dos 7	; this takes longer...
+;	+dos 8	; don't do this
