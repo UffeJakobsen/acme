@@ -1033,14 +1033,19 @@ static enum eos ifelse(enum ifmode mode)
 		if (GotByte == CHAR_EOS)
 			return AT_EOS_ANYWAY;	// normal exit if there is no ELSE {...} block
 
-		// read keyword (expected to be "else")
+		// read keyword (expected to be "elif" or "else")
 		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
 
+		// if it's "elif", we can just do another iteration:
+		if (strcmp(GlobalDynaBuf->buffer, "elif") == 0) {
+			mode = IFMODE_IF;
+			continue;
+		}
+
 		// make sure it's "else"
-// FIXME - also accept ELSEIF and ELIF?
 		if (strcmp(GlobalDynaBuf->buffer, "else")) {
-			throw_error("Expected end-of-statement or ELSE keyword after '}'.");
+			throw_error("Expected end-of-statement or ELIF/ELSE keyword after '}'.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
 		}
 		// anything more?
@@ -1051,7 +1056,7 @@ static enum eos ifelse(enum ifmode mode)
 			continue;
 		}
 
-		// read keyword (expected to be if/ifdef/ifndef)
+		// read keyword after else (expected to be if/ifdef/ifndef)
 		if (parser_read_and_lower_keyword() == 0)
 			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
 
