@@ -982,7 +982,7 @@ static enum eos ifelse(enum ifmode mode)
 		// check condition according to mode
 		switch (mode) {
 		case IFMODE_IF:
-			ALU_defined_int(&ifresult);
+			ALU_defined_int(&ifresult);	// FIXME - if an earlier block has been executed, this should accept undefined results!
 			condition_met = !!ifresult.val.intval;
 			if (GotByte != CHAR_SOB)
 				throw_serious_error(exception_no_left_brace);
@@ -1038,6 +1038,7 @@ static enum eos ifelse(enum ifmode mode)
 			return SKIP_REMAINDER;	// "missing string error" -> ignore rest of line
 
 		// make sure it's "else"
+// FIXME - also accept ELSEIF and ELIF?
 		if (strcmp(GlobalDynaBuf->buffer, "else")) {
 			throw_error("Expected end-of-statement or ELSE keyword after '}'.");
 			return SKIP_REMAINDER;	// an error has been reported, so ignore rest of line
