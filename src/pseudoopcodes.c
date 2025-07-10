@@ -974,7 +974,7 @@ enum ifmode {
 // has to be re-entrant
 static enum eos ifelse(enum ifmode mode)
 {
-	boolean		nothing_done	= TRUE;	// once a block gets executed, this becomes FALSE, so all others will be skipped even if condition met
+	boolean		skip_the_rest	= FALSE;	// once a block gets executed, this becomes TRUE, so all others will be skipped even if condition met
 	boolean		condition_met;	// condition result for next block
 	struct number	ifresult;
 
@@ -982,8 +982,17 @@ static enum eos ifelse(enum ifmode mode)
 		// check condition according to mode
 		switch (mode) {
 		case IFMODE_IF:
-			ALU_defined_int(&ifresult);	// FIXME - if an earlier block has been executed, this should accept undefined results!
-			condition_met = !!ifresult.val.intval;
+			if (skip_the_rest) {
+				// parsing the condition might have side effects
+				// we do not want, so just skip it:
+				input_read_statement(CHAR_SOB);
+				//condition_met = does not matter because of "skip_the_rest"
+			} else {
+				// we need to parse the condition, and we need a
+				// defined result to know how to go on:
+				ALU_defined_int(&ifresult);
+				condition_met = !!ifresult.val.intval;
+			}
 			if (GotByte != CHAR_SOB)
 				throw_serious_error(exception_no_left_brace);
 			break;
@@ -1002,8 +1011,8 @@ static enum eos ifelse(enum ifmode mode)
 		}
 		SKIPSPACE();
 		// execute this block?
-		if (condition_met && nothing_done) {
-			nothing_done = FALSE;	// all further ones will be skipped, even if conditions meet
+		if (condition_met && !skip_the_rest) {
+			skip_the_rest = TRUE;	// we execute this block, so skip all others
 			if (GotByte == CHAR_SOB) {
 		                parse_until_eob_or_eof();	// parse block
         		        // if block isn't correctly terminated, complain and exit
