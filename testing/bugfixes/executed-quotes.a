@@ -1,3 +1,4 @@
+;ACME 0.97
 	*=$1000
 	; the "skip code" function did not honor quotes, so stuff after ':' was
 	; executed.
