@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // pseudo opcode stuff
@@ -28,6 +28,10 @@
 static boolean line_uses_keyword_arguments(void)
 {
 	// to be on the safe side, return FALSE if dialect < 0.98!
+//	if (config.dialect < V0_98__PATHS_AND_SYMBOLCHANGE)
+//		return FALSE;
+//
+//
 	// read line to buffer, check if it begins with '[a-zA-Z]+='
 	// change input to RAM, return result
 	// ...and the caller needs to pass us some struct so it can change input back later on!
@@ -943,15 +947,14 @@ static enum eos po_source(void)	// now GotByte = illegal char
 	FILE		*stream;
 	const char	*eternal_plat_filename;
 
-	// enter new nesting level
-	// quit program if recursion too deep
-	if (--sanity.source_recursions_left < 0)
-		throw_serious_error("Too deeply nested. Recursive \"!source\"?");
-
 	// read file name and convert from UNIX style to platform style
 	if (input_read_input_filename(&flags))
 		return SKIP_REMAINDER;	// if missing or unterminated, give up
 
+	// enter new nesting level
+	// quit program if recursion too deep
+	if (--sanity.source_recursions_left < 0)
+		throw_serious_error("Too deeply nested. Recursive \"!source\"?");
 	// if file could be opened, parse it. otherwise, complain
 	stream = includepaths_open_ro(&flags);
 	if (stream) {
@@ -1378,6 +1381,52 @@ static enum eos po_nowarn(void)	// now GotByte = illegal char
 }
 
 
+// exit innermost loop
+static enum eos po_break(void)	// now GotByte = illegal char
+{
+	boolean	allowed;
+
+	allowed = parser_allow_break_cont(FALSE);
+	parser_allow_break_cont(allowed);
+	if (allowed)
+		parser_set_shortcut(SHORTCUT_BREAK);
+	else
+		throw_error("!break not within a loop.");
+	return ENSURE_EOS;
+}
+
+// end innermost loop iteration
+static enum eos po_continue(void)	// now GotByte = illegal char
+{
+	boolean	allowed;
+
+	allowed = parser_allow_break_cont(FALSE);
+	parser_allow_break_cont(allowed);
+	if (allowed)
+		parser_set_shortcut(SHORTCUT_CONT);
+	else
+		throw_error("!continue not within a loop.");
+	return ENSURE_EOS;
+}
+
+// return from innermost macro
+static enum eos po_return(void)	// now GotByte = illegal char
+{
+	boolean	allowed;
+
+	// if ACME ever gets real functions, this is the place to parse the
+	// return value and store it via some innermost_function->result
+	// pointer.
+	allowed = parser_allow_return(FALSE);
+	parser_allow_return(allowed);
+	if (allowed)
+		parser_set_shortcut(SHORTCUT_RETURN);
+	else
+		throw_error("!return not within a macro.");
+	return ENSURE_EOS;
+}
+
+
 // variables
 static	STRUCT_DYNABUF_REF(user_message, 80);	// for !debug/info/warn/error/serious
 
@@ -1542,6 +1591,9 @@ static struct ronode	pseudo_opcode_tree[]	= {
 	PREDEFNODE("addr",		po_address),
 	PREDEFNODE("address",		po_address),
 	PREDEFNODE("nowarn",		po_nowarn),
+	PREDEFNODE("break",		po_break),
+	PREDEFNODE("continue",		po_continue),
+	PREDEFNODE("return",		po_return),
 	PREDEFNODE("debug",		po_debug),
 	PREDEFNODE("info",		po_info),
 	PREDEFNODE("warn",		po_warn),

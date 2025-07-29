@@ -106,6 +106,12 @@ struct config {
 };
 extern struct config	config;
 
+enum shortcut {
+	SHORTCUT_NONE,	// normal execution
+	SHORTCUT_BREAK,	// after "!break"
+	SHORTCUT_CONT,	// after "!continue"
+	SHORTCUT_RETURN	// after "!return"
+};
 struct pass {
 	int	number;	// counts up from one
 	struct {
@@ -214,6 +220,18 @@ extern void parse_source_code_file(FILE *fd, const char *eternal_plat_filename);
 
 // read optional info about parameter length
 extern bits parser_get_force_bit(void);
+
+// return current shortcut state
+extern enum shortcut parser_get_shortcut(void);
+
+// start or end processing a !break/!continue/!return keyword
+extern void parser_set_shortcut(enum shortcut);
+
+// return current state and set new state of "allow !break and !continue" flag
+extern boolean parser_allow_break_cont(boolean new_state);
+
+// return current state and set new state of "allow !return" flag
+extern boolean parser_allow_return(boolean new_state);
 
 // generate a debug/info/warning/error message
 // if the "optional alternative location" given is NULL, the current location is used

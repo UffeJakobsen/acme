@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Flow control stuff (loops, conditional assembly etc.)
@@ -67,6 +67,7 @@ static void parse_ram_block(struct block *block)
 static void counting_for(struct for_loop *loop)
 {
 	struct object	loop_var;
+	enum shortcut	shortcut;
 
 	// init counter
 	loop_var.type = &type_number;
@@ -95,6 +96,15 @@ static void counting_for(struct for_loop *loop)
 		parse_ram_block(&loop->block);
 		loop_var.u.number.val.intval += loop->u.counter.increment;
 		loop->iterations_left--;
+
+		// was there a "!break" or "!continue"?
+		shortcut = parser_get_shortcut();
+		if (shortcut == SHORTCUT_BREAK) {
+			parser_set_shortcut(SHORTCUT_NONE);
+			break;
+		} else if (shortcut == SHORTCUT_CONT) {
+			parser_set_shortcut(SHORTCUT_NONE);
+		}
 	}
 	// new algo wants illegal value in loop counter after block:
 	if (loop->algorithm == FORALGO_NEWCOUNT)
@@ -106,12 +116,22 @@ static void iterating_for(struct for_loop *loop)
 {
 	intval_t	index	= 0;
 	struct object	obj;
+	enum shortcut	shortcut;
 
 	while (loop->iterations_left) {
 		loop->u.iter.obj.type->at(&loop->u.iter.obj, &obj, index++);
 		symbol_set_object(loop->symbol, &obj, POWER_CHANGE_VALUE | POWER_CHANGE_OBJTYPE);
 		parse_ram_block(&loop->block);
 		loop->iterations_left--;
+
+		// was there a "!break" or "!continue"?
+		shortcut = parser_get_shortcut();
+		if (shortcut == SHORTCUT_BREAK) {
+			parser_set_shortcut(SHORTCUT_NONE);
+			break;
+		} else if (shortcut == SHORTCUT_CONT) {
+			parser_set_shortcut(SHORTCUT_NONE);
+		}
 	}
 }
 
@@ -120,11 +140,14 @@ static void iterating_for(struct for_loop *loop)
 void flow_forloop(struct for_loop *loop)
 {
 	struct inputchange_buf	icb;
+	boolean			break_cont_buf;
 
 	// remember input and set up new one:
 	inputchange_new_ram(&icb);
 	// fix line number (not for block, but in case symbol handling throws errors)
 	inputchange_set_ram(loop->block.line_number, NULL);
+	// remember break/cont state and allow:
+	break_cont_buf = parser_allow_break_cont(TRUE);
 
 	switch (loop->algorithm) {
 	case FORALGO_OLDCOUNT:
@@ -138,6 +161,8 @@ void flow_forloop(struct for_loop *loop)
 		BUG("IllegalLoopAlgo", loop->algorithm);
 	}
 
+	// restore outer break/cont state:
+	parser_allow_break_cont(break_cont_buf);
 	// restore outer input
 	inputchange_back(&icb);
 }
@@ -223,19 +248,37 @@ static boolean check_condition(struct condition *condition)
 void flow_do_while(struct do_while *loop)
 {
 	struct inputchange_buf	icb;
+	boolean			break_cont_buf;
+	enum shortcut		shortcut;
 
 	// remember input and prepare new one:
 	inputchange_new_ram(&icb);
+	// remember break/cont state and allow:
+	break_cont_buf = parser_allow_break_cont(TRUE);
 
 	for (;;) {
 		// check head condition
 		if (!check_condition(&loop->head_cond))
 			break;
+
 		parse_ram_block(&loop->block);
+
+		// was there a "!break" or "!continue"?
+		shortcut = parser_get_shortcut();
+		if (shortcut == SHORTCUT_BREAK) {
+			parser_set_shortcut(SHORTCUT_NONE);
+			break;
+		} else if (shortcut == SHORTCUT_CONT) {
+			parser_set_shortcut(SHORTCUT_NONE);
+		}
+
 		// check tail condition
 		if (!check_condition(&loop->tail_cond))
 			break;
 	}
+
+	// restore outer break/cont state:
+	parser_allow_break_cont(break_cont_buf);
 	// restore outer input
 	inputchange_back(&icb);
 }

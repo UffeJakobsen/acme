@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // Macro stuff
@@ -189,6 +189,8 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 			symbol_scope;
 	int		arg_count	= 0;
 	int		outer_msg_sum;
+	boolean		break_cont_allowed;
+	boolean		return_allowed;
 
 	// make sure arg_table is ready (if not yet initialised, do it now)
 	if (arg_table == NULL)
@@ -285,12 +287,24 @@ void macro_parse_call(void)	// Now GotByte = first char of macro name
 			} while (parser_accept_comma());
 		}
 
+		// remember whether break/continue/return are allowed and set new states
+		break_cont_allowed = parser_allow_break_cont(FALSE);	// forbid !break/!continue
+		return_allowed = parser_allow_return(TRUE);	// allow !return
+
 		// and now, finally, parse the actual macro body
 // maybe call parse_ram_block(actual_macro->definition.line_number, actual_macro->body)
 		inputchange_macro2_body(actual_macro->body.body);
 		parse_until_eob_or_eof();
 		if (GotByte != CHAR_EOB)
 			BUG("IllegalBlockTerminator", GotByte);
+		// was there a "!return"?
+		if (parser_get_shortcut() == SHORTCUT_RETURN)
+			parser_set_shortcut(SHORTCUT_NONE);
+
+		// restore states of break/continue/return
+		parser_allow_return(return_allowed);
+		parser_allow_break_cont(break_cont_allowed);
+
 		// end section (free title memory, if needed)
 		section_finalize(&new_section);
 		// restore previous section

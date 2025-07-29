@@ -343,6 +343,33 @@ static void parse_forward_anon_def(void)
 }
 
 
+static enum shortcut	current_shortcut_state	= SHORTCUT_NONE;
+// return current shortcut state
+enum shortcut parser_get_shortcut(void)
+{
+	return current_shortcut_state;
+}
+// start or end processing a !break/!continue/!return keyword
+void parser_set_shortcut(enum shortcut new_shortcut)
+{
+	//printf("Changing shortcut state from %d to %d.\n", current_shortcut_state, new_shortcut);
+	switch (new_shortcut) {
+	case SHORTCUT_NONE:
+		if (current_shortcut_state == SHORTCUT_NONE)
+			BUG("ShortcutDoubleNone", 0);
+		current_shortcut_state = new_shortcut;
+		break;
+	case SHORTCUT_BREAK:
+	case SHORTCUT_CONT:
+	case SHORTCUT_RETURN:
+		if (current_shortcut_state != SHORTCUT_NONE)
+			BUG("ShortcutDouble", current_shortcut_state);
+		current_shortcut_state = new_shortcut;
+		break;
+	default:
+		BUG("IllegalShortcut", new_shortcut);
+	}
+}
 // status var to tell mainloop (actually "statement loop") to exit.
 // this is better than the error handler exiting directly, because
 // there are cases where an error message is followed by an info message
@@ -417,8 +444,14 @@ void parse_until_eob_or_eof(void)
 		// did the error handler decide to give up?
 		if (too_many_errors)
 			exit(ACME_finalize(EXIT_FAILURE));
-		// go on with next byte
-		GetByte();	//NEXTANDSKIPSPACE();
+		// was any of the shortcut POs used?
+		if (current_shortcut_state == SHORTCUT_NONE) {
+			// go on with next byte
+			GetByte();	//NEXTANDSKIPSPACE();
+		} else {
+			// ignore remainder of block:
+			input_block_skip();
+		}
 	}
 }
 
@@ -448,6 +481,8 @@ void parse_source_code_file(FILE *fd, const char *eternal_plat_filename)
 {
 	struct inputchange_buf	icb;
 	const char		*ppb;	// path buffer in platform format
+	boolean		break_cont_allowed;
+	boolean		return_allowed;
 
 	// be verbose
 	if (config.process_verbosity >= 3)
@@ -458,12 +493,19 @@ void parse_source_code_file(FILE *fd, const char *eternal_plat_filename)
 	input_plat_pathref_filename = eternal_plat_filename;
 	// remember input and set up new one:
 	inputchange_new_file(&icb, fd, eternal_plat_filename);
+	// remember whether break/continue/return are allowed and forbid them in
+	// new file (just to enforce "clean code"):
+	break_cont_allowed = parser_allow_break_cont(FALSE);
+	return_allowed = parser_allow_return(FALSE);
 
 	// parse block and check end reason
 	parse_until_eob_or_eof();
 	if (GotByte != CHAR_EOF)
 		throw_error("Expected EOF, found '}' instead." );
 
+	// restore states of break/continue/return
+	parser_allow_return(return_allowed);
+	parser_allow_break_cont(break_cont_allowed);
 	// restore outer input
 	inputchange_back(&icb);
 	// restore outer base for relative paths
@@ -491,6 +533,27 @@ bits parser_get_force_bit(void)
 	}
 	SKIPSPACE();
 	return force_bit;
+}
+
+// return current state and set new state of "allow !break and !continue" flag
+boolean parser_allow_break_cont(boolean new_state)
+{
+	static boolean	flag	= FALSE;
+	boolean		temp;
+
+	temp = flag;
+	flag = new_state;
+	return temp;
+}
+// return current state and set new state of "allow !return" flag
+boolean parser_allow_return(boolean new_state)
+{
+	static boolean	flag	= FALSE;
+	boolean		temp;
+
+	temp = flag;
+	flag = new_state;
+	return temp;
 }
 
 
