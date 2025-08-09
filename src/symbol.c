@@ -1,5 +1,5 @@
 // ACME - a crossassembler for producing 6502/65c02/65816/65ce02 code.
-// Copyright (C) 1998-2024 Marco Baye
+// Copyright (C) 1998-2025 Marco Baye
 // Have a look at "acme.c" for further info
 //
 // symbol stuff
@@ -160,8 +160,14 @@ void symbol_set_object(struct symbol *symbol, struct object *new_value, bits pow
 		// compare types
 		// if too different, needs power (or complains)
 		if (symbol->object.type != new_value->type) {
-			if (!(powers & POWER_CHANGE_OBJTYPE))
+			if (!(powers & POWER_CHANGE_OBJTYPE)) {
 				throw_redef_error(exception_symbol_defined, &symbol->definition, "Previous definition.");
+/* FIXME - this goes wrong if a forward reference is assumed to be an int and
+	later defined to be a string! the call above will not show the previous
+	definition, because there isn't one.
+	improve error output in these cases!
+*/
+			}
 			// CAUTION: if line above triggers, we still go ahead and change type!
 			// this is to keep "!for" working, where the counter var is accessed.
 			symbol->object = *new_value;	// copy whole struct including type
